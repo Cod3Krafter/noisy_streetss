@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif-display: var(--font-fraunces), Georgia, serif;
+  --font-serif-body: var(--font-lora), "Libre Baskerville", Baskerville, serif;
+  --font-sans-ui: var(--font-inter), system-ui, sans-serif;
+
+  /* Paper / background */
+  --color-paper: #F5F0E8;
+  --color-paper-light: #FAF6F0;
+  --color-paper-muted: #F3EDE3;
+  --color-paper-bright: #FDFCF7;
+
+  /* Ink / dark scale */
+  --color-ink: #1A1A1A;
+  --color-ink-100: #100F0E;
+  --color-ink-200: #110F0F;
+  --color-ink-300: #111111;
+  --color-ink-400: #141312;
+  --color-ink-500: #151312;
+  --color-ink-600: #1D1B19;
+  --color-ink-700: #242220;
+
+  /* Brand accent (burnt orange-red) */
+  --color-accent: #D4380D;
+  --color-accent-light: #FF4D1C;
+  --color-accent-hover: #FF5D2E;
+
+  /* Muted / tan */
+  --color-warm-gray: #58504A;
+  --color-tan: #C5A880;
+  --color-tan-light: #D2CABE;
+  --color-tan-dark: #D5C29D;
+
+  /* Semantic */
+  --color-success: #0F5132;
+  --color-info: #1D4ED8;
+  --color-spotify: #1DB954;
+
+  /* Border radius */
+  --radius: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+}
+
+@utility transition-editorial {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes arm-fade-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@utility animate-arm-fade-in {
+  animation: arm-fade-in 0.5s ease-out;
+}
