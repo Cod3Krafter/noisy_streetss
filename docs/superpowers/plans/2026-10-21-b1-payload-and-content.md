@@ -3284,7 +3284,8 @@ import type { CollectionConfig } from 'payload'
 
 import { publishedOrStaff, staffWrites } from '@/access'
 import { slugField } from '@/fields/slug'
-import { callStatus, closesAfterOpens } from '@/rules/submissionCalls'
+import { callStatus } from '@/rules/submissionCalls'
+import { endsAfterField } from '@/rules/time'
 
 export const SubmissionCalls: CollectionConfig = {
   slug: 'submission-calls',
@@ -3341,11 +3342,7 @@ export const SubmissionCalls: CollectionConfig = {
           type: 'date',
           required: true,
           admin: { date: { pickerAppearance: 'dayAndTime' } },
-          validate: (value, { siblingData }) => {
-            if (!value) return 'This field is required.'
-            const opensAt = (siblingData as { opensAt?: unknown }).opensAt
-            return closesAfterOpens(opensAt, value) ? true : 'The closing date must be after the opening date.'
-          },
+          validate: endsAfterField('opensAt', 'The closing date must be after the opening date.', true),
         },
       ],
     },
@@ -3465,7 +3462,7 @@ All three have drafts. Whether an event is upcoming, or a role is still showing,
 - Test: `tests/int/whatsOn.int.spec.ts`
 
 **Interfaces:**
-- Consumes: `toTime`, `endsAfter` (Task 11); `publishedOrStaff`, `staffWrites`; `finalValue`, `isPublishing`, `rejectField`; `urlValidator`; `richText`.
+- Consumes: `toTime`, `endsAfter` and `endsAfterField(startField, message, required?)` (Task 11; `endsAfterField` is a field `validate` that also refuses a malformed date); `publishedOrStaff`, `staffWrites`; `finalValue`, `isPublishing`, `rejectField`; `urlValidator`; `richText`.
 - Produces:
   - `startOfLagosDay(now?: Date): Date` in `src/rules/time.ts`
   - `isUpcomingEvent(startsAt, endsAt, now?): boolean`, `upcomingEventsWhere(now?): Where` from `src/rules/events.ts`
@@ -3741,7 +3738,7 @@ Expected: FAIL, because `events` doesn't exist.
 import type { CollectionConfig } from 'payload'
 
 import { publishedOrStaff, staffWrites } from '@/access'
-import { endsAfter } from '@/rules/time'
+import { endsAfterField } from '@/rules/time'
 import { urlValidator } from '@/rules/validators'
 
 export const Events: CollectionConfig = {
@@ -3765,10 +3762,7 @@ export const Events: CollectionConfig = {
           label: 'Ends',
           type: 'date',
           admin: { date: { pickerAppearance: 'dayAndTime' }, description: 'Optional. Leave empty for a single moment.' },
-          validate: (value, { siblingData }) =>
-            endsAfter((siblingData as { startsAt?: unknown }).startsAt, value)
-              ? true
-              : 'The end must be after the start.',
+          validate: endsAfterField('startsAt', 'The end must be after the start.'),
         },
       ],
     },
@@ -4257,7 +4251,7 @@ Basic pages (the legal pages and Values) have drafts. The other four are lists t
 - Test: `tests/int/lists.int.spec.ts`
 
 **Interfaces:**
-- Consumes: `anyone`, `publishedOrStaff`, `staffWrites`; `slugField`; `endsAfter`, `toTime`; `finalValue`, `rejectField`; `urlValidator`; `richText`; `createImage`, `createWriter`.
+- Consumes: `anyone`, `publishedOrStaff`, `staffWrites`; `slugField`; `endsAfterField`, `toTime` (Task 11); `finalValue`, `rejectField`; `urlValidator`; `richText`; `createImage`, `createWriter`.
 - Produces:
   - `activeAnnouncementsWhere(now?): Where`, `findActiveAnnouncements(payload, now?)` (up to 3, newest first) from `src/rules/announcements.ts`
   - `datesOverlap(aStart, aEnd, bStart, bEnd): boolean`, `overlappingCampaignsWhere(startsAt, endsAt, ownId?): Where` from `src/rules/popups.ts`
@@ -4525,7 +4519,7 @@ export const Pages: CollectionConfig = {
 import type { CollectionConfig } from 'payload'
 
 import { anyone, staffWrites } from '@/access'
-import { endsAfter } from '@/rules/time'
+import { endsAfterField } from '@/rules/time'
 import { urlValidator } from '@/rules/validators'
 
 export const Announcements: CollectionConfig = {
@@ -4556,8 +4550,7 @@ export const Announcements: CollectionConfig = {
           label: 'Show until',
           type: 'date',
           admin: { date: { pickerAppearance: 'dayAndTime' }, description: 'Leave empty to keep showing it.' },
-          validate: (value, { siblingData }) =>
-            endsAfter((siblingData as { startsAt?: unknown }).startsAt, value) ? true : 'The end must be after the start.',
+          validate: endsAfterField('startsAt', 'The end must be after the start.'),
         },
       ],
     },
@@ -4572,7 +4565,7 @@ import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
 import { anyone, staffWrites } from '@/access'
 import { overlappingCampaignsWhere } from '@/rules/popups'
-import { endsAfter } from '@/rules/time'
+import { endsAfterField } from '@/rules/time'
 import { finalValue, rejectField } from '@/rules/validation'
 
 const onlyOneAtATime: CollectionBeforeValidateHook = async ({ data, originalDoc, req }) => {
@@ -4626,10 +4619,7 @@ export const PopupCampaigns: CollectionConfig = {
           type: 'date',
           required: true,
           admin: { date: { pickerAppearance: 'dayAndTime' } },
-          validate: (value, { siblingData }) => {
-            if (!value) return 'This field is required.'
-            return endsAfter((siblingData as { startsAt?: unknown }).startsAt, value) ? true : 'The end must be after the start.'
-          },
+          validate: endsAfterField('startsAt', 'The end must be after the start.', true),
         },
       ],
     },
