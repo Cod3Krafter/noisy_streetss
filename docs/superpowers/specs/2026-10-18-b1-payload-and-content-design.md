@@ -243,6 +243,7 @@ Rules:
 
 - Visitors may create entries but never read, change or delete them.
 - A manuscript submission is rejected unless its call is open at the moment of submitting.
+- Manuscript submissions are created by the site's own server code, which stores the file and the submission together. Visitors never post to that list directly, and one file can only belong to one submission. (Added 22 October 2026, after review: a direct post could otherwise point at another visitor's file.)
 - Each new entry sends an alert email to the site's `formAlertEmail`. The email names the form and links to the entry in the admin.
 - Every form carries a hidden honeypot field (left empty by people, filled in by spam bots). Entries that fill it in are dropped. Stronger spam protection and rate limits are decided with the frontend forms.
 
