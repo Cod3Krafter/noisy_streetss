@@ -75,6 +75,8 @@ export interface Config {
     writers: Writer;
     books: Book;
     articles: Article;
+    'podcast-shows': PodcastShow;
+    'podcast-episodes': PodcastEpisode;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -96,6 +98,8 @@ export interface Config {
     writers: WritersSelect<false> | WritersSelect<true>;
     books: BooksSelect<false> | BooksSelect<true>;
     articles: ArticlesSelect<false> | ArticlesSelect<true>;
+    'podcast-shows': PodcastShowsSelect<false> | PodcastShowsSelect<true>;
+    'podcast-episodes': PodcastEpisodesSelect<false> | PodcastEpisodesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -440,6 +444,67 @@ export interface Article {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "podcast-shows".
+ */
+export interface PodcastShow {
+  id: number;
+  name: string;
+  /**
+   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   */
+  slug?: string | null;
+  description?: string | null;
+  cover?: (number | null) | Media;
+  spotifyUrl?: string | null;
+  youtubeUrl?: string | null;
+  appleUrl?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "podcast-episodes".
+ */
+export interface PodcastEpisode {
+  id: number;
+  title: string;
+  /**
+   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   */
+  slug?: string | null;
+  show: number | PodcastShow;
+  episodeNumber?: number | null;
+  date: string;
+  lengthMinutes?: number | null;
+  summary: string;
+  showNotes?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * A Spotify or YouTube link is needed before publishing.
+   */
+  spotifyUrl?: string | null;
+  youtubeUrl?: string | null;
+  cover?: (number | null) | Media;
+  guests?: (number | Writer)[] | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -585,6 +650,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'articles';
         value: number | Article;
+      } | null)
+    | ({
+        relationTo: 'podcast-shows';
+        value: number | PodcastShow;
+      } | null)
+    | ({
+        relationTo: 'podcast-episodes';
+        value: number | PodcastEpisode;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -815,6 +888,42 @@ export interface ArticlesSelect<T extends boolean = true> {
   tags?: T;
   featured?: T;
   publishDate?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "podcast-shows_select".
+ */
+export interface PodcastShowsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  cover?: T;
+  spotifyUrl?: T;
+  youtubeUrl?: T;
+  appleUrl?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "podcast-episodes_select".
+ */
+export interface PodcastEpisodesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  show?: T;
+  episodeNumber?: T;
+  date?: T;
+  lengthMinutes?: T;
+  summary?: T;
+  showNotes?: T;
+  spotifyUrl?: T;
+  youtubeUrl?: T;
+  cover?: T;
+  guests?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;

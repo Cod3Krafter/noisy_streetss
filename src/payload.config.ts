@@ -12,6 +12,8 @@ import { Books } from './collections/Books'
 import { Categories } from './collections/Categories'
 import { Manuscripts } from './collections/Manuscripts'
 import { Media } from './collections/Media'
+import { PodcastEpisodes } from './collections/PodcastEpisodes'
+import { PodcastShows } from './collections/PodcastShows'
 import { Tags } from './collections/Tags'
 import { Users } from './collections/Users'
 import { Writers } from './collections/Writers'
@@ -30,7 +32,7 @@ export default buildConfig({
       titleSuffix: ' | Noisy Streetss admin',
     },
   },
-  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles],
+  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes],
   globals: [],
   jobs: {
     access: {
