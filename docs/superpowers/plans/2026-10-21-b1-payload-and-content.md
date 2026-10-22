@@ -1327,12 +1327,13 @@ export function slugField(sourceField = 'title'): Field {
     name: 'slug',
     label: 'Web address',
     type: 'text',
-    required: true,
+    // Not `required`: the slug is made in a hook when left empty, so creates may omit it.
+    // `validate` below still refuses an empty or malformed slug on save.
     unique: true,
     index: true,
     admin: {
       position: 'sidebar',
-      description: 'Made from the title when left empty. Lower-case letters, numbers and hyphens only.',
+      description: `Made from the ${sourceField} when left empty. Lower-case letters, numbers and hyphens only.`,
     },
     hooks: {
       beforeValidate: [generateSlug(sourceField)],
