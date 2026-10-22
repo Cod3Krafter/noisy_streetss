@@ -52,13 +52,50 @@ describe('books', () => {
     expect(doc._status).toBe('draft')
   })
 
+  it('refuses to remove every format from a published book that is for sale', async () => {
+    const doc = await payload.create({
+      collection: 'books',
+      data: book({ sellInShop: true, formats: [paperback], _status: 'published' }),
+    })
+    await expectFieldError(
+      payload.update({ collection: 'books', id: doc.id, data: { formats: [] } }),
+      'formats',
+      /at least one format/,
+    )
+  })
+
+  it('refuses to publish a draft for sale that has no formats', async () => {
+    const doc = await payload.create({
+      collection: 'books',
+      data: book({ sellInShop: true, formats: [] }),
+      draft: true,
+    })
+    await expectFieldError(
+      payload.update({ collection: 'books', id: doc.id, data: { _status: 'published' } }),
+      'formats',
+      /at least one format/,
+    )
+  })
+
+  it('lets a book for sale with no formats be unpublished', async () => {
+    const doc = await payload.create({
+      collection: 'books',
+      data: book({ sellInShop: true, formats: [paperback], _status: 'published' }),
+    })
+    await payload.update({ collection: 'books', id: doc.id, data: { formats: [] }, draft: true })
+    const unpublished = await payload.update({ collection: 'books', id: doc.id, data: { _status: 'draft' } })
+    expect(unpublished._status).toBe('draft')
+  })
+
   it('refuses kobo in a price', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({
         collection: 'books',
         data: book({ formats: [{ ...paperback, priceNGN: 12500.5 }], _status: 'published' }),
       }),
-    ).rejects.toThrow()
+      'formats.0.priceNGN',
+      /whole number/,
+    )
   })
 
   it('shows visitors published books only', async () => {
@@ -93,6 +130,18 @@ describe('writers', () => {
       overrideAccess: false,
     })
     expect(seen.totalDocs).toBe(0)
+  })
+
+  it('shows visitors only published books on a writer', async () => {
+    const author = await createWriter(payload)
+    const published = await payload.create({
+      collection: 'books',
+      data: book({ writers: [author.id], _status: 'published' }),
+    })
+    await payload.create({ collection: 'books', data: book({ writers: [author.id] }), draft: true })
+    const found = await payload.findByID({ collection: 'writers', id: author.id, overrideAccess: false })
+    const ids = (found.books?.docs ?? []).map((entry) => (typeof entry === 'object' ? entry.id : entry))
+    expect(ids).toEqual([published.id])
   })
 
   it('makes the slug from the name', async () => {

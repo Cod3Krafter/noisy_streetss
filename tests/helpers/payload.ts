@@ -29,6 +29,7 @@ export async function createStaff(payload: Payload, role: StaffRole): Promise<Us
   })
 }
 
+/** An uploaded test image (the 1200 px prototype photo). */
 export function createImage(payload: Payload): Promise<Media> {
   return payload.create({ collection: 'media', data: { alt: 'Test image' }, filePath: testPhoto })
 }
@@ -52,8 +53,8 @@ export function createWriter(payload: Payload, name?: string): Promise<Writer> {
  * Payload's ValidationError message only names the field ("The following field is invalid: formats").
  * The reason shown in the admin is in error.data.errors, so field rules are tested there.
  */
-export async function expectFieldError(promise: Promise<unknown>, path: string, message: RegExp): Promise<void> {
+export async function expectFieldError(promise: Promise<unknown>, fieldPath: string, message: RegExp): Promise<void> {
   await expect(promise).rejects.toMatchObject({
-    data: { errors: expect.arrayContaining([expect.objectContaining({ path, message: expect.stringMatching(message) })]) },
+    data: { errors: expect.arrayContaining([expect.objectContaining({ path: fieldPath, message: expect.stringMatching(message) })]) },
   })
 }

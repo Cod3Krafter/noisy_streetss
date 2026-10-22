@@ -30,6 +30,18 @@ describe('urlValidator', () => {
     expect(urlValidator(false)('')).toBe(true)
     expect(urlValidator(true)('')).toMatch(/required/i)
   })
+
+  it('accepts a scheme in any case', () => {
+    expect(urlValidator(true)('HTTPS://example.com')).toBe(true)
+  })
+
+  it('treats a value of only spaces as empty when optional', () => {
+    expect(urlValidator(false)('   ')).toBe(true)
+  })
+
+  it('treats a value of only spaces as missing when required', () => {
+    expect(urlValidator(true)('   ')).toMatch(/required/i)
+  })
 })
 
 describe('finalValue and isPublishing', () => {
