@@ -1,10 +1,10 @@
-import type { Payload } from 'payload'
+import type { Payload, PayloadRequest } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { Category, Media, Writer } from '@/payload-types'
 import { richText } from '@/seed/richText'
 
-import { createImage, createWriter, getTestPayload } from '../helpers/payload'
+import { createImage, createWriter, expectFieldError, getTestPayload } from '../helpers/payload'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
 
@@ -75,11 +75,41 @@ describe('articles', () => {
   })
 
   it('needs a writer and a category to publish', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({ collection: 'articles', data: article({ writers: [], _status: 'published' }) }),
-    ).rejects.toThrow()
-    await expect(
+      'writers',
+      /required/i,
+    )
+    await expectFieldError(
       payload.create({ collection: 'articles', data: article({ categories: [], _status: 'published' }) }),
-    ).rejects.toThrow()
+      'categories',
+      /required/i,
+    )
+  })
+
+  it('lets a draft be saved without a writer or category', async () => {
+    const draft = await payload.create({
+      collection: 'articles',
+      data: article({ writers: [], categories: [] }),
+      draft: true,
+    })
+    expect(draft._status).toBe('draft')
+  })
+
+  it('shows visitors only published articles on a writer', async () => {
+    const solo = await createWriter(payload)
+    const published = await payload.create({
+      collection: 'articles',
+      data: article({ writers: [solo.id], _status: 'published' }),
+    })
+    await payload.create({ collection: 'articles', data: article({ writers: [solo.id] }), draft: true })
+    const found = await payload.findByID({ collection: 'writers', id: solo.id, overrideAccess: false })
+    const ids = (found.articles?.docs ?? []).map((entry) => (typeof entry === 'object' ? entry.id : entry))
+    expect(ids).toEqual([published.id])
+  })
+
+  it('refuses to run jobs without the cron secret', async () => {
+    const req = { headers: new Headers() } as unknown as PayloadRequest
+    expect(await payload.config.jobs.access?.run?.({ req })).toBe(false)
   })
 })

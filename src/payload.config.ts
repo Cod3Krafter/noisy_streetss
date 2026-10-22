@@ -5,6 +5,7 @@ import { buildConfig } from 'payload'
 import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
+import { isStaffUser } from './access'
 import { hasCronSecret } from './access/jobs'
 import { Articles } from './collections/Articles'
 import { Books } from './collections/Books'
@@ -34,6 +35,9 @@ export default buildConfig({
   jobs: {
     access: {
       run: hasCronSecret,
+      // No REST route reaches these today; this covers future server code that calls with overrideAccess: false.
+      queue: ({ req }) => isStaffUser(req.user),
+      cancel: ({ req }) => isStaffUser(req.user),
     },
     // In development the app runs due jobs itself every minute. In production
     // Vercel Cron calls /api/payload-jobs/run instead (see vercel.json).
