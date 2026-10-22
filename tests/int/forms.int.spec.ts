@@ -216,4 +216,14 @@ describe('manuscript submissions', () => {
       /Choose a submission call/,
     )
   })
+
+  it('accepts a call id sent as a numeric string', async () => {
+    const open = await call('Open for string ids', -2, 10)
+    const ownFile = await payload.create({ collection: 'manuscripts', data: {}, file: samplePdf('string-id.pdf') })
+    const doc = await payload.create({
+      collection: 'manuscript-submissions',
+      data: { ...submission(open.id), call: String(open.id) as unknown as number, file: ownFile.id },
+    })
+    expect(doc.id).toBeTruthy()
+  })
 })

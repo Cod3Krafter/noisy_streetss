@@ -12,9 +12,10 @@ const callMustBeOpen: CollectionBeforeValidateHook = async ({ data, operation, r
   const raw = data?.call
   const callId = typeof raw === 'object' && raw !== null ? (raw as { id: number }).id : raw
   if (!callId) return data
-  if (typeof callId !== 'number' && !(typeof callId === 'string' && /^d+$/.test(callId))) {
+  if (typeof callId !== 'number' && !(typeof callId === 'string' && /^[0-9]+$/.test(callId))) {
     rejectField(req, 'manuscript-submissions', 'call', 'Choose a submission call.')
   }
+  if (typeof callId === 'string' && data) data.call = Number(callId)
 
   const call = await req.payload.findByID({
     collection: 'submission-calls',
