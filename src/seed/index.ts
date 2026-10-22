@@ -33,6 +33,12 @@ const PHOTO_DIR = path.resolve(process.cwd(), 'public/images/unsplash')
 /** Seeded form entries must not email staff. */
 const quiet = { skipFormAlert: true }
 
+/** True only for a folder strictly inside `root`: never the root itself, a parent, or elsewhere. */
+export function isInsideFolder(dir: string, root: string = process.cwd()): boolean {
+  const relative = path.relative(path.resolve(root), path.resolve(dir))
+  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
+}
+
 /** Empties every collection except the migrations record, and the local upload folders. */
 export async function wipe(payload: Payload): Promise<void> {
   // Reverse config order: lists that point at others (submissions at calls, popups at books)
@@ -44,7 +50,9 @@ export async function wipe(payload: Payload): Promise<void> {
   }
   for (const collection of payload.config.collections) {
     const dir = collection.upload ? collection.upload.staticDir : undefined
-    if (dir) fs.rmSync(dir, { recursive: true, force: true })
+    if (!dir) continue
+    if (!isInsideFolder(dir)) throw new Error(`Refusing to empty ${dir}: upload folders must be inside the project.`)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 }
 
@@ -135,6 +143,7 @@ export async function seed(payload: Payload): Promise<void> {
         task: 'schedulePublish',
         input: {
           type: 'publish',
+          // Payload's job input is typed as a number, but its handler expects the id as a string.
           doc: { relationTo: 'articles', value: String(draft.id) as unknown as number },
           user: { relationTo: 'users', value: admin.id },
         },
