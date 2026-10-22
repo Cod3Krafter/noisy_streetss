@@ -72,18 +72,26 @@ export interface Config {
     tags: Tag;
     media: Media;
     manuscripts: Manuscript;
+    writers: Writer;
+    books: Book;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    writers: {
+      books: 'books';
+    };
+  };
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     manuscripts: ManuscriptsSelect<false> | ManuscriptsSelect<true>;
+    writers: WritersSelect<false> | WritersSelect<true>;
+    books: BooksSelect<false> | BooksSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -258,6 +266,115 @@ export interface Manuscript {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "writers".
+ */
+export interface Writer {
+  id: number;
+  name: string;
+  /**
+   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   */
+  slug?: string | null;
+  photo?: (number | null) | Media;
+  /**
+   * One or two sentences, shown on cards and lists.
+   */
+  shortBio: string;
+  bio?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  links?:
+    | {
+        label: string;
+        url: string;
+        id?: string | null;
+      }[]
+    | null;
+  showOnWritersPage?: boolean | null;
+  /**
+   * Filled in automatically from each book.
+   */
+  books?: {
+    docs?: (number | Book)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "books".
+ */
+export interface Book {
+  id: number;
+  title: string;
+  /**
+   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   */
+  slug?: string | null;
+  cover: number | Media;
+  writers: (number | Writer)[];
+  category: 'fiction' | 'poetry' | 'anthology' | 'non-fiction';
+  /**
+   * One line, shown on book cards.
+   */
+  summary: string;
+  synopsis?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  publishDate?: string | null;
+  pageCount?: number | null;
+  isbn?: string | null;
+  /**
+   * Each edition sold, such as paperback or hardback. Needed before the book can be sold.
+   */
+  formats?:
+    | {
+        formatName: string;
+        priceNGN: number;
+        inStock?: boolean | null;
+        /**
+         * Used to work out delivery.
+         */
+        weightGrams: number;
+        id?: string | null;
+      }[]
+    | null;
+  sellInShop?: boolean | null;
+  newRelease?: boolean | null;
+  editorsChoice?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -299,6 +416,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'manuscripts';
         value: number | Manuscript;
+      } | null)
+    | ({
+        relationTo: 'writers';
+        value: number | Writer;
+      } | null)
+    | ({
+        relationTo: 'books';
+        value: number | Book;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -458,6 +583,60 @@ export interface ManuscriptsSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "writers_select".
+ */
+export interface WritersSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  photo?: T;
+  shortBio?: T;
+  bio?: T;
+  links?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        id?: T;
+      };
+  showOnWritersPage?: T;
+  books?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "books_select".
+ */
+export interface BooksSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  cover?: T;
+  writers?: T;
+  category?: T;
+  summary?: T;
+  synopsis?: T;
+  publishDate?: T;
+  pageCount?: T;
+  isbn?: T;
+  formats?:
+    | T
+    | {
+        formatName?: T;
+        priceNGN?: T;
+        inStock?: T;
+        weightGrams?: T;
+        id?: T;
+      };
+  sellInShop?: T;
+  newRelease?: T;
+  editorsChoice?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
