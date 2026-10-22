@@ -33,6 +33,8 @@ Seeded logins (local only): `admin@noisystreetss.test` / `admin-dev-password` an
 
 Locally, Payload keeps the database in step with the code automatically. Every schema change still needs a migration (`npm run migrate:create -- <name>`), committed with the change. Production only ever runs migrations. On Supabase, run them with `DATABASE_URI` set to the direct connection string (`DIRECT_DATABASE_URI`), not the pooler.
 
+`drizzle-orm` is pinned to the version `@payloadcms/db-postgres` uses, so npm installs a single copy and generated migrations type-check. Bump it together with Payload.
+
 ## Specs and plans
 
 Design specs and implementation plans live in `docs/superpowers/`.
