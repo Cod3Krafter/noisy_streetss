@@ -22,6 +22,12 @@ import { Manuscripts } from './collections/Manuscripts'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Partners } from './collections/Partners'
+import { AdvisoryEnquiries } from './collections/forms/AdvisoryEnquiries'
+import { BookstoreApplications } from './collections/forms/BookstoreApplications'
+import { ContactMessages } from './collections/forms/ContactMessages'
+import { ManuscriptSubmissions } from './collections/forms/ManuscriptSubmissions'
+import { PartnershipEnquiries } from './collections/forms/PartnershipEnquiries'
+import { emailAdapter } from './email'
 import { PodcastEpisodes } from './collections/PodcastEpisodes'
 import { PodcastShows } from './collections/PodcastShows'
 import { PopupCampaigns } from './collections/PopupCampaigns'
@@ -49,7 +55,7 @@ export default buildConfig({
       titleSuffix: ' | Noisy Streetss admin',
     },
   },
-  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans, Pages, Announcements, PopupCampaigns, PressMentions, Partners],
+  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans, Pages, Announcements, PopupCampaigns, PressMentions, Partners, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions],
   globals: [...pageRecords, SiteSettings, ShopSettings],
   jobs: {
     access: {
@@ -63,6 +69,7 @@ export default buildConfig({
     autoRun: process.env.NODE_ENV === 'production' ? [] : [{ cron: '* * * * *', queue: 'default', limit: 10 }],
   },
   editor: lexicalEditor(),
+  email: emailAdapter(),
   secret: process.env.PAYLOAD_SECRET || '',
   serverURL: process.env.NEXT_PUBLIC_SERVER_URL || undefined,
   graphQL: {

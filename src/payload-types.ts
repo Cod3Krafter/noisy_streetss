@@ -90,6 +90,11 @@ export interface Config {
     'popup-campaigns': PopupCampaign;
     'press-mentions': PressMention;
     partners: Partner;
+    'contact-messages': ContactMessage;
+    'partnership-enquiries': PartnershipEnquiry;
+    'bookstore-applications': BookstoreApplication;
+    'advisory-enquiries': AdvisoryEnquiry;
+    'manuscript-submissions': ManuscriptSubmission;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -126,6 +131,11 @@ export interface Config {
     'popup-campaigns': PopupCampaignsSelect<false> | PopupCampaignsSelect<true>;
     'press-mentions': PressMentionsSelect<false> | PressMentionsSelect<true>;
     partners: PartnersSelect<false> | PartnersSelect<true>;
+    'contact-messages': ContactMessagesSelect<false> | ContactMessagesSelect<true>;
+    'partnership-enquiries': PartnershipEnquiriesSelect<false> | PartnershipEnquiriesSelect<true>;
+    'bookstore-applications': BookstoreApplicationsSelect<false> | BookstoreApplicationsSelect<true>;
+    'advisory-enquiries': AdvisoryEnquiriesSelect<false> | AdvisoryEnquiriesSelect<true>;
+    'manuscript-submissions': ManuscriptSubmissionsSelect<false> | ManuscriptSubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -1016,6 +1026,117 @@ export interface Partner {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "contact-messages".
+ */
+export interface ContactMessage {
+  id: number;
+  name: string;
+  email: string;
+  subject?: string | null;
+  message: string;
+  website?: string | null;
+  status: 'new' | 'in-progress' | 'done';
+  /**
+   * Only staff see this.
+   */
+  staffNotes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partnership-enquiries".
+ */
+export interface PartnershipEnquiry {
+  id: number;
+  name: string;
+  organisation: string;
+  email: string;
+  phone?: string | null;
+  partnershipType: 'sponsorship' | 'advertising' | 'media' | 'events' | 'other';
+  message: string;
+  website?: string | null;
+  status: 'new' | 'in-progress' | 'done';
+  /**
+   * Only staff see this.
+   */
+  staffNotes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookstore-applications".
+ */
+export interface BookstoreApplication {
+  id: number;
+  storeName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  address: {
+    line1: string;
+    city: string;
+    state: string;
+  };
+  websiteOrSocial?: string | null;
+  storeType: 'independent' | 'chain' | 'online' | 'library' | 'other';
+  message?: string | null;
+  website?: string | null;
+  status: 'new' | 'in-progress' | 'done';
+  /**
+   * Only staff see this.
+   */
+  staffNotes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "advisory-enquiries".
+ */
+export interface AdvisoryEnquiry {
+  id: number;
+  name: string;
+  organisation?: string | null;
+  email: string;
+  phone?: string | null;
+  needs: string;
+  website?: string | null;
+  status: 'new' | 'in-progress' | 'done';
+  /**
+   * Only staff see this.
+   */
+  staffNotes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "manuscript-submissions".
+ */
+export interface ManuscriptSubmission {
+  id: number;
+  call: number | SubmissionCall;
+  name: string;
+  email: string;
+  phone?: string | null;
+  workTitle: string;
+  wordCount?: number | null;
+  shortBio: string;
+  coverNote?: string | null;
+  file: number | Manuscript;
+  website?: string | null;
+  status: 'new' | 'in-progress' | 'done';
+  /**
+   * Only staff see this.
+   */
+  staffNotes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -1221,6 +1342,26 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'partners';
         value: number | Partner;
+      } | null)
+    | ({
+        relationTo: 'contact-messages';
+        value: number | ContactMessage;
+      } | null)
+    | ({
+        relationTo: 'partnership-enquiries';
+        value: number | PartnershipEnquiry;
+      } | null)
+    | ({
+        relationTo: 'bookstore-applications';
+        value: number | BookstoreApplication;
+      } | null)
+    | ({
+        relationTo: 'advisory-enquiries';
+        value: number | AdvisoryEnquiry;
+      } | null)
+    | ({
+        relationTo: 'manuscript-submissions';
+        value: number | ManuscriptSubmission;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1768,6 +1909,99 @@ export interface PartnersSelect<T extends boolean = true> {
   quoteByTitle?: T;
   url?: T;
   sortOrder?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "contact-messages_select".
+ */
+export interface ContactMessagesSelect<T extends boolean = true> {
+  name?: T;
+  email?: T;
+  subject?: T;
+  message?: T;
+  website?: T;
+  status?: T;
+  staffNotes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partnership-enquiries_select".
+ */
+export interface PartnershipEnquiriesSelect<T extends boolean = true> {
+  name?: T;
+  organisation?: T;
+  email?: T;
+  phone?: T;
+  partnershipType?: T;
+  message?: T;
+  website?: T;
+  status?: T;
+  staffNotes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookstore-applications_select".
+ */
+export interface BookstoreApplicationsSelect<T extends boolean = true> {
+  storeName?: T;
+  contactName?: T;
+  email?: T;
+  phone?: T;
+  address?:
+    | T
+    | {
+        line1?: T;
+        city?: T;
+        state?: T;
+      };
+  websiteOrSocial?: T;
+  storeType?: T;
+  message?: T;
+  website?: T;
+  status?: T;
+  staffNotes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "advisory-enquiries_select".
+ */
+export interface AdvisoryEnquiriesSelect<T extends boolean = true> {
+  name?: T;
+  organisation?: T;
+  email?: T;
+  phone?: T;
+  needs?: T;
+  website?: T;
+  status?: T;
+  staffNotes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "manuscript-submissions_select".
+ */
+export interface ManuscriptSubmissionsSelect<T extends boolean = true> {
+  call?: T;
+  name?: T;
+  email?: T;
+  phone?: T;
+  workTitle?: T;
+  wordCount?: T;
+  shortBio?: T;
+  coverNote?: T;
+  file?: T;
+  website?: T;
+  status?: T;
+  staffNotes?: T;
   updatedAt?: T;
   createdAt?: T;
 }
