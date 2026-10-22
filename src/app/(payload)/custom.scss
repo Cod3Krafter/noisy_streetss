@@ -1,0 +1,6 @@
+// Text boxes keep a fixed width and only grow downwards, so dragging one can't push
+// a field out of its column. Payload's own styles sit in a cascade layer, so this
+// unlayered rule takes precedence.
+textarea {
+  resize: vertical;
+}
