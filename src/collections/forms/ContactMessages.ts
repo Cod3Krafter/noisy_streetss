@@ -6,9 +6,9 @@ export const ContactMessages = formCollection({
   plural: 'Contact messages',
   titleField: 'name',
   fields: [
-    { name: 'name', type: 'text', required: true },
+    { name: 'name', type: 'text', required: true, maxLength: 200 },
     { name: 'email', type: 'email', required: true },
-    { name: 'subject', type: 'text' },
-    { name: 'message', type: 'textarea', required: true },
+    { name: 'subject', type: 'text', maxLength: 200 },
+    { name: 'message', type: 'textarea', required: true, maxLength: 5000 },
   ],
 })

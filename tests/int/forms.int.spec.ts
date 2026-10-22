@@ -89,6 +89,20 @@ describe('visitors sending forms', () => {
     expect(after.totalDocs).toBe(before.totalDocs)
   })
 
+  it('refuses a non-string honeypot value', async () => {
+    await expect(
+      payload.create({ collection: 'contact-messages', data: contact({ website: 1 as unknown as string }), overrideAccess: false }),
+    ).rejects.toThrow()
+  })
+
+  it('refuses an over-long contact message', async () => {
+    await expectFieldError(
+      payload.create({ collection: 'contact-messages', data: contact({ message: 'a'.repeat(5001) }), overrideAccess: false }),
+      'message',
+      /.+/,
+    )
+  })
+
   it('never lets visitors read entries', async () => {
     await expect(payload.find({ collection: 'contact-messages', overrideAccess: false })).rejects.toThrow()
   })
@@ -174,6 +188,32 @@ describe('manuscript submissions', () => {
       payload.create({ collection: 'manuscript-submissions', data: submission(upcoming.id) }),
       'call',
       /not open/,
+    )
+  })
+
+  it('refuses a manuscript submission posted directly by a visitor', async () => {
+    const open = await call('Open for direct post', -2, 10)
+    await expect(
+      payload.create({ collection: 'manuscript-submissions', data: submission(open.id), overrideAccess: false }),
+    ).rejects.toThrow()
+  })
+
+  it('attaches one file to one submission only', async () => {
+    const open = await call('Open for one file', -2, 10)
+    const own = await payload.create({ collection: 'manuscripts', data: {}, file: samplePdf() })
+    await payload.create({ collection: 'manuscript-submissions', data: { ...submission(open.id), file: own.id } })
+    await expectFieldError(
+      payload.create({ collection: 'manuscript-submissions', data: { ...submission(open.id), file: own.id } }),
+      'file',
+      /already attached/,
+    )
+  })
+
+  it('refuses an odd call value', async () => {
+    await expectFieldError(
+      payload.create({ collection: 'manuscript-submissions', data: submission('abc' as unknown as number) }),
+      'call',
+      /Choose a submission call/,
     )
   })
 })

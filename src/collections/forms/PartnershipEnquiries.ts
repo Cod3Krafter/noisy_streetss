@@ -6,10 +6,10 @@ export const PartnershipEnquiries = formCollection({
   plural: 'Partnership enquiries',
   titleField: 'organisation',
   fields: [
-    { name: 'name', type: 'text', required: true },
-    { name: 'organisation', type: 'text', required: true },
+    { name: 'name', type: 'text', required: true, maxLength: 200 },
+    { name: 'organisation', type: 'text', required: true, maxLength: 200 },
     { name: 'email', type: 'email', required: true },
-    { name: 'phone', type: 'text' },
+    { name: 'phone', type: 'text', maxLength: 50 },
     {
       name: 'partnershipType',
       label: 'Type of partnership',
@@ -23,6 +23,6 @@ export const PartnershipEnquiries = formCollection({
         { label: 'Other', value: 'other' },
       ],
     },
-    { name: 'message', type: 'textarea', required: true },
+    { name: 'message', type: 'textarea', required: true, maxLength: 5000 },
   ],
 })

@@ -6,20 +6,20 @@ export const BookstoreApplications = formCollection({
   plural: 'Bookstore applications',
   titleField: 'storeName',
   fields: [
-    { name: 'storeName', label: 'Store name', type: 'text', required: true },
-    { name: 'contactName', label: 'Contact name', type: 'text', required: true },
+    { name: 'storeName', label: 'Store name', type: 'text', required: true, maxLength: 200 },
+    { name: 'contactName', label: 'Contact name', type: 'text', required: true, maxLength: 200 },
     { name: 'email', type: 'email', required: true },
-    { name: 'phone', type: 'text', required: true },
+    { name: 'phone', type: 'text', required: true, maxLength: 50 },
     {
       name: 'address',
       type: 'group',
       fields: [
-        { name: 'line1', label: 'Street address', type: 'text', required: true },
-        { name: 'city', type: 'text', required: true },
-        { name: 'state', type: 'text', required: true },
+        { name: 'line1', label: 'Street address', type: 'text', required: true, maxLength: 200 },
+        { name: 'city', type: 'text', required: true, maxLength: 200 },
+        { name: 'state', type: 'text', required: true, maxLength: 200 },
       ],
     },
-    { name: 'websiteOrSocial', label: 'Website or social page', type: 'text' },
+    { name: 'websiteOrSocial', label: 'Website or social page', type: 'text', maxLength: 300 },
     {
       name: 'storeType',
       label: 'Type of store',
@@ -33,6 +33,6 @@ export const BookstoreApplications = formCollection({
         { label: 'Other', value: 'other' },
       ],
     },
-    { name: 'message', type: 'textarea' },
+    { name: 'message', type: 'textarea', maxLength: 5000 },
   ],
 })

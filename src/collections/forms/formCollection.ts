@@ -1,4 +1,4 @@
-import type { CollectionBeforeChangeHook, CollectionBeforeValidateHook, CollectionConfig, Field } from 'payload'
+import type { Access, CollectionBeforeChangeHook, CollectionBeforeValidateHook, CollectionConfig, Field } from 'payload'
 
 import { anyone, isAdmin, isStaff, isStaffUser } from '@/access'
 import { sendFormAlert } from '@/hooks/formAlert'
@@ -17,10 +17,12 @@ type FormCollectionArgs = {
   titleField: string
   fields: Field[]
   beforeValidate?: CollectionBeforeValidateHook[]
+  /** Who may create entries. Defaults to anyone. */
+  create?: Access
 }
 
 /** An Inbox list for one website form: visitors create, staff read and update, admins delete. */
-export function formCollection({ slug, singular, plural, titleField, fields, beforeValidate = [] }: FormCollectionArgs): CollectionConfig {
+export function formCollection({ slug, singular, plural, titleField, fields, beforeValidate = [], create = anyone }: FormCollectionArgs): CollectionConfig {
   return {
     slug,
     labels: { singular, plural },
@@ -29,7 +31,7 @@ export function formCollection({ slug, singular, plural, titleField, fields, bef
       useAsTitle: titleField,
       defaultColumns: [titleField, 'status', 'createdAt'],
     },
-    access: { create: anyone, read: isStaff, update: isStaff, delete: isAdmin },
+    access: { create, read: isStaff, update: isStaff, delete: isAdmin },
     hooks: {
       beforeValidate: [dropSpam, ...beforeValidate],
       beforeChange: [visitorEntriesStartNew],

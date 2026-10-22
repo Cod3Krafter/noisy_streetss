@@ -6,10 +6,10 @@ export const AdvisoryEnquiries = formCollection({
   plural: 'Advisory enquiries',
   titleField: 'name',
   fields: [
-    { name: 'name', type: 'text', required: true },
-    { name: 'organisation', type: 'text' },
+    { name: 'name', type: 'text', required: true, maxLength: 200 },
+    { name: 'organisation', type: 'text', maxLength: 200 },
     { name: 'email', type: 'email', required: true },
-    { name: 'phone', type: 'text' },
-    { name: 'needs', label: 'What they need', type: 'textarea', required: true },
+    { name: 'phone', type: 'text', maxLength: 50 },
+    { name: 'needs', label: 'What they need', type: 'textarea', required: true, maxLength: 5000 },
   ],
 })

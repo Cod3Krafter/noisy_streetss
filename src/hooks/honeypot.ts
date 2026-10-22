@@ -12,7 +12,7 @@ export const honeypotField: Field = {
 
 export const dropSpam: CollectionBeforeValidateHook = ({ data, operation }) => {
   const value = data?.[HONEYPOT_FIELD]
-  if (operation === 'create' && typeof value === 'string' && value.trim() !== '') {
+  if (operation === 'create' && value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '')) {
     throw new APIError('This form could not be sent.', 400, null, true)
   }
   return data
