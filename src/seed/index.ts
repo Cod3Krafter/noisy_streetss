@@ -41,6 +41,14 @@ export function isInsideFolder(dir: string, root: string = process.cwd()): boole
 
 /** Empties every collection except the migrations record, and the local upload folders. */
 export async function wipe(payload: Payload): Promise<void> {
+  // Check every upload folder before anything is deleted, so an unsafe setting stops the seed cold.
+  const uploadDirs = payload.config.collections.flatMap((collection) =>
+    collection.upload && collection.upload.staticDir ? [collection.upload.staticDir] : [],
+  )
+  for (const dir of uploadDirs) {
+    if (!isInsideFolder(dir)) throw new Error(`Refusing to empty ${dir}: upload folders must be inside the project.`)
+  }
+
   // Reverse config order: lists that point at others (submissions at calls, popups at books)
   // are emptied before the records they point at, so no foreign key refuses the delete.
   for (const collection of [...payload.config.collections].reverse()) {
@@ -48,12 +56,7 @@ export async function wipe(payload: Payload): Promise<void> {
     await payload.db.deleteMany({ collection: collection.slug, where: {} })
     if (collection.versions) await payload.db.deleteVersions({ collection: collection.slug, where: {} })
   }
-  for (const collection of payload.config.collections) {
-    const dir = collection.upload ? collection.upload.staticDir : undefined
-    if (!dir) continue
-    if (!isInsideFolder(dir)) throw new Error(`Refusing to empty ${dir}: upload folders must be inside the project.`)
-    fs.rmSync(dir, { recursive: true, force: true })
-  }
+  for (const dir of uploadDirs) fs.rmSync(dir, { recursive: true, force: true })
 }
 
 async function byKey<T extends { key: string }>(items: T[], make: (item: T) => Promise<{ id: number }>) {
