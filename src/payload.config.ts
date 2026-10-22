@@ -14,6 +14,9 @@ import { Books } from './collections/Books'
 import { Careers } from './collections/Careers'
 import { Categories } from './collections/Categories'
 import { Events } from './collections/Events'
+import { Merch } from './collections/Merch'
+import { MembershipPlans } from './collections/MembershipPlans'
+import { StudioServices } from './collections/StudioServices'
 import { Manuscripts } from './collections/Manuscripts'
 import { Media } from './collections/Media'
 import { PodcastEpisodes } from './collections/PodcastEpisodes'
@@ -37,7 +40,7 @@ export default buildConfig({
       titleSuffix: ' | Noisy Streetss admin',
     },
   },
-  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions],
+  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans],
   globals: [],
   jobs: {
     access: {

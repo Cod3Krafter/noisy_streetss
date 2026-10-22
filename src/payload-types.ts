@@ -82,6 +82,9 @@ export interface Config {
     events: Event;
     careers: Career;
     'book-club-sessions': BookClubSession;
+    merch: Merch;
+    'studio-services': StudioService;
+    'membership-plans': MembershipPlan;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -110,6 +113,9 @@ export interface Config {
     events: EventsSelect<false> | EventsSelect<true>;
     careers: CareersSelect<false> | CareersSelect<true>;
     'book-club-sessions': BookClubSessionsSelect<false> | BookClubSessionsSelect<true>;
+    merch: MerchSelect<false> | MerchSelect<true>;
+    'studio-services': StudioServicesSelect<false> | StudioServicesSelect<true>;
+    'membership-plans': MembershipPlansSelect<false> | MembershipPlansSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -721,6 +727,80 @@ export interface BookClubSession {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "merch".
+ */
+export interface Merch {
+  id: number;
+  title: string;
+  /**
+   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   */
+  slug?: string | null;
+  images: (number | Media)[];
+  description?: string | null;
+  priceNGN: number;
+  weightGrams: number;
+  type: 'stationery' | 'apparel' | 'other';
+  inStock?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "studio-services".
+ */
+export interface StudioService {
+  id: number;
+  name: string;
+  /**
+   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   */
+  slug?: string | null;
+  description: string;
+  hourlyRateNGN?: number | null;
+  halfDayRateNGN?: number | null;
+  fullDayRateNGN?: number | null;
+  inclusions?:
+    | {
+        item: string;
+        id?: string | null;
+      }[]
+    | null;
+  images?: (number | Media)[] | null;
+  /**
+   * Booking itself arrives with the studio booking work.
+   */
+  bookable?: boolean | null;
+  sortOrder?: number | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Changes go live as soon as they are saved.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "membership-plans".
+ */
+export interface MembershipPlan {
+  id: number;
+  name: string;
+  priceNGN: number;
+  billing: 'monthly' | 'yearly';
+  perks?:
+    | {
+        perk: string;
+        id?: string | null;
+      }[]
+    | null;
+  active?: boolean | null;
+  sortOrder?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -894,6 +974,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'book-club-sessions';
         value: number | BookClubSession;
+      } | null)
+    | ({
+        relationTo: 'merch';
+        value: number | Merch;
+      } | null)
+    | ({
+        relationTo: 'studio-services';
+        value: number | StudioService;
+      } | null)
+    | ({
+        relationTo: 'membership-plans';
+        value: number | MembershipPlan;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1265,6 +1357,66 @@ export interface BookClubSessionsSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "merch_select".
+ */
+export interface MerchSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  images?: T;
+  description?: T;
+  priceNGN?: T;
+  weightGrams?: T;
+  type?: T;
+  inStock?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "studio-services_select".
+ */
+export interface StudioServicesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  hourlyRateNGN?: T;
+  halfDayRateNGN?: T;
+  fullDayRateNGN?: T;
+  inclusions?:
+    | T
+    | {
+        item?: T;
+        id?: T;
+      };
+  images?: T;
+  bookable?: T;
+  sortOrder?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "membership-plans_select".
+ */
+export interface MembershipPlansSelect<T extends boolean = true> {
+  name?: T;
+  priceNGN?: T;
+  billing?: T;
+  perks?:
+    | T
+    | {
+        perk?: T;
+        id?: T;
+      };
+  active?: T;
+  sortOrder?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
