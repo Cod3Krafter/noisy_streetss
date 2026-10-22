@@ -1881,7 +1881,7 @@ Writers and books have drafts and version history. A writer's books show on the 
   - `src/rules/books.ts`: `formatsProblem(sellInShop: unknown, formats: unknown): string | null`
   - collection `writers`: `name`, `slug`, `photo`, `shortBio`, `bio`, `links[]` (`label`, `url`), `showOnWritersPage`, join `books`
   - collection `books`: `title`, `slug`, `cover`, `writers`, `category` (`fiction`, `poetry`, `anthology`, `non-fiction`), `summary`, `synopsis`, `publishDate`, `pageCount`, `isbn`, `formats[]` (`formatName`, `priceNGN`, `inStock`, `weightGrams`), `sellInShop`, `newRelease`, `editorsChoice`
-  - test helpers `createImage(payload): Promise<Media>` and `createWriter(payload, name?): Promise<Writer>` (published)
+  - test helpers `createImage(payload): Promise<Media>`, `createWriter(payload, name?): Promise<Writer>` (published) and `expectFieldError(promise, path, message: RegExp)`, which every later task uses to test a field rule's message
 
 Rules that guard published content skip drafts, so an editor can save half-finished work. Payload itself skips field validation for drafts.
 
@@ -2057,7 +2057,19 @@ export function createWriter(payload: Payload, name?: string): Promise<Writer> {
     },
   })
 }
+
+/**
+ * Payload's ValidationError message only names the field ("The following field is invalid: formats").
+ * The reason shown in the admin is in error.data.errors, so field rules are tested there.
+ */
+export async function expectFieldError(promise: Promise<unknown>, path: string, message: RegExp): Promise<void> {
+  await expect(promise).rejects.toMatchObject({
+    data: { errors: expect.arrayContaining([expect.objectContaining({ path, message: expect.stringMatching(message) })]) },
+  })
+}
 ```
+
+(`expectFieldError` also needs `import { expect } from 'vitest'` at the top of the helpers file.)
 
 `tests/int/books.int.spec.ts`:
 
@@ -2067,7 +2079,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { Media, Writer } from '@/payload-types'
 
-import { createImage, createWriter, getTestPayload } from '../helpers/payload'
+import { createImage, createWriter, expectFieldError, getTestPayload } from '../helpers/payload'
 
 let payload: Payload
 let cover: Media
@@ -2092,9 +2104,11 @@ beforeAll(async () => {
 
 describe('books', () => {
   it('refuses to publish a book for sale with no formats', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({ collection: 'books', data: book({ sellInShop: true, formats: [], _status: 'published' }) }),
-    ).rejects.toThrow(/at least one format/)
+      'formats',
+      /at least one format/,
+    )
   })
 
   it('publishes a book for sale once it has a format', async () => {
@@ -2843,7 +2857,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { PodcastShow } from '@/payload-types'
 
-import { getTestPayload } from '../helpers/payload'
+import { expectFieldError, getTestPayload } from '../helpers/payload'
 
 let payload: Payload
 let show: PodcastShow
@@ -2863,9 +2877,11 @@ beforeAll(async () => {
 
 describe('podcast episodes', () => {
   it('refuses to publish an episode with no listening link', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({ collection: 'podcast-episodes', data: episode({ _status: 'published' }) }),
-    ).rejects.toThrow(/Spotify or YouTube/)
+      'spotifyUrl',
+      /Spotify or YouTube/,
+    )
   })
 
   it('publishes Spotify-only and YouTube-only episodes', async () => {
@@ -3183,7 +3199,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { openCallsWhere } from '@/rules/submissionCalls'
 import { richText } from '@/seed/richText'
 
-import { getTestPayload } from '../helpers/payload'
+import { expectFieldError, getTestPayload } from '../helpers/payload'
 
 const DAY = 24 * 60 * 60 * 1000
 const fromNow = (days: number) => new Date(Date.now() + days * DAY).toISOString()
@@ -3219,9 +3235,11 @@ describe('submission calls', () => {
   })
 
   it('refuses a closing date before the opening date', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({ collection: 'submission-calls', data: call('Backwards call', 10, 5) }),
-    ).rejects.toThrow(/after the opening/)
+      'closesAt',
+      /after the opening/,
+    )
   })
 })
 
@@ -3627,7 +3645,7 @@ import { visibleCareersWhere } from '@/rules/careers'
 import { upcomingEventsWhere } from '@/rules/events'
 import { richText } from '@/seed/richText'
 
-import { getTestPayload } from '../helpers/payload'
+import { expectFieldError, getTestPayload } from '../helpers/payload'
 
 const DAY = 24 * 60 * 60 * 1000
 const fromNow = (days: number) => new Date(Date.now() + days * DAY).toISOString()
@@ -3655,12 +3673,14 @@ describe('events', () => {
   })
 
   it('refuses an end time before the start time', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({
         collection: 'events',
         data: { title: 'Backwards', startsAt: fromNow(5), endsAt: fromNow(4), _status: 'published' },
       }),
-    ).rejects.toThrow(/after the start/)
+      'endsAt',
+      /after the start/,
+    )
   })
 })
 
@@ -3691,9 +3711,11 @@ describe('careers', () => {
 
 describe('book club sessions', () => {
   it('needs a book or a title to publish', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({ collection: 'book-club-sessions', data: { startsAt: fromNow(7), _status: 'published' } }),
-    ).rejects.toThrow(/book or a title/)
+      'title',
+      /book or a title/,
+    )
     const session = await payload.create({
       collection: 'book-club-sessions',
       data: { title: 'Poetry night', startsAt: fromNow(7), _status: 'published' },
@@ -3957,7 +3979,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { Media } from '@/payload-types'
 
-import { createImage, createStaff, getTestPayload } from '../helpers/payload'
+import { createImage, createStaff, expectFieldError, getTestPayload } from '../helpers/payload'
 
 let payload: Payload
 let image: Media
@@ -3992,12 +4014,14 @@ describe('merch', () => {
 
 describe('studio services', () => {
   it('needs a rate to publish', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({
         collection: 'studio-services',
         data: { name: 'Vocal booth', description: 'Treated booth.', _status: 'published' },
       }),
-    ).rejects.toThrow(/at least one rate/)
+      'hourlyRateNGN',
+      /at least one rate/,
+    )
     const service = await payload.create({
       collection: 'studio-services',
       data: { name: 'Vocal booth', description: 'Treated booth.', hourlyRateNGN: 15000, _status: 'published' },
@@ -4351,7 +4375,7 @@ import type { Book } from '@/payload-types'
 import { findActiveAnnouncements } from '@/rules/announcements'
 import { richText } from '@/seed/richText'
 
-import { createImage, createWriter, getTestPayload } from '../helpers/payload'
+import { createImage, createWriter, expectFieldError, getTestPayload } from '../helpers/payload'
 
 const DAY = 24 * 60 * 60 * 1000
 const fromNow = (days: number) => new Date(Date.now() + days * DAY).toISOString()
@@ -4406,9 +4430,11 @@ describe('book popup campaigns', () => {
 
   it('refuses an enabled campaign whose dates overlap another', async () => {
     await payload.create({ collection: 'popup-campaigns', data: campaign('November launch', 1, 10) })
-    await expect(
+    await expectFieldError(
       payload.create({ collection: 'popup-campaigns', data: campaign('Clashing launch', 5, 15) }),
-    ).rejects.toThrow(/November launch/)
+      'startsAt',
+      /November launch/,
+    )
   })
 
   it('allows a disabled overlapping campaign, and one that starts as the other ends', async () => {
@@ -4425,9 +4451,11 @@ describe('book popup campaigns', () => {
   })
 
   it('refuses an end before the start', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({ collection: 'popup-campaigns', data: campaign('Backwards', 60, 50) }),
-    ).rejects.toThrow(/after the start/)
+      'endsAt',
+      /after the start/,
+    )
   })
 })
 
@@ -5279,7 +5307,7 @@ import type { Manuscript, User } from '@/payload-types'
 import { richText } from '@/seed/richText'
 import { samplePdf } from '@/seed/samplePdf'
 
-import { createStaff, getTestPayload } from '../helpers/payload'
+import { createStaff, expectFieldError, getTestPayload } from '../helpers/payload'
 
 const DAY = 24 * 60 * 60 * 1000
 const fromNow = (days: number) => new Date(Date.now() + days * DAY).toISOString()
@@ -5432,12 +5460,16 @@ describe('manuscript submissions', () => {
   it('refuses closed and upcoming calls', async () => {
     const closed = await call('Closed for forms', -20, -1)
     const upcoming = await call('Upcoming for forms', 5, 20)
-    await expect(
+    await expectFieldError(
       payload.create({ collection: 'manuscript-submissions', data: submission(closed.id) }),
-    ).rejects.toThrow(/not open/)
-    await expect(
+      'call',
+      /not open/,
+    )
+    await expectFieldError(
       payload.create({ collection: 'manuscript-submissions', data: submission(upcoming.id) }),
-    ).rejects.toThrow(/not open/)
+      'call',
+      /not open/,
+    )
   })
 })
 ```
