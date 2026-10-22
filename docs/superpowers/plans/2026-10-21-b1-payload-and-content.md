@@ -6315,7 +6315,9 @@ const quiet = { skipFormAlert: true }
 
 /** Empties every collection except the migrations record, and the local upload folders. */
 export async function wipe(payload: Payload): Promise<void> {
-  for (const collection of payload.config.collections) {
+  // Reverse config order: lists that point at others (submissions at calls, popups at books)
+  // are emptied before the records they point at, so no foreign key refuses the delete.
+  for (const collection of [...payload.config.collections].reverse()) {
     if (collection.slug === 'payload-migrations') continue
     await payload.db.deleteMany({ collection: collection.slug, where: {} })
     if (collection.versions) await payload.db.deleteVersions({ collection: collection.slug, where: {} })
