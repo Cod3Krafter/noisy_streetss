@@ -30,6 +30,10 @@ import { SubmissionCalls } from './collections/SubmissionCalls'
 import { Tags } from './collections/Tags'
 import { Users } from './collections/Users'
 import { Writers } from './collections/Writers'
+import { pageRecords } from './globals/pageRecords'
+import { ShopSettings } from './globals/ShopSettings'
+import { SiteSettings } from './globals/SiteSettings'
+import { seo } from './seo'
 import { storagePlugins } from './storage'
 
 const filename = fileURLToPath(import.meta.url)
@@ -46,7 +50,7 @@ export default buildConfig({
     },
   },
   collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans, Pages, Announcements, PopupCampaigns, PressMentions, Partners],
-  globals: [],
+  globals: [...pageRecords, SiteSettings, ShopSettings],
   jobs: {
     access: {
       run: hasCronSecret,
@@ -74,5 +78,5 @@ export default buildConfig({
     migrationDir: path.resolve(dirname, 'migrations'),
   }),
   sharp,
-  plugins: [...storagePlugins()],
+  plugins: [...storagePlugins(), seo],
 })

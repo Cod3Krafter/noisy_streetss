@@ -136,8 +136,54 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    'page-home': PageHome;
+    'page-publishing': PagePublishing;
+    'page-writers': PageWriter;
+    'page-submissions': PageSubmission;
+    'page-awards': PageAward;
+    'page-advisory': PageAdvisory;
+    'page-distribution': PageDistribution;
+    'page-studio': PageStudio;
+    'page-blog': PageBlog;
+    'page-podcast': PagePodcast;
+    'page-shop': PageShop;
+    'page-book-club': PageBookClub;
+    'page-membership': PageMembership;
+    'page-events': PageEvent;
+    'page-careers': PageCareer;
+    'page-who-we-are': PageWhoWeAre;
+    'page-press': PagePress;
+    'page-contact': PageContact;
+    'page-partner': PagePartner;
+    'page-support': PageSupport;
+    'site-settings': SiteSetting;
+    'shop-settings': ShopSetting;
+  };
+  globalsSelect: {
+    'page-home': PageHomeSelect<false> | PageHomeSelect<true>;
+    'page-publishing': PagePublishingSelect<false> | PagePublishingSelect<true>;
+    'page-writers': PageWritersSelect<false> | PageWritersSelect<true>;
+    'page-submissions': PageSubmissionsSelect<false> | PageSubmissionsSelect<true>;
+    'page-awards': PageAwardsSelect<false> | PageAwardsSelect<true>;
+    'page-advisory': PageAdvisorySelect<false> | PageAdvisorySelect<true>;
+    'page-distribution': PageDistributionSelect<false> | PageDistributionSelect<true>;
+    'page-studio': PageStudioSelect<false> | PageStudioSelect<true>;
+    'page-blog': PageBlogSelect<false> | PageBlogSelect<true>;
+    'page-podcast': PagePodcastSelect<false> | PagePodcastSelect<true>;
+    'page-shop': PageShopSelect<false> | PageShopSelect<true>;
+    'page-book-club': PageBookClubSelect<false> | PageBookClubSelect<true>;
+    'page-membership': PageMembershipSelect<false> | PageMembershipSelect<true>;
+    'page-events': PageEventsSelect<false> | PageEventsSelect<true>;
+    'page-careers': PageCareersSelect<false> | PageCareersSelect<true>;
+    'page-who-we-are': PageWhoWeAreSelect<false> | PageWhoWeAreSelect<true>;
+    'page-press': PagePressSelect<false> | PagePressSelect<true>;
+    'page-contact': PageContactSelect<false> | PageContactSelect<true>;
+    'page-partner': PagePartnerSelect<false> | PagePartnerSelect<true>;
+    'page-support': PageSupportSelect<false> | PageSupportSelect<true>;
+    'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
+    'shop-settings': ShopSettingsSelect<false> | ShopSettingsSelect<true>;
+  };
   locale: null;
   widgets: {
     collections: CollectionsWidget;
@@ -360,6 +406,14 @@ export interface Writer {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -418,6 +472,14 @@ export interface Book {
   sellInShop?: boolean | null;
   newRelease?: boolean | null;
   editorsChoice?: boolean | null;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -464,6 +526,14 @@ export interface Article {
    * Shown on the article. To publish later, use Schedule publish next to the Publish button.
    */
   publishDate: string;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -525,6 +595,14 @@ export interface PodcastEpisode {
   youtubeUrl?: string | null;
   cover?: (number | null) | Media;
   guests?: (number | Writer)[] | null;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -632,6 +710,14 @@ export interface Award {
   } | null;
   entryUrl?: string | null;
   cover?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -752,6 +838,14 @@ export interface Merch {
   weightGrams: number;
   type: 'stationery' | 'apparel' | 'other';
   inStock?: boolean | null;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -836,6 +930,14 @@ export interface Page {
       version: number;
     };
     [k: string]: unknown;
+  };
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
   };
   updatedAt: string;
   createdAt: string;
@@ -1299,6 +1401,13 @@ export interface WritersSelect<T extends boolean = true> {
   showOnWritersPage?: T;
   books?: T;
   articles?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1330,6 +1439,13 @@ export interface BooksSelect<T extends boolean = true> {
   sellInShop?: T;
   newRelease?: T;
   editorsChoice?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1349,6 +1465,13 @@ export interface ArticlesSelect<T extends boolean = true> {
   tags?: T;
   featured?: T;
   publishDate?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1385,6 +1508,13 @@ export interface PodcastEpisodesSelect<T extends boolean = true> {
   youtubeUrl?: T;
   cover?: T;
   guests?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1436,6 +1566,13 @@ export interface AwardsSelect<T extends boolean = true> {
   howToEnter?: T;
   entryUrl?: T;
   cover?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1504,6 +1641,13 @@ export interface MerchSelect<T extends boolean = true> {
   weightGrams?: T;
   type?: T;
   inStock?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1559,6 +1703,13 @@ export interface PagesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
   body?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1690,6 +1841,1241 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * Text and images on the Home page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-home".
+ */
+export interface PageHome {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Publishing page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-publishing".
+ */
+export interface PagePublishing {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Writers page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-writers".
+ */
+export interface PageWriter {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Submissions page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-submissions".
+ */
+export interface PageSubmission {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  /**
+   * Applies to every call. Each call adds its own guidelines.
+   */
+  guidelines?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Awards page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-awards".
+ */
+export interface PageAward {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Advisory page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-advisory".
+ */
+export interface PageAdvisory {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Distribution page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-distribution".
+ */
+export interface PageDistribution {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Studio page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-studio".
+ */
+export interface PageStudio {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Blog page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-blog".
+ */
+export interface PageBlog {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Podcast page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-podcast".
+ */
+export interface PagePodcast {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Shop page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-shop".
+ */
+export interface PageShop {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Book Club page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-book-club".
+ */
+export interface PageBookClub {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Membership page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-membership".
+ */
+export interface PageMembership {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Events page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-events".
+ */
+export interface PageEvent {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Careers page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-careers".
+ */
+export interface PageCareer {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Who We Are page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-who-we-are".
+ */
+export interface PageWhoWeAre {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Press page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-press".
+ */
+export interface PagePress {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Contact page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-contact".
+ */
+export interface PageContact {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Partner page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-partner".
+ */
+export interface PagePartner {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Text and images on the Support page. The layout itself is fixed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-support".
+ */
+export interface PageSupport {
+  id: number;
+  heading: string;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  heroImage?: (number | null) | Media;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings".
+ */
+export interface SiteSetting {
+  id: number;
+  contactEmail: string;
+  phone?: string | null;
+  address?: string | null;
+  socialLinks?:
+    | {
+        platform: 'instagram' | 'x' | 'facebook' | 'tiktok' | 'youtube' | 'linkedin' | 'spotify' | 'other';
+        url: string;
+        id?: string | null;
+      }[]
+    | null;
+  footerText?: string | null;
+  newsletterText?: string | null;
+  /**
+   * Used when a page is shared (on WhatsApp, for example) and has no image of its own.
+   */
+  defaultShareImage?: (number | null) | Media;
+  /**
+   * Every new form entry sends an alert here. Never shown on the site.
+   */
+  formAlertEmail: string;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Used by the shop and checkout. Only admins can see this.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "shop-settings".
+ */
+export interface ShopSetting {
+  id: number;
+  /**
+   * Where couriers collect orders.
+   */
+  pickupAddress?: {
+    name?: string | null;
+    phone?: string | null;
+    line1?: string | null;
+    city?: string | null;
+    state?: string | null;
+    country?: string | null;
+  };
+  /**
+   * Used when live courier prices are unavailable.
+   */
+  flatDeliveryPrices?:
+    | {
+        areaName: string;
+        priceNGN: number;
+        id?: string | null;
+      }[]
+    | null;
+  memberDiscountPercent?: number | null;
+  unpaidOrderExpiryMinutes?: number | null;
+  orderAlertEmail?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-home_select".
+ */
+export interface PageHomeSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-publishing_select".
+ */
+export interface PagePublishingSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-writers_select".
+ */
+export interface PageWritersSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-submissions_select".
+ */
+export interface PageSubmissionsSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  guidelines?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-awards_select".
+ */
+export interface PageAwardsSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-advisory_select".
+ */
+export interface PageAdvisorySelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-distribution_select".
+ */
+export interface PageDistributionSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-studio_select".
+ */
+export interface PageStudioSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-blog_select".
+ */
+export interface PageBlogSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-podcast_select".
+ */
+export interface PagePodcastSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-shop_select".
+ */
+export interface PageShopSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-book-club_select".
+ */
+export interface PageBookClubSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-membership_select".
+ */
+export interface PageMembershipSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-events_select".
+ */
+export interface PageEventsSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-careers_select".
+ */
+export interface PageCareersSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-who-we-are_select".
+ */
+export interface PageWhoWeAreSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-press_select".
+ */
+export interface PagePressSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-contact_select".
+ */
+export interface PageContactSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-partner_select".
+ */
+export interface PagePartnerSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "page-support_select".
+ */
+export interface PageSupportSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  heroImage?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings_select".
+ */
+export interface SiteSettingsSelect<T extends boolean = true> {
+  contactEmail?: T;
+  phone?: T;
+  address?: T;
+  socialLinks?:
+    | T
+    | {
+        platform?: T;
+        url?: T;
+        id?: T;
+      };
+  footerText?: T;
+  newsletterText?: T;
+  defaultShareImage?: T;
+  formAlertEmail?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "shop-settings_select".
+ */
+export interface ShopSettingsSelect<T extends boolean = true> {
+  pickupAddress?:
+    | T
+    | {
+        name?: T;
+        phone?: T;
+        line1?: T;
+        city?: T;
+        state?: T;
+        country?: T;
+      };
+  flatDeliveryPrices?:
+    | T
+    | {
+        areaName?: T;
+        priceNGN?: T;
+        id?: T;
+      };
+  memberDiscountPercent?: T;
+  unpaidOrderExpiryMinutes?: T;
+  orderAlertEmail?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
