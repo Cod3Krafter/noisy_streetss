@@ -85,6 +85,11 @@ export interface Config {
     merch: Merch;
     'studio-services': StudioService;
     'membership-plans': MembershipPlan;
+    pages: Page;
+    announcements: Announcement;
+    'popup-campaigns': PopupCampaign;
+    'press-mentions': PressMention;
+    partners: Partner;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -116,6 +121,11 @@ export interface Config {
     merch: MerchSelect<false> | MerchSelect<true>;
     'studio-services': StudioServicesSelect<false> | StudioServicesSelect<true>;
     'membership-plans': MembershipPlansSelect<false> | MembershipPlansSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
+    announcements: AnnouncementsSelect<false> | AnnouncementsSelect<true>;
+    'popup-campaigns': PopupCampaignsSelect<false> | PopupCampaignsSelect<true>;
+    'press-mentions': PressMentionsSelect<false> | PressMentionsSelect<true>;
+    partners: PartnersSelect<false> | PartnersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -800,6 +810,109 @@ export interface MembershipPlan {
   createdAt: string;
 }
 /**
+ * Plain text pages: the legal pages and Values.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  title: string;
+  /**
+   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   */
+  slug?: string | null;
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * The home page shows up to 3 current announcements, newest first. Changes go live when saved.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "announcements".
+ */
+export interface Announcement {
+  id: number;
+  text: string;
+  url?: string | null;
+  buttonLabel?: string | null;
+  startsAt: string;
+  /**
+   * Leave empty to keep showing it.
+   */
+  endsAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Only one popup can be switched on for any given dates. Changes go live when saved.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "popup-campaigns".
+ */
+export interface PopupCampaign {
+  id: number;
+  book: number | Book;
+  headline: string;
+  pitch?: string | null;
+  buttonLabel?: string | null;
+  startsAt: string;
+  endsAt: string;
+  enabled?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "press-mentions".
+ */
+export interface PressMention {
+  id: number;
+  outlet: string;
+  headline: string;
+  url: string;
+  date?: string | null;
+  logo?: (number | null) | Media;
+  /**
+   * A short line from the piece, if there is a good one.
+   */
+  quote?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partners".
+ */
+export interface Partner {
+  id: number;
+  name: string;
+  logo?: (number | null) | Media;
+  quote?: string | null;
+  quoteBy?: string | null;
+  quoteByTitle?: string | null;
+  url?: string | null;
+  sortOrder?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -986,6 +1099,26 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'membership-plans';
         value: number | MembershipPlan;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'announcements';
+        value: number | Announcement;
+      } | null)
+    | ({
+        relationTo: 'popup-campaigns';
+        value: number | PopupCampaign;
+      } | null)
+    | ({
+        relationTo: 'press-mentions';
+        value: number | PressMention;
+      } | null)
+    | ({
+        relationTo: 'partners';
+        value: number | Partner;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1414,6 +1547,75 @@ export interface MembershipPlansSelect<T extends boolean = true> {
         id?: T;
       };
   active?: T;
+  sortOrder?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  body?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "announcements_select".
+ */
+export interface AnnouncementsSelect<T extends boolean = true> {
+  text?: T;
+  url?: T;
+  buttonLabel?: T;
+  startsAt?: T;
+  endsAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "popup-campaigns_select".
+ */
+export interface PopupCampaignsSelect<T extends boolean = true> {
+  book?: T;
+  headline?: T;
+  pitch?: T;
+  buttonLabel?: T;
+  startsAt?: T;
+  endsAt?: T;
+  enabled?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "press-mentions_select".
+ */
+export interface PressMentionsSelect<T extends boolean = true> {
+  outlet?: T;
+  headline?: T;
+  url?: T;
+  date?: T;
+  logo?: T;
+  quote?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partners_select".
+ */
+export interface PartnersSelect<T extends boolean = true> {
+  name?: T;
+  logo?: T;
+  quote?: T;
+  quoteBy?: T;
+  quoteByTitle?: T;
+  url?: T;
   sortOrder?: T;
   updatedAt?: T;
   createdAt?: T;
