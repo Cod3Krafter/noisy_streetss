@@ -87,6 +87,35 @@ describe('book popup campaigns', () => {
       /after the start/,
     )
   })
+
+  it('refuses an edit that moves a campaign into another one', async () => {
+    await payload.create({ collection: 'popup-campaigns', data: campaign('Fixed slot', 100, 110) })
+    const mover = await payload.create({ collection: 'popup-campaigns', data: campaign('Mover', 120, 130) })
+    await expectFieldError(
+      payload.update({ collection: 'popup-campaigns', id: mover.id, data: { startsAt: fromNow(105), endsAt: fromNow(125) } }),
+      'startsAt',
+      /Fixed slot/,
+    )
+  })
+
+  it('refuses switching a campaign back on when it would clash', async () => {
+    await payload.create({ collection: 'popup-campaigns', data: campaign('Live one', 200, 210) })
+    const off = await payload.create({ collection: 'popup-campaigns', data: campaign('Switched off', 205, 215, false) })
+    await expectFieldError(
+      payload.update({ collection: 'popup-campaigns', id: off.id, data: { enabled: true } }),
+      'startsAt',
+      /Live one/,
+    )
+  })
+
+  it('reports a backwards range as a date error, not a clash', async () => {
+    await payload.create({ collection: 'popup-campaigns', data: campaign('Neighbour', 300, 310) })
+    await expectFieldError(
+      payload.create({ collection: 'popup-campaigns', data: campaign('Backwards clash', 309, 301) }),
+      'endsAt',
+      /after the start/,
+    )
+  })
 })
 
 describe('pages, press mentions and partners', () => {

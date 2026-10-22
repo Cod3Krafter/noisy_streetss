@@ -2,7 +2,7 @@ import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
 import { anyone, staffWrites } from '@/access'
 import { overlappingCampaignsWhere } from '@/rules/popups'
-import { endsAfterField } from '@/rules/time'
+import { endsAfter, endsAfterField } from '@/rules/time'
 import { finalValue, rejectField } from '@/rules/validation'
 
 const onlyOneAtATime: CollectionBeforeValidateHook = async ({ data, originalDoc, req }) => {
@@ -10,6 +10,8 @@ const onlyOneAtATime: CollectionBeforeValidateHook = async ({ data, originalDoc,
   const startsAt = finalValue<string>(data, originalDoc, 'startsAt')
   const endsAt = finalValue<string>(data, originalDoc, 'endsAt')
   if (!enabled || !startsAt || !endsAt) return data
+  // A backwards range gets its own field error from endsAt; don't report it as a clash.
+  if (!endsAfter(startsAt, endsAt)) return data
 
   const clash = await req.payload.find({
     collection: 'popup-campaigns',
