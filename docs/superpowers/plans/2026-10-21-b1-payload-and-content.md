@@ -774,7 +774,7 @@ import path from 'node:path'
  * Throws if the test database name does not end in "_test", so a mistyped
  * setting can never empty the development database.
  */
-export function useTestEnvironment(): void {
+export function applyTestEnvironment(): void {
   if (fs.existsSync('.env')) process.loadEnvFile('.env')
 
   const testUri = process.env.TEST_DATABASE_URI
@@ -799,11 +799,11 @@ export function useTestEnvironment(): void {
 import fs from 'node:fs'
 import pg from 'pg'
 
-import { useTestEnvironment } from './env'
+import { applyTestEnvironment } from './env'
 
 /** Runs once before all test files: empties the test database and test uploads. */
 export default async function setup(): Promise<void> {
-  useTestEnvironment()
+  applyTestEnvironment()
 
   const client = new pg.Client({ connectionString: process.env.TEST_DATABASE_URI })
   await client.connect()
@@ -817,11 +817,11 @@ export default async function setup(): Promise<void> {
 `tests/setup.ts`:
 
 ```ts
-import { useTestEnvironment } from './env'
+import { applyTestEnvironment } from './env'
 
 // Runs in each test worker before any test file is imported,
 // so the Payload config reads the test settings.
-useTestEnvironment()
+applyTestEnvironment()
 ```
 
 `tests/helpers/payload.ts`:
