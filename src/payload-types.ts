@@ -79,6 +79,9 @@ export interface Config {
     'podcast-episodes': PodcastEpisode;
     'submission-calls': SubmissionCall;
     awards: Award;
+    events: Event;
+    careers: Career;
+    'book-club-sessions': BookClubSession;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -104,6 +107,9 @@ export interface Config {
     'podcast-episodes': PodcastEpisodesSelect<false> | PodcastEpisodesSelect<true>;
     'submission-calls': SubmissionCallsSelect<false> | SubmissionCallsSelect<true>;
     awards: AwardsSelect<false> | AwardsSelect<true>;
+    events: EventsSelect<false> | EventsSelect<true>;
+    careers: CareersSelect<false> | CareersSelect<true>;
+    'book-club-sessions': BookClubSessionsSelect<false> | BookClubSessionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -616,6 +622,105 @@ export interface Award {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events".
+ */
+export interface Event {
+  id: number;
+  title: string;
+  startsAt: string;
+  /**
+   * Optional. Leave empty for a single moment.
+   */
+  endsAt?: string | null;
+  venue?: string | null;
+  address?: string | null;
+  onlineUrl?: string | null;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  image?: (number | null) | Media;
+  actionUrl?: string | null;
+  actionLabel?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Shown on the Careers page while switched on and before the closing date.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "careers".
+ */
+export interface Career {
+  id: number;
+  role: string;
+  type: 'full-time' | 'part-time' | 'contract' | 'internship' | 'nysc';
+  location?: string | null;
+  description: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  howToApply: string;
+  /**
+   * The role still shows on this day.
+   */
+  closingDate?: string | null;
+  open?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "book-club-sessions".
+ */
+export interface BookClubSession {
+  id: number;
+  /**
+   * The book being read, if there is one.
+   */
+  book?: (number | null) | Book;
+  /**
+   * Needed when no book is chosen.
+   */
+  title?: string | null;
+  startsAt: string;
+  venue?: string | null;
+  onlineUrl?: string | null;
+  description?: string | null;
+  /**
+   * Registrations themselves arrive with the membership work.
+   */
+  registrationOpen?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -777,6 +882,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'awards';
         value: number | Award;
+      } | null)
+    | ({
+        relationTo: 'events';
+        value: number | Event;
+      } | null)
+    | ({
+        relationTo: 'careers';
+        value: number | Career;
+      } | null)
+    | ({
+        relationTo: 'book-club-sessions';
+        value: number | BookClubSession;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1094,6 +1211,57 @@ export interface AwardsSelect<T extends boolean = true> {
   howToEnter?: T;
   entryUrl?: T;
   cover?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events_select".
+ */
+export interface EventsSelect<T extends boolean = true> {
+  title?: T;
+  startsAt?: T;
+  endsAt?: T;
+  venue?: T;
+  address?: T;
+  onlineUrl?: T;
+  description?: T;
+  image?: T;
+  actionUrl?: T;
+  actionLabel?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "careers_select".
+ */
+export interface CareersSelect<T extends boolean = true> {
+  role?: T;
+  type?: T;
+  location?: T;
+  description?: T;
+  howToApply?: T;
+  closingDate?: T;
+  open?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "book-club-sessions_select".
+ */
+export interface BookClubSessionsSelect<T extends boolean = true> {
+  book?: T;
+  title?: T;
+  startsAt?: T;
+  venue?: T;
+  onlineUrl?: T;
+  description?: T;
+  registrationOpen?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
