@@ -8,12 +8,14 @@ import { fileURLToPath } from 'url'
 import { isStaffUser } from './access'
 import { hasCronSecret } from './access/jobs'
 import { Articles } from './collections/Articles'
+import { Awards } from './collections/Awards'
 import { Books } from './collections/Books'
 import { Categories } from './collections/Categories'
 import { Manuscripts } from './collections/Manuscripts'
 import { Media } from './collections/Media'
 import { PodcastEpisodes } from './collections/PodcastEpisodes'
 import { PodcastShows } from './collections/PodcastShows'
+import { SubmissionCalls } from './collections/SubmissionCalls'
 import { Tags } from './collections/Tags'
 import { Users } from './collections/Users'
 import { Writers } from './collections/Writers'
@@ -32,7 +34,7 @@ export default buildConfig({
       titleSuffix: ' | Noisy Streetss admin',
     },
   },
-  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes],
+  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards],
   globals: [],
   jobs: {
     access: {
