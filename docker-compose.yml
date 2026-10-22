@@ -4,7 +4,7 @@ services:
     image: postgres:17.11
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -13,7 +13,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d noisy_streetss"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d noisy_streetss"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -22,8 +22,8 @@ services:
     image: axllent/mailpit:v1.31.6
     restart: unless-stopped
     ports:
-      - "21025:1025"
-      - "28025:8025"
+      - "127.0.0.1:21025:1025"
+      - "127.0.0.1:28025:8025"
 
 volumes:
   pgdata:
