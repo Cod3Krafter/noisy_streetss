@@ -11,6 +11,11 @@ describe('slugify', () => {
     expect(slugify('Adéọlá Ọ̀ṣun')).toBe('adeola-osun')
   })
 
+  it('maps letters that have no accent to strip', () => {
+    expect(slugify('Ɗanjuma Ƙofar Ɓaure')).toBe('danjuma-kofar-baure')
+    expect(slugify('Søren Łódź Straße')).toBe('soren-lodz-strasse')
+  })
+
   it('spells out ampersands and drops apostrophes', () => {
     expect(slugify('Writers & Readers')).toBe('writers-and-readers')
     expect(slugify("Don't Stop")).toBe('dont-stop')

@@ -31,12 +31,50 @@ describe('slugs', () => {
   it('rejects a typed slug that is already taken', async () => {
     await expect(
       payload.create({ collection: 'categories', data: { name: 'Another', slug: 'short-fiction' } }),
-    ).rejects.toThrow()
+    ).rejects.toThrow(/slug/)
   })
 
   it('keeps slugs unique per collection, not across collections', async () => {
     const tag = await payload.create({ collection: 'tags', data: { name: 'Short Fiction' } })
     expect(tag.slug).toBe('short-fiction')
+  })
+
+  it('refuses a name that leaves nothing for the slug', async () => {
+    const before = await payload.count({ collection: 'categories' })
+    await expect(payload.create({ collection: 'categories', data: { name: '!!!' } })).rejects.toThrow()
+    const after = await payload.count({ collection: 'categories' })
+    expect(after.totalDocs).toBe(before.totalDocs)
+  })
+
+  it('keeps the slug when only another field is updated', async () => {
+    const created = await payload.create({
+      collection: 'categories',
+      data: { name: 'Memoir', description: 'First draft.' },
+    })
+    expect(created.slug).toBe('memoir')
+    const updated = await payload.update({
+      collection: 'categories',
+      id: created.id,
+      data: { description: 'Second draft.' },
+    })
+    expect(updated.slug).toBe('memoir')
+  })
+
+  it('keeps numbered slugs within 80 characters, and stable on the next save', async () => {
+    const name = 'Long Category Name '.repeat(6)
+    const first = await payload.create({ collection: 'categories', data: { name } })
+    const second = await payload.create({ collection: 'categories', data: { name } })
+    expect(first.slug?.length).toBeLessThanOrEqual(80)
+    expect(second.slug?.length).toBeLessThanOrEqual(80)
+    expect(second.slug).not.toBe(first.slug)
+    expect(second.slug?.endsWith('-2')).toBe(true)
+
+    const updated = await payload.update({
+      collection: 'categories',
+      id: second.id,
+      data: { description: 'Edited after creation.' },
+    })
+    expect(updated.slug).toBe(second.slug)
   })
 })
 

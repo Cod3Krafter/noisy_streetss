@@ -158,7 +158,7 @@ export interface Category {
   id: number;
   name: string;
   /**
-   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
    */
   slug?: string | null;
   description?: string | null;
@@ -173,7 +173,7 @@ export interface Tag {
   id: number;
   name: string;
   /**
-   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
    */
   slug?: string | null;
   updatedAt: string;
