@@ -1,0 +1,5 @@
+# Files Payload generates are written with LF. Keeping them LF in the checkout too
+# stops every dev start or test run from showing them as changed.
+src/payload-types.ts text eol=lf
+src/app/(payload)/admin/importMap.js text eol=lf
+src/migrations/** text eol=lf
