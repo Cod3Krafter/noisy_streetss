@@ -1,6 +1,7 @@
 import config from '@payload-config'
 import path from 'node:path'
 import { getPayload, type Payload } from 'payload'
+import { expect } from 'vitest'
 
 import type { StaffRole } from '@/access'
 import type { Media, User, Writer } from '@/payload-types'
@@ -44,5 +45,15 @@ export function createWriter(payload: Payload, name?: string): Promise<Writer> {
       shortBio: 'Writes for the tests.',
       _status: 'published',
     },
+  })
+}
+
+/**
+ * Payload's ValidationError message only names the field ("The following field is invalid: formats").
+ * The reason shown in the admin is in error.data.errors, so field rules are tested there.
+ */
+export async function expectFieldError(promise: Promise<unknown>, path: string, message: RegExp): Promise<void> {
+  await expect(promise).rejects.toMatchObject({
+    data: { errors: expect.arrayContaining([expect.objectContaining({ path, message: expect.stringMatching(message) })]) },
   })
 }

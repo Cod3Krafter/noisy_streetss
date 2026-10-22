@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { Media, Writer } from '@/payload-types'
 
-import { createImage, createWriter, getTestPayload } from '../helpers/payload'
+import { createImage, createWriter, expectFieldError, getTestPayload } from '../helpers/payload'
 
 let payload: Payload
 let cover: Media
@@ -28,11 +28,11 @@ beforeAll(async () => {
 
 describe('books', () => {
   it('refuses to publish a book for sale with no formats', async () => {
-    await expect(
+    await expectFieldError(
       payload.create({ collection: 'books', data: book({ sellInShop: true, formats: [], _status: 'published' }) }),
-    ).rejects.toMatchObject({
-      data: { errors: [{ path: 'formats', message: expect.stringMatching(/at least one format/) }] },
-    })
+      'formats',
+      /at least one format/,
+    )
   })
 
   it('publishes a book for sale once it has a format', async () => {
