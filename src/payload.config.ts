@@ -5,6 +5,8 @@ import { buildConfig } from 'payload'
 import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
+import { hasCronSecret } from './access/jobs'
+import { Articles } from './collections/Articles'
 import { Books } from './collections/Books'
 import { Categories } from './collections/Categories'
 import { Manuscripts } from './collections/Manuscripts'
@@ -23,9 +25,20 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    meta: {
+      titleSuffix: ' | Noisy Streetss admin',
+    },
   },
-  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books],
+  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles],
   globals: [],
+  jobs: {
+    access: {
+      run: hasCronSecret,
+    },
+    // In development the app runs due jobs itself every minute. In production
+    // Vercel Cron calls /api/payload-jobs/run instead (see vercel.json).
+    autoRun: process.env.NODE_ENV === 'production' ? [] : [{ cron: '* * * * *', queue: 'default', limit: 10 }],
+  },
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   serverURL: process.env.NEXT_PUBLIC_SERVER_URL || undefined,
