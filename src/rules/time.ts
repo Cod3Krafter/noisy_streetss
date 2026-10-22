@@ -25,3 +25,13 @@ export const endsAfterField =
     const start = (siblingData as Record<string, unknown> | undefined)?.[startField]
     return endsAfter(start, value) ? true : message
   }
+
+/** Lagos is on West Africa Time, UTC+1 all year, with no daylight saving. */
+const LAGOS_OFFSET_MS = 60 * 60 * 1000
+
+/** The moment the current day started in Lagos. */
+export function startOfLagosDay(now: Date = new Date()): Date {
+  const lagos = new Date(now.getTime() + LAGOS_OFFSET_MS)
+  const midnight = Date.UTC(lagos.getUTCFullYear(), lagos.getUTCMonth(), lagos.getUTCDate())
+  return new Date(midnight - LAGOS_OFFSET_MS)
+}

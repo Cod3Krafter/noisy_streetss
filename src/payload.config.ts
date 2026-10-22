@@ -9,8 +9,11 @@ import { isStaffUser } from './access'
 import { hasCronSecret } from './access/jobs'
 import { Articles } from './collections/Articles'
 import { Awards } from './collections/Awards'
+import { BookClubSessions } from './collections/BookClubSessions'
 import { Books } from './collections/Books'
+import { Careers } from './collections/Careers'
 import { Categories } from './collections/Categories'
+import { Events } from './collections/Events'
 import { Manuscripts } from './collections/Manuscripts'
 import { Media } from './collections/Media'
 import { PodcastEpisodes } from './collections/PodcastEpisodes'
@@ -34,7 +37,7 @@ export default buildConfig({
       titleSuffix: ' | Noisy Streetss admin',
     },
   },
-  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards],
+  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions],
   globals: [],
   jobs: {
     access: {
