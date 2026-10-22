@@ -62,6 +62,27 @@ describe('staff accounts', () => {
     expect(updated.role).toBe('editor')
   })
 
+  it('lets an admin set and change roles', async () => {
+    const admin = await createStaff(payload, 'admin')
+    const newAdmin = await payload.create({
+      collection: 'users',
+      data: { email: 'second-admin@noisystreetss.test', password: 'test-password-123', name: 'Second Admin', role: 'admin' },
+      overrideAccess: false,
+      user: admin,
+    })
+    expect(newAdmin.role).toBe('admin')
+
+    const editor = await createStaff(payload, 'editor')
+    const promoted = await payload.update({
+      collection: 'users',
+      id: editor.id,
+      data: { role: 'admin' },
+      overrideAccess: false,
+      user: admin,
+    })
+    expect(promoted.role).toBe('admin')
+  })
+
   it('hides staff accounts from visitors', async () => {
     await expect(payload.find({ collection: 'users', overrideAccess: false })).rejects.toThrow()
   })
