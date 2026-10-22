@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { callStatus, closesAfterOpens, openCallsWhere } from '@/rules/submissionCalls'
+import { endsAfterField } from '@/rules/time'
 
 const opens = '2026-11-01T09:00:00.000Z'
 const closes = '2026-11-30T23:00:00.000Z'
@@ -34,6 +35,31 @@ describe('closesAfterOpens', () => {
 
   it('passes while the opening date is still empty', () => {
     expect(closesAfterOpens(undefined, closes)).toBe(true)
+  })
+})
+
+describe('endsAfterField', () => {
+  const noSibling = { siblingData: {} }
+  const withStart = { siblingData: { opensAt: opens } }
+
+  it('refuses an empty value when it is required', () => {
+    expect(endsAfterField('opensAt', 'Too early.', true)(undefined, noSibling)).toBe('This field is required.')
+  })
+
+  it('accepts an empty value when it is optional', () => {
+    expect(endsAfterField('opensAt', 'Too early.')(null, noSibling)).toBe(true)
+  })
+
+  it('refuses a value that is not a date', () => {
+    expect(endsAfterField('opensAt', 'Too early.', true)('not a date', withStart)).toBe('Enter a valid date and time.')
+  })
+
+  it('refuses an end before the sibling start', () => {
+    expect(endsAfterField('opensAt', 'Too early.', true)('2026-10-31T09:00:00.000Z', withStart)).toBe('Too early.')
+  })
+
+  it('accepts a later end', () => {
+    expect(endsAfterField('opensAt', 'Too early.', true)(closes, withStart)).toBe(true)
   })
 })
 

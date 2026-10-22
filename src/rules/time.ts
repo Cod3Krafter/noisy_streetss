@@ -12,3 +12,16 @@ export function endsAfter(start: unknown, end: unknown): boolean {
   if (from === null || to === null) return true
   return to > from
 }
+
+/**
+ * Field `validate` for an end date: must be a real date, later than the sibling `startField`.
+ * Empty passes unless `required`. Used for closing and end dates across the collections.
+ */
+export const endsAfterField =
+  (startField: string, message: string, required = false) =>
+  (value: unknown, { siblingData }: { siblingData: unknown }): true | string => {
+    if (value === null || value === undefined || value === '') return required ? 'This field is required.' : true
+    if (toTime(value) === null) return 'Enter a valid date and time.'
+    const start = (siblingData as Record<string, unknown> | undefined)?.[startField]
+    return endsAfter(start, value) ? true : message
+  }

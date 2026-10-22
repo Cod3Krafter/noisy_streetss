@@ -2,7 +2,8 @@ import type { CollectionConfig } from 'payload'
 
 import { publishedOrStaff, staffWrites } from '@/access'
 import { slugField } from '@/fields/slug'
-import { callStatus, closesAfterOpens } from '@/rules/submissionCalls'
+import { callStatus } from '@/rules/submissionCalls'
+import { endsAfterField } from '@/rules/time'
 
 export const SubmissionCalls: CollectionConfig = {
   slug: 'submission-calls',
@@ -14,11 +15,14 @@ export const SubmissionCalls: CollectionConfig = {
   },
   access: { read: publishedOrStaff, ...staffWrites },
   versions: { drafts: true, maxPerDoc: 50 },
+  // The virtual status is worked out from these two, so a select that asks only for status must still load them.
+  forceSelect: { opensAt: true, closesAt: true },
   fields: [
     { name: 'title', type: 'text', required: true },
     slugField('title'),
     {
       name: 'status',
+      label: 'Call status',
       type: 'select',
       virtual: true,
       options: [
@@ -29,6 +33,8 @@ export const SubmissionCalls: CollectionConfig = {
       admin: {
         readOnly: true,
         position: 'sidebar',
+        // A virtual field has no column to filter on.
+        disableListFilter: true,
         description: 'Worked out from the opening and closing dates.',
       },
       hooks: {
@@ -59,11 +65,7 @@ export const SubmissionCalls: CollectionConfig = {
           type: 'date',
           required: true,
           admin: { date: { pickerAppearance: 'dayAndTime' } },
-          validate: (value, { siblingData }) => {
-            if (!value) return 'This field is required.'
-            const opensAt = (siblingData as { opensAt?: unknown }).opensAt
-            return closesAfterOpens(opensAt, value) ? true : 'The closing date must be after the opening date.'
-          },
+          validate: endsAfterField('opensAt', 'The closing date must be after the opening date.', true),
         },
       ],
     },

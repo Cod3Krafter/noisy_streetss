@@ -19,6 +19,7 @@ export const Awards: CollectionConfig = {
     slugField('name'),
     {
       name: 'status',
+      label: 'Award status',
       type: 'select',
       required: true,
       defaultValue: 'open',

@@ -46,6 +46,17 @@ describe('submission calls', () => {
       /after the opening/,
     )
   })
+
+  it('refuses a closing date that is not a date', async () => {
+    await expectFieldError(
+      payload.create({
+        collection: 'submission-calls',
+        data: { ...call('Garbled call', -5, 20), closesAt: 'not a date' },
+      }),
+      'closesAt',
+      /valid date/,
+    )
+  })
 })
 
 describe('awards', () => {

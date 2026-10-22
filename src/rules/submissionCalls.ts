@@ -18,6 +18,7 @@ export function callStatus(opensAt: unknown, closesAt: unknown, now: Date = new 
 export const closesAfterOpens = endsAfter
 
 /** Query for calls open right now. The `status` field is virtual, so it can't be queried. */
+// Dates only. Visitor-facing code must also pass overrideAccess: false (or add _status: published) so drafts stay hidden.
 export function openCallsWhere(now: Date = new Date()): Where {
   return {
     and: [
