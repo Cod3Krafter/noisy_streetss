@@ -121,6 +121,11 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: number;
+  name: string;
+  /**
+   * Admins can also manage staff accounts and shop settings.
+   */
+  role: 'admin' | 'editor';
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -215,6 +220,8 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  role?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
