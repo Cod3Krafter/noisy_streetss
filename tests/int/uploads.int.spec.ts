@@ -71,6 +71,18 @@ describe('manuscripts', () => {
     ).rejects.toThrow(/10 MB/)
   })
 
+  it('measures the file itself, not the size it claims', async () => {
+    const data = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(11 * 1024 * 1024, 0x20)])
+    await expect(
+      payload.create({
+        collection: 'manuscripts',
+        data: {},
+        file: { data, mimetype: 'application/pdf', name: 'claims-small.pdf', size: 10 },
+        user: admin,
+      }),
+    ).rejects.toThrow(/10 MB/)
+  })
+
   it('refuses anything that is not a PDF or Word file', async () => {
     await expect(
       payload.create({ collection: 'manuscripts', data: {}, filePath: photo, user: admin }),

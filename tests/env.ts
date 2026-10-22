@@ -22,4 +22,7 @@ export function applyTestEnvironment(): void {
   process.env.MANUSCRIPTS_DIR = path.resolve('.test-uploads/manuscripts')
   // No mail server in tests. Alert emails are checked with a spy on payload.sendEmail.
   process.env.SMTP_HOST = ''
+  // Never upload test files to real storage, even once .env has bucket names.
+  process.env.S3_BUCKET_MEDIA = ''
+  process.env.S3_BUCKET_MANUSCRIPTS = ''
 }
