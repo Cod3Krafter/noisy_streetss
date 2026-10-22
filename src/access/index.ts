@@ -38,3 +38,6 @@ export const isAdminField: FieldAccess = ({ req }) => isAdminUser(req.user)
 /** For `admin.hidden`: hide from the admin menu unless the viewer is staff or an admin. */
 export const staffOnlyInAdmin = ({ user }: { user: unknown }): boolean => !isStaffUser(user)
 export const adminOnlyInAdmin = ({ user }: { user: unknown }): boolean => !isAdminUser(user)
+
+/** Staff create, change and delete. Spread next to a read rule: `{ read: anyone, ...staffWrites }`. */
+export const staffWrites = { create: isStaff, update: isStaff, delete: isStaff }
