@@ -77,6 +77,8 @@ export interface Config {
     articles: Article;
     'podcast-shows': PodcastShow;
     'podcast-episodes': PodcastEpisode;
+    'submission-calls': SubmissionCall;
+    awards: Award;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -100,6 +102,8 @@ export interface Config {
     articles: ArticlesSelect<false> | ArticlesSelect<true>;
     'podcast-shows': PodcastShowsSelect<false> | PodcastShowsSelect<true>;
     'podcast-episodes': PodcastEpisodesSelect<false> | PodcastEpisodesSelect<true>;
+    'submission-calls': SubmissionCallsSelect<false> | SubmissionCallsSelect<true>;
+    awards: AwardsSelect<false> | AwardsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -505,6 +509,113 @@ export interface PodcastEpisode {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submission-calls".
+ */
+export interface SubmissionCall {
+  id: number;
+  title: string;
+  /**
+   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   */
+  slug?: string | null;
+  /**
+   * Worked out from the opening and closing dates.
+   */
+  status?: ('upcoming' | 'open' | 'closed') | null;
+  /**
+   * Shown on the Submissions page.
+   */
+  themeSummary: string;
+  guidelines: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  opensAt: string;
+  closesAt: string;
+  cover?: (number | null) | Media;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "awards".
+ */
+export interface Award {
+  id: number;
+  name: string;
+  /**
+   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   */
+  slug?: string | null;
+  status: 'open' | 'judging' | 'winners-announced' | 'closed';
+  summary: string;
+  rules?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  prize?: string | null;
+  keyDates?:
+    | {
+        label: string;
+        date: string;
+        id?: string | null;
+      }[]
+    | null;
+  pastWinners?:
+    | {
+        year: number;
+        name: string;
+        work?: string | null;
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  howToEnter?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  entryUrl?: string | null;
+  cover?: (number | null) | Media;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -658,6 +769,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'podcast-episodes';
         value: number | PodcastEpisode;
+      } | null)
+    | ({
+        relationTo: 'submission-calls';
+        value: number | SubmissionCall;
+      } | null)
+    | ({
+        relationTo: 'awards';
+        value: number | Award;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -924,6 +1043,57 @@ export interface PodcastEpisodesSelect<T extends boolean = true> {
   youtubeUrl?: T;
   cover?: T;
   guests?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submission-calls_select".
+ */
+export interface SubmissionCallsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  status?: T;
+  themeSummary?: T;
+  guidelines?: T;
+  opensAt?: T;
+  closesAt?: T;
+  cover?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "awards_select".
+ */
+export interface AwardsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  status?: T;
+  summary?: T;
+  rules?: T;
+  prize?: T;
+  keyDates?:
+    | T
+    | {
+        label?: T;
+        date?: T;
+        id?: T;
+      };
+  pastWinners?:
+    | T
+    | {
+        year?: T;
+        name?: T;
+        work?: T;
+        url?: T;
+        id?: T;
+      };
+  howToEnter?: T;
+  entryUrl?: T;
+  cover?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
