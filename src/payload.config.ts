@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url'
 
 import { isStaffUser } from './access'
 import { hasCronSecret } from './access/jobs'
+import { Announcements } from './collections/Announcements'
 import { Articles } from './collections/Articles'
 import { Awards } from './collections/Awards'
 import { BookClubSessions } from './collections/BookClubSessions'
@@ -19,8 +20,12 @@ import { MembershipPlans } from './collections/MembershipPlans'
 import { StudioServices } from './collections/StudioServices'
 import { Manuscripts } from './collections/Manuscripts'
 import { Media } from './collections/Media'
+import { Pages } from './collections/Pages'
+import { Partners } from './collections/Partners'
 import { PodcastEpisodes } from './collections/PodcastEpisodes'
 import { PodcastShows } from './collections/PodcastShows'
+import { PopupCampaigns } from './collections/PopupCampaigns'
+import { PressMentions } from './collections/PressMentions'
 import { SubmissionCalls } from './collections/SubmissionCalls'
 import { Tags } from './collections/Tags'
 import { Users } from './collections/Users'
@@ -40,7 +45,7 @@ export default buildConfig({
       titleSuffix: ' | Noisy Streetss admin',
     },
   },
-  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans],
+  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans, Pages, Announcements, PopupCampaigns, PressMentions, Partners],
   globals: [],
   jobs: {
     access: {
