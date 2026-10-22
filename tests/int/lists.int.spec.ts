@@ -1,11 +1,11 @@
 import type { Payload } from 'payload'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import type { Book } from '@/payload-types'
 import { findActiveAnnouncements } from '@/rules/announcements'
 import { richText } from '@/seed/richText'
 
-import { createImage, createWriter, expectFieldError, getTestPayload } from '../helpers/payload'
+import { createImage, createWriter, expectFieldError, getTestPayload, resetCollections } from '../helpers/payload'
 
 const DAY = 24 * 60 * 60 * 1000
 const fromNow = (days: number) => new Date(Date.now() + days * DAY).toISOString()
@@ -16,8 +16,7 @@ let book: Book
 beforeAll(async () => {
   payload = await getTestPayload()
   // Test files run in any order, and the seed test adds both of these, so start them empty.
-  await payload.db.deleteMany({ collection: 'announcements', where: {} })
-  await payload.db.deleteMany({ collection: 'popup-campaigns', where: {} })
+  await resetCollections(payload, ['announcements', 'popup-campaigns'])
   const cover = await createImage(payload)
   const writer = await createWriter(payload)
   book = await payload.create({
@@ -50,6 +49,11 @@ describe('announcements', () => {
 })
 
 describe('book popup campaigns', () => {
+  // Campaigns may not overlap, so each test starts with none.
+  beforeEach(async () => {
+    await resetCollections(payload, ['popup-campaigns'])
+  })
+
   const campaign = (headline: string, starts: number, ends: number, enabled = true) => ({
     book: book.id,
     headline,

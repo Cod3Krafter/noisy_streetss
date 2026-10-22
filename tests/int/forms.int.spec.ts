@@ -1,5 +1,5 @@
 import type { Payload } from 'payload'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { Manuscript, User } from '@/payload-types'
 import { richText } from '@/seed/richText'
@@ -32,11 +32,6 @@ beforeAll(async () => {
     data: { contactEmail: 'hello@noisystreetss.test', formAlertEmail: 'inbox@noisystreetss.test' },
   })
   file = await payload.create({ collection: 'manuscripts', data: {}, file: samplePdf() })
-})
-
-// Other test files delete submission calls wholesale, which a submission pointing at one would block.
-afterAll(async () => {
-  await payload.db.deleteMany({ collection: 'manuscript-submissions', where: {} })
 })
 
 describe('visitors sending forms', () => {

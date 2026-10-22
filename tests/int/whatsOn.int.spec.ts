@@ -5,7 +5,7 @@ import { visibleCareersWhere } from '@/rules/careers'
 import { upcomingEventsWhere } from '@/rules/events'
 import { richText } from '@/seed/richText'
 
-import { expectFieldError, getTestPayload } from '../helpers/payload'
+import { expectFieldError, getTestPayload, resetCollections } from '../helpers/payload'
 
 const DAY = 24 * 60 * 60 * 1000
 const fromNow = (days: number) => new Date(Date.now() + days * DAY).toISOString()
@@ -15,8 +15,7 @@ let payload: Payload
 beforeAll(async () => {
   payload = await getTestPayload()
   // Test files run in any order, and the seed test fills these collections, so start them empty.
-  await payload.db.deleteMany({ collection: 'events', where: {} })
-  await payload.db.deleteMany({ collection: 'careers', where: {} })
+  await resetCollections(payload, ['events', 'careers'])
 })
 
 describe('events', () => {

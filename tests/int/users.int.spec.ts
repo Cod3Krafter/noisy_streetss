@@ -1,17 +1,19 @@
 import type { Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { createStaff, getTestPayload } from '../helpers/payload'
+import { createStaff, getTestPayload, resetCollections } from '../helpers/payload'
 
 let payload: Payload
 
 beforeAll(async () => {
   payload = await getTestPayload()
+  // Test files run in any order; the first account created must be the admin, so start empty.
+  await resetCollections(payload, ['users'])
 })
 
 describe('staff accounts', () => {
   it('makes the very first account an admin, whatever role was asked for', async () => {
-    await payload.db.deleteMany({ collection: 'users', where: {} })
+    await resetCollections(payload, ['users'])
     const first = await payload.create({
       collection: 'users',
       data: { email: 'first@noisystreetss.test', password: 'test-password-123', name: 'First', role: 'editor' },
