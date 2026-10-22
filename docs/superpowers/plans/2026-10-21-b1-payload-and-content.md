@@ -6,16 +6,16 @@
 
 **Architecture:** Payload 3 runs inside the existing Next.js app. The prototype moves into a `src/app/(frontend)/` route group, and Payload's admin and REST API live in `src/app/(payload)/`. Content lives in a local Postgres database in Docker. Mail goes to a local Mailpit inbox. Content rules (who can read what, date-based status, overlap checks) live in small pure functions under `src/rules/` that collections and tests both use. Production settings (Supabase Storage, Resend, Vercel Cron) are wired in but switched off until their environment variables exist.
 
-**Tech Stack:** Next.js 16.3.8, React 19.2.9, Payload 3.90.2 (`@payloadcms/db-postgres`, `@payloadcms/richtext-lexical`, `@payloadcms/plugin-seo`, `@payloadcms/email-nodemailer`, `@payloadcms/storage-s3`), Postgres 17.11 and Mailpit in Docker, Vitest 4.0.18, TypeScript 5.9.3, npm, Node 24 LTS.
+**Tech Stack:** Next.js 16.4.1, React 19.2.9, Payload 3.90.2 (`@payloadcms/db-postgres`, `@payloadcms/richtext-lexical`, `@payloadcms/plugin-seo`, `@payloadcms/email-nodemailer`, `@payloadcms/storage-s3`), Postgres 17.11 and Mailpit in Docker, Vitest 4.0.18, TypeScript 5.9.3, npm, Node 24 LTS.
 
 **Spec:** `docs/superpowers/specs/2026-10-18-b1-payload-and-content-design.md` (approved 21 October 2026). When this plan and the spec disagree, the spec wins; stop and ask.
 
 ## Global Constraints
 
 - `payload` and every `@payloadcms/*` package: `3.90.2`, exact.
-- `next` and `eslint-config-next`: `16.3.8`, exact.
+- `next` and `eslint-config-next`: `16.4.1`, exact. (Task 1 pinned 16.3.8; the developer upgraded to 16.4.1 on 22 October 2026. It is inside Payload 3.90.2's supported range.)
 - `react` and `react-dom`: `19.2.9`, exact. `@types/react`: `19.2.18`. `@types/react-dom`: `19.2.7`.
-- `typescript`: `5.9.3`. `sharp`: `0.35.4` (the version Payload 3.90.2's templates pin). `vitest`: `4.0.18`. `vite-tsconfig-paths`: `6.0.5`. `graphql`: the newest `16.x` (Payload peer dependency).
+- `typescript`: `5.9.3`. `sharp`: `0.35.5` (upgraded with Next.js on 22 October 2026; Payload's templates pin 0.35.4). `vitest`: `4.0.18`. `vite-tsconfig-paths`: `6.0.5`. `graphql`: the newest `16.x` (Payload peer dependency).
 - Node.js 24 LTS, pinned in `.nvmrc` (`24`) and `package.json` `engines` (`"node": "24.x"`). The machine has Node 26 by default; use `fnm use` in the project folder.
 - Docker images: `postgres:17.11` and `axllent/mailpit:v1.31.6`.
 - Every added or upgraded package is pinned exactly: install with `npm install --save-exact` (`-E`). No `^` or `~` on anything this plan adds or upgrades.
@@ -3620,7 +3620,7 @@ const filled = (value: unknown) =>
 
 /** A session needs a book or a title. Returns the message to show, or null when fine. */
 export function bookOrTitleProblem(book: unknown, title: unknown): string | null {
-  return filled(book) || filled(title) ? null : 'Choose a book or give the session a title.'
+  return filled(book) || filled(title) ? null : 'A session needs a book or a title.'
 }
 ```
 
