@@ -448,6 +448,19 @@
           "primaryKey": false,
           "notNull": false
         },
+        "prefix": {
+          "name": "prefix",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "''"
+        },
+        "_objectkey": {
+          "name": "_objectkey",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp(3) with time zone",
@@ -733,6 +746,19 @@
           "type": "serial",
           "primaryKey": true,
           "notNull": true
+        },
+        "prefix": {
+          "name": "prefix",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "''"
+        },
+        "_objectkey": {
+          "name": "_objectkey",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
         },
         "updated_at": {
           "name": "updated_at",
@@ -15681,6 +15707,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "7399a39c-abde-4c95-bf61-516b4075b86b",
+  "id": "5401603e-df55-4f1f-9376-0f572e763511",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }
