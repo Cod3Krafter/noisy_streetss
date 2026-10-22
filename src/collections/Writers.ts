@@ -50,5 +50,12 @@ export const Writers: CollectionConfig = {
       on: 'writers',
       admin: { description: 'Filled in automatically from each book.' },
     },
+    {
+      name: 'articles',
+      type: 'join',
+      collection: 'articles',
+      on: 'writers',
+      admin: { description: 'Filled in automatically from each article.' },
+    },
   ],
 }
