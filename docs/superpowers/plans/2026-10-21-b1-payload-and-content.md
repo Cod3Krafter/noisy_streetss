@@ -212,7 +212,7 @@ Postgres and Mailpit run in Docker. Postgres holds two databases: `noisy_streets
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: Postgres on `127.0.0.1:5432` (user `postgres`, password `postgres`), databases `noisy_streetss` and `noisy_streetss_test`; Mailpit SMTP on `127.0.0.1:1025` and its inbox at `http://localhost:8025`; a filled-in `.env` that every later task reads.
+- Produces: Postgres on `127.0.0.1:5432` (user `postgres`, password `postgres`), databases `noisy_streetss` and `noisy_streetss_test`; Mailpit SMTP on `127.0.0.1:21025` and its inbox at `http://localhost:28025`; a filled-in `.env` that every later task reads.
 
 - [ ] **Step 1: Write the Docker services**
 
@@ -225,7 +225,7 @@ services:
     image: postgres:17.11
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -234,7 +234,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d noisy_streetss"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d noisy_streetss"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -243,8 +243,8 @@ services:
     image: axllent/mailpit:v1.31.6
     restart: unless-stopped
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:21025:1025"
+      - "127.0.0.1:28025:8025"
 
 volumes:
   pgdata:
@@ -279,10 +279,10 @@ TEST_DATABASE_URI=postgresql://postgres:postgres@127.0.0.1:5432/noisy_streetss_t
 PAYLOAD_SECRET=
 NEXT_PUBLIC_SERVER_URL=http://localhost:3000
 
-# Email. Locally this is Mailpit (inbox at http://localhost:8025).
+# Email. Locally this is Mailpit (inbox at http://localhost:28025).
 # In production: Resend's SMTP settings, or the client's existing sending service.
 SMTP_HOST=127.0.0.1
-SMTP_PORT=1025
+SMTP_PORT=21025
 SMTP_USER=
 SMTP_PASS=
 SMTP_FROM=Noisy Streetss <website@noisystreetss.test>
@@ -328,7 +328,7 @@ docker compose exec postgres psql -U postgres -c "\l" | grep noisy_streetss
 
 Expected: two lines, `noisy_streetss` and `noisy_streetss_test`.
 
-Open `http://localhost:8025` in the Playwright browser. Expected: the Mailpit inbox, empty. Close the browser.
+Open `http://localhost:28025` in the Playwright browser. Expected: the Mailpit inbox, empty. Close the browser.
 
 - [ ] **Step 5: Commit**
 
@@ -5721,7 +5721,7 @@ Run `npm run dev`. In the admin, open Site settings, fill in the contact email a
 curl -s -X POST http://localhost:3000/api/contact-messages -H "Content-Type: application/json" -d "{\"name\":\"Curl Test\",\"email\":\"curl@example.com\",\"message\":\"Sent through the REST API.\"}"
 ```
 
-Expected: a JSON reply containing `"doc"` with `"status":"new"`. Open `http://localhost:8025`: one email, "New contact message on the website", whose link opens the entry in the admin.
+Expected: a JSON reply containing `"doc"` with `"status":"new"`. Open `http://localhost:28025`: one email, "New contact message on the website", whose link opens the entry in the admin.
 
 Send the same request with `,\"website\":\"spam\"` added inside the braces. Expected: a 400 reply and no new email.
 
@@ -6754,7 +6754,7 @@ Expected: both finish with "Seed finished." and no errors. Run `npm run dev`, th
 
 1. Log in as `admin@noisystreetss.test`. Check that every menu group from spec section 7.3 is there (Publishing, Editorial, What's on, Shop and services, About, Pages, Inbox, Media, Settings), and that the lists are full. Open a book, an article and the Home page record.
 2. Log out and log in as `editor@noisystreetss.test`. Expected: no Shop settings and no Staff accounts in the menu, and `/admin/globals/shop-settings` is refused.
-3. Open `http://localhost:8025`. Expected: no alert emails from seeding.
+3. Open `http://localhost:28025`. Expected: no alert emails from seeding.
 
 Screenshot the admin dashboard for each account, a filled book and the Inbox list, at 1440 x 900 and 390 x 844, and look at each. Stop the dev server and close the browser.
 
@@ -6829,7 +6829,7 @@ You need Node 24 (`fnm use` reads `.nvmrc`) and Docker.
 
 ```bash
 fnm use
-docker compose up -d        # Postgres on 5432, Mailpit on 1025 (inbox at http://localhost:8025)
+docker compose up -d        # Postgres on 5432, Mailpit on 21025 (inbox at http://localhost:28025)
 cp .env.example .env        # then fill in PAYLOAD_SECRET and CRON_SECRET
 npm install
 npm run seed                # dummy content; safe to rerun, local databases only
