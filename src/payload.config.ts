@@ -5,11 +5,13 @@ import { buildConfig } from 'payload'
 import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
+import { Books } from './collections/Books'
 import { Categories } from './collections/Categories'
 import { Manuscripts } from './collections/Manuscripts'
 import { Media } from './collections/Media'
 import { Tags } from './collections/Tags'
 import { Users } from './collections/Users'
+import { Writers } from './collections/Writers'
 import { storagePlugins } from './storage'
 
 const filename = fileURLToPath(import.meta.url)
@@ -22,7 +24,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Categories, Tags, Media, Manuscripts],
+  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books],
   globals: [],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
