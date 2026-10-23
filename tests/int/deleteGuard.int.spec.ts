@@ -228,6 +228,37 @@ describe('over the REST API, as the admin uses it', () => {
   })
 })
 
+describe('how a refusal is logged', () => {
+  const messageOf = (call: unknown[]) => {
+    const first = call[0] as { msg?: string } | string
+    return typeof first === 'string' ? first : (first.msg ?? '')
+  }
+
+  it('logs a refused delete as one info line and nothing at error', async () => {
+    const token = await tokenFor(payload, admin)
+    const book = await newBook()
+    await newPopup(book.id)
+    const info = vi.spyOn(payload.logger, 'info')
+    const error = vi.spyOn(payload.logger, 'error')
+    try {
+      const res = await rest('DELETE', `/books/${book.id}`, { token })
+      expect(res.status).toBe(400)
+      expect(error.mock.calls.map(messageOf)).toEqual([])
+      expect(info.mock.calls.map(messageOf).filter((message) => inUse.test(message))).toHaveLength(1)
+    } finally {
+      info.mockRestore()
+      error.mockRestore()
+    }
+  })
+
+  it("has Refusal at info, keeps Payload's own levels, and leaves APIError at error", () => {
+    const levels = payload.config.loggingLevels as Record<string, string>
+    expect(levels.Refusal).toBe('info')
+    expect(levels.NotFound).toBe('info')
+    expect(levels.APIError).toBeUndefined()
+  })
+})
+
 describe('reading only what can hold the record', () => {
   it('reads no page or setting to delete a tag, and still names the article using it', async () => {
     const tag = await payload.create({ collection: 'tags', data: { name: `Guard tag ${unique()}` } })

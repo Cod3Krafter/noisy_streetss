@@ -1,11 +1,12 @@
 import {
   addDataAndFileToRequest,
-  APIError,
   type CollectionBeforeValidateHook,
   type CollectionSlug,
   type Endpoint,
   type Field,
 } from 'payload'
+
+import { Refusal } from '@/refusal'
 
 /** Hidden from people, so only bots fill it in. Never stored. */
 export const HONEYPOT_FIELD = 'website'
@@ -30,7 +31,7 @@ export function isSpam(data: Record<string, unknown> | null | undefined): boolea
  */
 export const dropSpam: CollectionBeforeValidateHook = ({ data, operation }) => {
   if (operation === 'create' && isSpam(data)) {
-    throw new APIError('This form could not be sent.', 400, null, true)
+    throw new Refusal('This form could not be sent.')
   }
   return data
 }
