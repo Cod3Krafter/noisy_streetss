@@ -1,6 +1,93 @@
 // Text boxes keep a fixed width and only grow downwards, so dragging one can't push
 // a field out of its column. Payload's own styles sit in a cascade layer, so this
-// unlayered rule takes precedence.
+// unlayered rule takes precedence. The same goes for every rule below.
 textarea {
   resize: vertical;
+}
+
+// Field error messages. Payload shows each one as a one-line tooltip above the field,
+// cut short with an ellipsis, so a long reason such as the book popup clash can't be
+// read. Here the box sizes to its text, up to the full width of the field (Payload caps
+// it at 75%), and the message wraps, growing upwards from the field so it doesn't
+// cover the input.
+.field-error.tooltip {
+  white-space: normal;
+  max-width: 100%;
+
+  .tooltip-content {
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  &.tooltip--position-top {
+    top: auto;
+    bottom: 100%;
+  }
+}
+
+// Payload sizes the rich-text error to its text, and the cap above would stretch it.
+.rich-text-lexical > .field-error.tooltip {
+  max-width: fit-content;
+}
+
+// Payload hides every tooltip at 1024 px and below, which leaves an invalid field
+// red with no reason given. There the message sits in the page above the input,
+// at full width, instead of floating.
+@media (max-width: 1024px) {
+  .field-error.tooltip.tooltip--show {
+    display: block;
+    position: relative;
+    inset: auto;
+    max-width: none;
+    margin-bottom: calc(var(--base) * 0.5);
+    transform: none;
+  }
+
+  // Payload renders the rich-text error before the label, so here the children are
+  // reordered to read label, error, editor like every other field.
+  .field-type.rich-text-lexical:has(> .field-error.tooltip--show) {
+    display: flex;
+    flex-direction: column;
+
+    > .field-error {
+      order: 1;
+    }
+
+    > .rich-text-lexical__wrap {
+      order: 2;
+    }
+  }
+}
+
+// An image placed in rich text. Payload sets landscape images to exactly 450 px wide
+// and only lifts the minimum on small screens, so on a phone the card runs off the edge.
+@media (max-width: 768px) {
+  .LexicalEditorTheme__upload {
+    max-width: 100%;
+
+    img,
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+  }
+}
+
+// The Status, Last Modified and Created row above each record. At 1024 px and below
+// Payload keeps it on one line that scrolls sideways with its scrollbar hidden, so on
+// a phone the end of the row is cut off. Here the items wrap onto new lines instead.
+@media (max-width: 1024px) {
+  .doc-controls__content {
+    overflow: visible;
+  }
+
+  .doc-controls__meta {
+    flex-wrap: wrap;
+    row-gap: calc(var(--base) / 4);
+
+    // Payload's fade at the right edge, a hint that the row scrolls. It no longer does.
+    &::after {
+      display: none;
+    }
+  }
 }
