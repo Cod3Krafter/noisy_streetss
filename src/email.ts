@@ -21,12 +21,15 @@ export function emailAdapter() {
   return nodemailerAdapter({
     defaultFromAddress: from.address,
     defaultFromName: from.name,
-    // Checked once at start-up in production, so a wrong host shows in the logs at once.
+    // The connection is checked whenever the server starts in production, so a wrong host shows in
+    // the logs at once. The short timeouts stop a bad host from holding up a cold start.
     skipVerify: process.env.NODE_ENV !== 'production',
     transportOptions: {
       host,
       port,
       secure: port === 465,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
     },
   })
