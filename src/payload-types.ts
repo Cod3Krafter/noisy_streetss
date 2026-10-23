@@ -499,6 +499,8 @@ export interface Book {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * An article can only be saved, even as a draft, once its title, summary, body, writer, category and publication date are filled in. That way a scheduled publish never fails.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "articles".
  */

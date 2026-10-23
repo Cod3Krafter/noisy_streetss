@@ -87,10 +87,32 @@ describe('articles', () => {
     )
   })
 
-  it('lets a draft be saved without a writer or category', async () => {
+  it('refuses to save a draft without a writer or category', async () => {
+    await expectFieldError(
+      payload.create({ collection: 'articles', data: article({ writers: [] }), draft: true }),
+      'writers',
+      /required/i,
+    )
+    await expectFieldError(
+      payload.create({ collection: 'articles', data: article({ categories: [] }), draft: true }),
+      'categories',
+      /required/i,
+    )
+  })
+
+  it('refuses a draft change that empties a required field', async () => {
+    const draft = await payload.create({ collection: 'articles', data: article(), draft: true })
+    await expectFieldError(
+      payload.update({ collection: 'articles', id: draft.id, data: { summary: '' }, draft: true }),
+      'summary',
+      /required/i,
+    )
+  })
+
+  it('still lets other lists save incomplete drafts', async () => {
     const draft = await payload.create({
-      collection: 'articles',
-      data: article({ writers: [], categories: [] }),
+      collection: 'writers',
+      data: { name: `Draft writer ${Math.random()}` },
       draft: true,
     })
     expect(draft._status).toBe('draft')

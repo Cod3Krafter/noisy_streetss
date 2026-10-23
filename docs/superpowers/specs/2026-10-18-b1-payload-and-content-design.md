@@ -146,7 +146,7 @@ docker-compose.yml       postgres + mailpit
 ### 6.1 Shared behaviour
 
 - **Drafts and version history:** books, writers, articles, podcast episodes, submission calls, awards, events, careers, Book Club sessions, merch, studio services and basic pages. Editors can save without publishing and restore earlier versions.
-- **Scheduled publishing:** articles only.
+- **Scheduled publishing:** articles only. Article drafts are validated like a publish (`drafts.validate`, decided 23 October 2026), so an article can only be saved once every required field is filled in, and a scheduled publish can't fail on a missing field. Other lists still save incomplete drafts.
 - **Web address (slug):** created from the title, editable, and unique within its collection. Applies to every type with its own page. A small slug field of the project's own is used, because Payload's built-in one is marked experimental in 3.90.2.
 - **SEO fields** (meta title, meta description, sharing image), from Payload's SEO plugin. Applies to books, writers, articles, podcast episodes, awards, merch, basic pages and every page record.
 - **Visibility:** visitors only ever receive published records. Staff can read drafts.
