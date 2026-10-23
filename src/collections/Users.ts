@@ -12,7 +12,8 @@ const firstAccountIsAdmin: CollectionBeforeChangeHook = async ({ data, operation
 export const Users: CollectionConfig = {
   slug: 'users',
   labels: { singular: 'Staff account', plural: 'Staff accounts' },
-  auth: true,
+  // The login cookie is only sent over https in production. Everything else stays at Payload's defaults.
+  auth: { cookies: { secure: process.env.NODE_ENV === 'production' } },
   admin: {
     useAsTitle: 'name',
     defaultColumns: ['name', 'email', 'role'],

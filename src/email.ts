@@ -21,7 +21,8 @@ export function emailAdapter() {
   return nodemailerAdapter({
     defaultFromAddress: from.address,
     defaultFromName: from.name,
-    skipVerify: true,
+    // Checked once at start-up in production, so a wrong host shows in the logs at once.
+    skipVerify: process.env.NODE_ENV !== 'production',
     transportOptions: {
       host,
       port,

@@ -39,6 +39,7 @@ import { Writers } from './collections/Writers'
 import { pageRecords } from './globals/pageRecords'
 import { ShopSettings } from './globals/ShopSettings'
 import { SiteSettings } from './globals/SiteSettings'
+import { missingProductionSettings } from './rules/productionSettings'
 import { seo } from './seo'
 import { storagePlugins } from './storage'
 
@@ -67,6 +68,12 @@ export default buildConfig({
     // In development the app runs due jobs itself every minute. In production
     // Vercel Cron calls /api/payload-jobs/run instead (see vercel.json).
     autoRun: process.env.NODE_ENV === 'production' ? [] : [{ cron: '* * * * *', queue: 'default', limit: 10 }],
+  },
+  onInit: (payload) => {
+    if (process.env.NODE_ENV !== 'production') return
+    for (const name of missingProductionSettings(process.env)) {
+      payload.logger.error(`Production setting ${name} is not set.`)
+    }
   },
   editor: lexicalEditor(),
   email: emailAdapter(),
