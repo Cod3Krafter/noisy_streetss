@@ -267,7 +267,7 @@ export interface Category {
   id: number;
   name: string;
   /**
-   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   description?: string | null;
@@ -282,7 +282,7 @@ export interface Tag {
   id: number;
   name: string;
   /**
-   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   updatedAt: string;
@@ -373,7 +373,7 @@ export interface Writer {
   id: number;
   name: string;
   /**
-   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   photo?: (number | null) | Media;
@@ -440,7 +440,7 @@ export interface Book {
   id: number;
   title: string;
   /**
-   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   cover: number | Media;
@@ -508,7 +508,7 @@ export interface Article {
   id: number;
   title: string;
   /**
-   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   cover?: (number | null) | Media;
@@ -562,7 +562,7 @@ export interface PodcastShow {
   id: number;
   name: string;
   /**
-   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   description?: string | null;
@@ -581,7 +581,7 @@ export interface PodcastEpisode {
   id: number;
   title: string;
   /**
-   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   show: number | PodcastShow;
@@ -631,7 +631,7 @@ export interface SubmissionCall {
   id: number;
   title: string;
   /**
-   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   /**
@@ -672,7 +672,7 @@ export interface Award {
   id: number;
   name: string;
   /**
-   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   status: 'open' | 'judging' | 'winners-announced' | 'closed';
@@ -845,7 +845,7 @@ export interface Merch {
   id: number;
   title: string;
   /**
-   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   images: (number | Media)[];
@@ -874,7 +874,7 @@ export interface StudioService {
   id: number;
   name: string;
   /**
-   * Made from the name when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   description: string;
@@ -929,7 +929,7 @@ export interface Page {
   id: number;
   title: string;
   /**
-   * Made from the title when left empty. Lower-case letters, numbers and hyphens only.
+   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
   body: {
