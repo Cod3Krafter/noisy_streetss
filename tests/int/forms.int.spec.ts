@@ -5,7 +5,7 @@ import type { Manuscript, User } from '@/payload-types'
 import { richText } from '@/seed/richText'
 import { samplePdf } from '@/seed/samplePdf'
 
-import { createStaff, expectFieldError, getTestPayload } from '../helpers/payload'
+import { createStaff, expectFieldError, getTestPayload, rest } from '../helpers/payload'
 
 const DAY = 24 * 60 * 60 * 1000
 const fromNow = (days: number) => new Date(Date.now() + days * DAY).toISOString()
@@ -75,7 +75,7 @@ describe('visitors sending forms', () => {
     expect(stored.staffNotes ?? null).toBeNull()
   })
 
-  it('refuses an entry that fills in the hidden field', async () => {
+  it('never stores an entry with the hidden field filled in when server code saves it directly', async () => {
     const before = await payload.count({ collection: 'contact-messages' })
     await expect(
       payload.create({ collection: 'contact-messages', data: contact({ website: 'http://spam.example' }), overrideAccess: false }),
@@ -84,7 +84,7 @@ describe('visitors sending forms', () => {
     expect(after.totalDocs).toBe(before.totalDocs)
   })
 
-  it('refuses a non-string honeypot value', async () => {
+  it('treats a non-string hidden field value as spam when server code saves it directly', async () => {
     await expect(
       payload.create({ collection: 'contact-messages', data: contact({ website: 1 as unknown as string }), overrideAccess: false }),
     ).rejects.toThrow()
@@ -100,6 +100,77 @@ describe('visitors sending forms', () => {
 
   it('never lets visitors read entries', async () => {
     await expect(payload.find({ collection: 'contact-messages', overrideAccess: false })).rejects.toThrow()
+  })
+})
+
+describe('the hidden spam field, for forms sent over the website', () => {
+  const post = (slug: string, data: Record<string, unknown>) => rest('POST', `/${slug}`, { body: data })
+
+  it('answers a bot with the usual success, but saves nothing and sends no alert', async () => {
+    const send = vi.spyOn(payload, 'sendEmail').mockResolvedValue(undefined)
+    const before = await payload.count({ collection: 'contact-messages' })
+    const res = await post('contact-messages', contact({ website: 'http://spam.example' }))
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.message).toBe('Contact message successfully created.')
+    expect(body.doc).toMatchObject({ name: 'Ada Visitor', email: 'ada@example.com', status: 'new' })
+    expect(body.doc).not.toHaveProperty('website')
+    const after = await payload.count({ collection: 'contact-messages' })
+    expect(after.totalDocs).toBe(before.totalDocs)
+    expect(send).not.toHaveBeenCalled()
+    send.mockRestore()
+  })
+
+  it('treats any value in the hidden field as spam, not only text', async () => {
+    const before = await payload.count({ collection: 'contact-messages' })
+    const res = await post('contact-messages', contact({ website: 1 }))
+    expect(res.status).toBe(201)
+    expect((await payload.count({ collection: 'contact-messages' })).totalDocs).toBe(before.totalDocs)
+  })
+
+  it('saves a real entry sent to the same address, and alerts staff', async () => {
+    const send = vi.spyOn(payload, 'sendEmail').mockResolvedValue(undefined)
+    const res = await post('contact-messages', contact({ message: 'A real visitor.', website: '' }))
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.message).toBe('Contact message successfully created.')
+    const stored = await payload.findByID({ collection: 'contact-messages', id: body.doc.id })
+    expect(stored.message).toBe('A real visitor.')
+    expect(send).toHaveBeenCalledTimes(1)
+    send.mockRestore()
+  })
+
+  it('keeps the visitor rules for real entries: status starts New, staff notes are dropped', async () => {
+    const res = await post('contact-messages', contact({ status: 'done', staffNotes: 'Planted note' }))
+    const body = await res.json()
+    const stored = await payload.findByID({ collection: 'contact-messages', id: body.doc.id })
+    expect(stored.status).toBe('new')
+    expect(stored.staffNotes ?? null).toBeNull()
+  })
+
+  it('still sends back field errors for a real entry', async () => {
+    const res = await post('contact-messages', contact({ message: 'a'.repeat(5001) }))
+    expect(res.status).toBe(400)
+  })
+
+  it('does the same on the other public forms', async () => {
+    const before = await payload.count({ collection: 'partnership-enquiries' })
+    const res = await post('partnership-enquiries', {
+      name: 'Bot',
+      organisation: 'Spam Ltd',
+      email: 'bot@example.com',
+      partnershipType: 'events',
+      message: 'Buy now',
+      website: 'http://spam.example',
+    })
+    expect(res.status).toBe(201)
+    expect((await res.json()).message).toBe('Partnership enquiry successfully created.')
+    expect((await payload.count({ collection: 'partnership-enquiries' })).totalDocs).toBe(before.totalDocs)
+  })
+
+  it('gives no pretend success where visitors may not post at all', async () => {
+    const res = await post('manuscript-submissions', { name: 'Bot', website: 'http://spam.example' })
+    expect(res.status).toBe(403)
   })
 })
 
