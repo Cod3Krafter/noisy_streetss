@@ -7,13 +7,12 @@ textarea {
 
 // Field error messages. Payload shows each one as a one-line tooltip above the field,
 // cut short with an ellipsis, so a long reason such as the book popup clash can't be
-// read. Here the box spans the whole width of the field and the message wraps, growing
-// upwards from the field so it doesn't cover the input.
+// read. Here the box sizes to its text, up to the full width of the field (Payload caps
+// it at 75%), and the message wraps, growing upwards from the field so it doesn't
+// cover the input.
 .field-error.tooltip {
   white-space: normal;
-  left: 0;
-  right: 0;
-  max-width: none;
+  max-width: 100%;
 
   .tooltip-content {
     overflow: visible;
