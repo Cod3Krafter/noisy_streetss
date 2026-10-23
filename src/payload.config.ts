@@ -44,7 +44,7 @@ import { guardDeletes } from './hooks/deleteGuard'
 import { missingProductionSettings } from './rules/productionSettings'
 import { REFUSAL } from './refusal'
 import { seo } from './seo'
-import { storagePlugins } from './storage'
+import { hideStorageFieldsFromLists, storagePlugins } from './storage'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -103,5 +103,5 @@ export default buildConfig({
     migrationDir: path.resolve(dirname, 'migrations'),
   }),
   sharp,
-  plugins: [...storagePlugins(), seo],
+  plugins: [...storagePlugins(), hideStorageFieldsFromLists, seo],
 })
