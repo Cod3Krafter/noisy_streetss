@@ -43,7 +43,7 @@ export const Awards: CollectionConfig = {
       labels: { singular: 'Date', plural: 'Dates' },
       fields: [
         { name: 'label', type: 'text', required: true, admin: { placeholder: 'Entries close' } },
-        { name: 'date', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayOnly' } } },
+        { name: 'date', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayOnly', displayFormat: 'd MMM yyyy' } } },
       ],
     },
     {

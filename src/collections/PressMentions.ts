@@ -12,7 +12,7 @@ export const PressMentions: CollectionConfig = {
     { name: 'outlet', type: 'text', required: true, admin: { placeholder: 'The Guardian Nigeria' } },
     { name: 'headline', type: 'text', required: true },
     { name: 'url', label: 'Link to the piece', type: 'text', required: true, validate: urlValidator(true) },
-    { name: 'date', type: 'date', admin: { date: { pickerAppearance: 'dayOnly' } } },
+    { name: 'date', type: 'date', admin: { date: { pickerAppearance: 'dayOnly', displayFormat: 'd MMM yyyy' } } },
     { name: 'logo', type: 'upload', relationTo: 'media' },
     { name: 'quote', type: 'textarea', admin: { description: 'A short line from the piece, if there is a good one.' } },
   ],

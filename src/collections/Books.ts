@@ -56,7 +56,7 @@ export const Books: CollectionConfig = {
     {
       type: 'row',
       fields: [
-        { name: 'publishDate', label: 'Publication date', type: 'date', admin: { date: { pickerAppearance: 'dayOnly' } } },
+        { name: 'publishDate', label: 'Publication date', type: 'date', admin: { date: { pickerAppearance: 'dayOnly', displayFormat: 'd MMM yyyy' } } },
         { name: 'pageCount', label: 'Pages', type: 'number', min: 1 },
         { name: 'isbn', label: 'ISBN', type: 'text' },
       ],

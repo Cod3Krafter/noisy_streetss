@@ -35,7 +35,7 @@ export const PodcastEpisodes: CollectionConfig = {
       type: 'row',
       fields: [
         { name: 'episodeNumber', label: 'Episode number', type: 'number', min: 1 },
-        { name: 'date', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayOnly' } } },
+        { name: 'date', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayOnly', displayFormat: 'd MMM yyyy' } } },
         { name: 'lengthMinutes', label: 'Length (minutes)', type: 'number', min: 1 },
       ],
     },

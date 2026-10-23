@@ -5,7 +5,7 @@ import { visibleCareersWhere } from '@/rules/careers'
 import { upcomingEventsWhere } from '@/rules/events'
 import { richText } from '@/seed/richText'
 
-import { expectFieldError, getTestPayload, resetCollections } from '../helpers/payload'
+import { createImage, createWriter, expectFieldError, getTestPayload, resetCollections } from '../helpers/payload'
 
 const DAY = 24 * 60 * 60 * 1000
 const fromNow = (days: number) => new Date(Date.now() + days * DAY).toISOString()
@@ -80,5 +80,24 @@ describe('book club sessions', () => {
       data: { title: 'Poetry night', startsAt: fromNow(7), _status: 'published' },
     })
     expect(session.title).toBe('Poetry night')
+  })
+
+  it('takes an empty title from the chosen book, and keeps a typed one', async () => {
+    const cover = await createImage(payload)
+    const writer = await createWriter(payload)
+    const book = await payload.create({
+      collection: 'books',
+      data: { title: 'The Long Night', cover: cover.id, writers: [writer.id], category: 'poetry', summary: 'For the title test.', _status: 'published' },
+    })
+    const filled = await payload.create({
+      collection: 'book-club-sessions',
+      data: { book: book.id, startsAt: fromNow(7), _status: 'published' },
+    })
+    expect(filled.title).toBe('The Long Night')
+    const typed = await payload.create({
+      collection: 'book-club-sessions',
+      data: { book: book.id, title: 'Chapter one', startsAt: fromNow(7), _status: 'published' },
+    })
+    expect(typed.title).toBe('Chapter one')
   })
 })

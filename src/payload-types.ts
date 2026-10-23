@@ -774,7 +774,7 @@ export interface Event {
   _status?: ('draft' | 'published') | null;
 }
 /**
- * Shown on the Careers page while switched on and before the closing date.
+ * Shown on the Careers page while switched on, until the end of the closing date.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "careers".
@@ -820,7 +820,7 @@ export interface BookClubSession {
    */
   book?: (number | null) | Book;
   /**
-   * Needed when no book is chosen.
+   * Needed when no book is chosen. Left empty, the book's title is used.
    */
   title?: string | null;
   startsAt: string;

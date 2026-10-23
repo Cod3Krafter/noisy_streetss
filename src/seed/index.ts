@@ -39,6 +39,18 @@ export function isInsideFolder(dir: string, root: string = process.cwd()): boole
   return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
 }
 
+/**
+ * The only folders the seed may empty: the project's own media and manuscripts folders, and the
+ * folders the tests use inside .test-uploads. A wrong setting (say MEDIA_DIR pointing at src)
+ * must stop the seed rather than delete real files.
+ */
+export function isSeedUploadFolder(dir: string, root: string = process.cwd()): boolean {
+  const resolved = path.resolve(dir)
+  const base = path.resolve(root)
+  if (resolved === path.join(base, 'media') || resolved === path.join(base, 'manuscripts')) return true
+  return isInsideFolder(resolved, path.join(base, '.test-uploads'))
+}
+
 /** Empties every collection except the migrations record, and the local upload folders. */
 export async function wipe(payload: Payload): Promise<void> {
   // Check every upload folder before anything is deleted, so an unsafe setting stops the seed cold.
@@ -46,7 +58,9 @@ export async function wipe(payload: Payload): Promise<void> {
     collection.upload && collection.upload.staticDir ? [collection.upload.staticDir] : [],
   )
   for (const dir of uploadDirs) {
-    if (!isInsideFolder(dir)) throw new Error(`Refusing to empty ${dir}: upload folders must be inside the project.`)
+    if (!isSeedUploadFolder(dir)) {
+      throw new Error(`Refusing to empty ${dir}: only the media and manuscripts folders, or folders inside .test-uploads, may be emptied.`)
+    }
   }
 
   // Reverse config order: lists that point at others (submissions at calls, popups at books)
