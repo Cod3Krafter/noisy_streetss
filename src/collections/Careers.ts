@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 
 export const Careers: CollectionConfig = {
   slug: 'careers',
@@ -11,7 +11,7 @@ export const Careers: CollectionConfig = {
     defaultColumns: ['role', 'type', 'closingDate', 'open', '_status'],
     description: 'Shown on the Careers page while switched on and before the closing date.',
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   fields: [
     { name: 'role', type: 'text', required: true },

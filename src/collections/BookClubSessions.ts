@@ -1,6 +1,6 @@
 import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { bookOrTitleProblem } from '@/rules/bookClub'
 import { finalValue, isPublishing, rejectField } from '@/rules/validation'
 import { urlValidator } from '@/rules/validators'
@@ -20,7 +20,7 @@ export const BookClubSessions: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'book', 'startsAt', 'registrationOpen', '_status'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   hooks: { beforeValidate: [requireBookOrTitle] },
   fields: [

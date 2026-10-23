@@ -1,6 +1,6 @@
 import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { slugField } from '@/fields/slug'
 import { formatsProblem } from '@/rules/books'
 import { finalValue, isPublishing, rejectField } from '@/rules/validation'
@@ -24,7 +24,7 @@ export const Books: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'category', 'sellInShop', '_status', 'updatedAt'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   hooks: {
     beforeValidate: [requireFormatsWhenSold],

@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { articleEditor } from '@/fields/richText'
 import { slugField } from '@/fields/slug'
 
@@ -12,7 +12,7 @@ export const Articles: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'publishDate', 'featured', '_status'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: {
     drafts: { schedulePublish: true },
     maxPerDoc: 50,

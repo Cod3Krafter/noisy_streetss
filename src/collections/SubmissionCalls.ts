@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { slugField } from '@/fields/slug'
 import { callStatus } from '@/rules/submissionCalls'
 import { endsAfterField } from '@/rules/time'
@@ -13,7 +13,7 @@ export const SubmissionCalls: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'opensAt', 'closesAt', 'status', '_status'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   // The virtual status is worked out from these two, so a select that asks only for status must still load them.
   forceSelect: { opensAt: true, closesAt: true },
