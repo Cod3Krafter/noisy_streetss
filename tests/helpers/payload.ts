@@ -1,6 +1,6 @@
 import config from '@payload-config'
 import path from 'node:path'
-import { type CollectionSlug, getPayload, type Payload } from 'payload'
+import { type CollectionSlug, getPayload, handleEndpoints, type Payload } from 'payload'
 import { expect } from 'vitest'
 
 import type { StaffRole } from '@/access'
@@ -13,6 +13,9 @@ export function getTestPayload(): Promise<Payload> {
   return getPayload({ config })
 }
 
+/** The password every createStaff account gets. */
+export const STAFF_PASSWORD = 'test-password-123'
+
 let staffCount = 0
 
 /** Creates a staff account with a unique address. */
@@ -22,7 +25,7 @@ export async function createStaff(payload: Payload, role: StaffRole): Promise<Us
     collection: 'users',
     data: {
       email: `${role}-${Date.now()}-${staffCount}@noisystreetss.test`,
-      password: 'test-password-123',
+      password: STAFF_PASSWORD,
       name: `Test ${role} ${staffCount}`,
       role,
     },
@@ -78,4 +81,30 @@ export async function resetCollections(payload: Payload, slugs: CollectionSlug[]
     await payload.db.deleteMany({ collection: slug, where: {} })
     if (collection.versions) await payload.db.deleteVersions({ collection: slug, where: {} })
   }
+}
+
+/** A login token for an account made by createStaff, for REST requests. */
+export async function tokenFor(payload: Payload, user: User): Promise<string> {
+  const { token } = await payload.login({ collection: 'users', data: { email: user.email, password: STAFF_PASSWORD } })
+  if (!token) throw new Error(`No login token for ${user.email}`)
+  return token
+}
+
+/**
+ * Sends a request through Payload's REST API: the same code that answers /api in the app,
+ * so access rules, endpoints and error responses are all the real ones. `path` is relative
+ * to /api, for example `/books/12`. Without a token the request comes from a visitor.
+ */
+export function rest(method: string, path: string, { body, token }: { body?: unknown; token?: string } = {}): Promise<Response> {
+  const headers = new Headers()
+  if (body !== undefined) headers.set('Content-Type', 'application/json')
+  if (token) headers.set('Authorization', `JWT ${token}`)
+  return handleEndpoints({
+    config,
+    request: new Request(`http://localhost:3000/api${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
+  })
 }
