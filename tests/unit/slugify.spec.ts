@@ -65,6 +65,14 @@ describe('validateSlug', () => {
     expect(validateSlug('', {})).toBe(ERROR)
   })
 
+  it('flags a well-formed Web address longer than 80 characters, and passes one of exactly 80', () => {
+    const tooLong = 'Keep the web address to 80 characters or fewer.'
+    expect(validateSlug('a'.repeat(81), editing)).toBe(tooLong)
+    expect(validateSlug('a'.repeat(81), saving)).toBe(tooLong)
+    expect(validateSlug('a'.repeat(80), editing)).toBe(true)
+    expect(validateSlug('a'.repeat(80), saving)).toBe(true)
+  })
+
   it('passes a well-formed Web address', () => {
     expect(validateSlug('short-fiction-2', editing)).toBe(true)
     expect(validateSlug('short-fiction-2', saving)).toBe(true)
