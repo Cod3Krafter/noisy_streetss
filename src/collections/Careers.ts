@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 
 export const Careers: CollectionConfig = {
   slug: 'careers',
@@ -9,9 +9,9 @@ export const Careers: CollectionConfig = {
     group: "What's on",
     useAsTitle: 'role',
     defaultColumns: ['role', 'type', 'closingDate', 'open', '_status'],
-    description: 'Shown on the Careers page while switched on and before the closing date.',
+    description: 'Shown on the Careers page while switched on, until the end of the closing date.',
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   fields: [
     { name: 'role', type: 'text', required: true },
@@ -34,7 +34,7 @@ export const Careers: CollectionConfig = {
       name: 'closingDate',
       label: 'Closing date',
       type: 'date',
-      admin: { position: 'sidebar', date: { pickerAppearance: 'dayOnly' }, description: 'The role still shows on this day.' },
+      admin: { position: 'sidebar', date: { pickerAppearance: 'dayOnly', displayFormat: 'd MMM yyyy' }, description: 'The role still shows on this day.' },
     },
     { name: 'open', label: 'Accepting applications', type: 'checkbox', defaultValue: true, admin: { position: 'sidebar' } },
   ],

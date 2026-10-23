@@ -1,12 +1,17 @@
 import type { Payload } from 'payload'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-import { createStaff, getTestPayload } from '../helpers/payload'
+import { createStaff, getTestPayload, resetCollections } from '../helpers/payload'
 
 let payload: Payload
 
 beforeAll(async () => {
   payload = await getTestPayload()
+})
+
+// Each test builds the categories it needs, so the tests pass in any order.
+beforeEach(async () => {
+  await resetCollections(payload, ['categories', 'tags'])
 })
 
 describe('slugs', () => {
@@ -16,6 +21,7 @@ describe('slugs', () => {
   })
 
   it('adds a number when the made slug is taken', async () => {
+    await payload.create({ collection: 'categories', data: { name: 'Short Fiction' } })
     const second = await payload.create({ collection: 'categories', data: { name: 'Short Fiction' } })
     expect(second.slug).toBe('short-fiction-2')
   })
@@ -29,6 +35,7 @@ describe('slugs', () => {
   })
 
   it('rejects a typed slug that is already taken', async () => {
+    await payload.create({ collection: 'categories', data: { name: 'Short Fiction' } })
     await expect(
       payload.create({ collection: 'categories', data: { name: 'Another', slug: 'short-fiction' } }),
     ).rejects.toThrow(/slug/)
@@ -80,6 +87,7 @@ describe('slugs', () => {
 
 describe('categories and tags access', () => {
   it('lets visitors read but not create', async () => {
+    await payload.create({ collection: 'categories', data: { name: 'Readable' } })
     const result = await payload.find({ collection: 'categories', overrideAccess: false })
     expect(result.totalDocs).toBeGreaterThan(0)
     await expect(

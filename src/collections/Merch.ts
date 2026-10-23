@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { slugField } from '@/fields/slug'
 import { nairaValidator } from '@/rules/validators'
 
@@ -12,7 +12,7 @@ export const Merch: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'type', 'priceNGN', 'inStock', '_status'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   fields: [
     { name: 'title', type: 'text', required: true },

@@ -92,6 +92,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"alt" varchar NOT NULL,
   	"caption" varchar,
   	"credit" varchar,
+  	"prefix" varchar DEFAULT '',
+  	"_objectkey" varchar,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"url" varchar,
@@ -125,6 +127,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE "manuscripts" (
   	"id" serial PRIMARY KEY NOT NULL,
+  	"prefix" varchar DEFAULT '',
+  	"_objectkey" varchar,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"url" varchar,

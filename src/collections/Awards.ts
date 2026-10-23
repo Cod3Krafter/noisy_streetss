@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { slugField } from '@/fields/slug'
 import { urlValidator } from '@/rules/validators'
 
@@ -12,7 +12,7 @@ export const Awards: CollectionConfig = {
     useAsTitle: 'name',
     defaultColumns: ['name', 'status', '_status'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   fields: [
     { name: 'name', type: 'text', required: true },
@@ -43,7 +43,7 @@ export const Awards: CollectionConfig = {
       labels: { singular: 'Date', plural: 'Dates' },
       fields: [
         { name: 'label', type: 'text', required: true, admin: { placeholder: 'Entries close' } },
-        { name: 'date', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayOnly' } } },
+        { name: 'date', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayOnly', displayFormat: 'd MMM yyyy' } } },
       ],
     },
     {

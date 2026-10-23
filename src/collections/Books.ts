@@ -1,6 +1,6 @@
 import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { slugField } from '@/fields/slug'
 import { formatsProblem } from '@/rules/books'
 import { finalValue, isPublishing, rejectField } from '@/rules/validation'
@@ -24,7 +24,7 @@ export const Books: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'category', 'sellInShop', '_status', 'updatedAt'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   hooks: {
     beforeValidate: [requireFormatsWhenSold],
@@ -56,7 +56,7 @@ export const Books: CollectionConfig = {
     {
       type: 'row',
       fields: [
-        { name: 'publishDate', label: 'Publication date', type: 'date', admin: { date: { pickerAppearance: 'dayOnly' } } },
+        { name: 'publishDate', label: 'Publication date', type: 'date', admin: { date: { pickerAppearance: 'dayOnly', displayFormat: 'd MMM yyyy' } } },
         { name: 'pageCount', label: 'Pages', type: 'number', min: 1 },
         { name: 'isbn', label: 'ISBN', type: 'text' },
       ],

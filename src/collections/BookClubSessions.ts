@@ -1,6 +1,6 @@
-import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
+import type { CollectionBeforeChangeHook, CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { bookOrTitleProblem } from '@/rules/bookClub'
 import { finalValue, isPublishing, rejectField } from '@/rules/validation'
 import { urlValidator } from '@/rules/validators'
@@ -12,6 +12,16 @@ const requireBookOrTitle: CollectionBeforeValidateHook = ({ data, originalDoc, r
   return data
 }
 
+/** A session with a book but no typed title takes the book's title, so it never shows as untitled. */
+const titleFromBook: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
+  if (finalValue(data, originalDoc, 'title')) return data
+  const book = finalValue<number | { id: number } | null>(data, originalDoc, 'book')
+  const id = typeof book === 'object' && book !== null ? book.id : book
+  if (!id) return data
+  const found = await req.payload.findByID({ collection: 'books', id, depth: 0, req, overrideAccess: true })
+  return { ...data, title: found.title }
+}
+
 export const BookClubSessions: CollectionConfig = {
   slug: 'book-club-sessions',
   labels: { singular: 'Book Club session', plural: 'Book Club sessions' },
@@ -20,12 +30,12 @@ export const BookClubSessions: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'book', 'startsAt', 'registrationOpen', '_status'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
-  hooks: { beforeValidate: [requireBookOrTitle] },
+  hooks: { beforeValidate: [requireBookOrTitle], beforeChange: [titleFromBook] },
   fields: [
     { name: 'book', type: 'relationship', relationTo: 'books', admin: { description: 'The book being read, if there is one.' } },
-    { name: 'title', type: 'text', admin: { description: 'Needed when no book is chosen.' } },
+    { name: 'title', type: 'text', admin: { description: "Needed when no book is chosen. Left empty, the book's title is used." } },
     { name: 'startsAt', label: 'Starts', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayAndTime' } } },
     { name: 'venue', type: 'text' },
     { name: 'onlineUrl', label: 'Online link', type: 'text', validate: urlValidator(false) },

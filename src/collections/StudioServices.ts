@@ -1,6 +1,6 @@
 import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { slugField } from '@/fields/slug'
 import { ratesProblem } from '@/rules/studio'
 import { finalValue, isPublishing, rejectField } from '@/rules/validation'
@@ -25,7 +25,7 @@ export const StudioServices: CollectionConfig = {
     useAsTitle: 'name',
     defaultColumns: ['name', 'bookable', 'sortOrder', '_status'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   hooks: { beforeValidate: [requireARate] },
   fields: [

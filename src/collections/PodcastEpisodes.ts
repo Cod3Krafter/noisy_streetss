@@ -1,6 +1,6 @@
 import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
-import { publishedOrStaff, staffWrites } from '@/access'
+import { publishedOrStaffAccess } from '@/access'
 import { slugField } from '@/fields/slug'
 import { listenLinkProblem } from '@/rules/podcast'
 import { finalValue, isPublishing, rejectField } from '@/rules/validation'
@@ -24,7 +24,7 @@ export const PodcastEpisodes: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'show', 'date', '_status'],
   },
-  access: { read: publishedOrStaff, ...staffWrites },
+  access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },
   hooks: { beforeValidate: [requireListenLink] },
   fields: [
@@ -35,7 +35,7 @@ export const PodcastEpisodes: CollectionConfig = {
       type: 'row',
       fields: [
         { name: 'episodeNumber', label: 'Episode number', type: 'number', min: 1 },
-        { name: 'date', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayOnly' } } },
+        { name: 'date', type: 'date', required: true, admin: { date: { pickerAppearance: 'dayOnly', displayFormat: 'd MMM yyyy' } } },
         { name: 'lengthMinutes', label: 'Length (minutes)', type: 'number', min: 1 },
       ],
     },

@@ -41,3 +41,10 @@ export const adminOnlyInAdmin = ({ user }: { user: unknown }): boolean => !isAdm
 
 /** Staff create, change and delete. Spread next to a read rule: `{ read: anyone, ...staffWrites }`. */
 export const staffWrites = { create: isStaff, update: isStaff, delete: isStaff }
+
+/**
+ * For collections with drafts. Visitors read published records only; staff read everything.
+ * Payload lets any logged-in account read version history unless told otherwise, and that
+ * history holds every draft, so it is staff-only here (members will be logged in too).
+ */
+export const publishedOrStaffAccess = { read: publishedOrStaff, readVersions: isStaff, ...staffWrites }

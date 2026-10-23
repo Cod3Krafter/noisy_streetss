@@ -39,6 +39,7 @@ describe('images', () => {
   })
 
   it('lets visitors see images but not upload them', async () => {
+    await payload.create({ collection: 'media', data: { alt: 'Public image' }, filePath: photo })
     const result = await payload.find({ collection: 'media', overrideAccess: false })
     expect(result.totalDocs).toBeGreaterThan(0)
     await expect(
@@ -90,6 +91,7 @@ describe('manuscripts', () => {
   })
 
   it('lets editors read manuscripts but not add or delete them', async () => {
+    await payload.create({ collection: 'manuscripts', data: {}, file: samplePdf(), user: admin })
     const result = await payload.find({ collection: 'manuscripts', overrideAccess: false, user: editor })
     expect(result.totalDocs).toBeGreaterThan(0)
     await expect(
