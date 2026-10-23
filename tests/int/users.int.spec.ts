@@ -9,6 +9,9 @@ beforeAll(async () => {
   payload = await getTestPayload()
   // Test files run in any order; the first account created must be the admin, so start empty.
   await resetCollections(payload, ['users'])
+  // The first account is always an admin. Seeding one here means a test that makes an editor
+  // gets an editor whatever order the tests run in.
+  await createStaff(payload, 'admin')
 })
 
 describe('staff accounts', () => {
