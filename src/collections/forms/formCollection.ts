@@ -1,8 +1,8 @@
-import type { Access, CollectionBeforeChangeHook, CollectionBeforeValidateHook, CollectionConfig, Field } from 'payload'
+import type { Access, CollectionBeforeChangeHook, CollectionBeforeValidateHook, CollectionConfig, CollectionSlug, Field } from 'payload'
 
 import { anyone, isAdmin, isStaff, isStaffUser } from '@/access'
 import { sendFormAlert } from '@/hooks/formAlert'
-import { dropSpam, honeypotField } from '@/hooks/honeypot'
+import { createUnlessSpam, dropSpam, honeypotField } from '@/hooks/honeypot'
 
 /** Whatever a visitor sends, their entry starts as New with no staff notes. */
 const visitorEntriesStartNew: CollectionBeforeChangeHook = ({ data, operation, req }) => {
@@ -21,7 +21,10 @@ type FormCollectionArgs = {
   create?: Access
 }
 
-/** An Inbox list for one website form: visitors create, staff read and update, admins delete. */
+/**
+ * An Inbox list for one website form: visitors create, staff read and update, admins delete.
+ * A public form (created by anyone) answers spam with a pretend success; see `createUnlessSpam`.
+ */
 export function formCollection({ slug, singular, plural, titleField, fields, beforeValidate = [], create = anyone }: FormCollectionArgs): CollectionConfig {
   return {
     slug,
@@ -32,6 +35,8 @@ export function formCollection({ slug, singular, plural, titleField, fields, bef
       defaultColumns: [titleField, 'status', 'createdAt'],
     },
     access: { create, read: isStaff, update: isStaff, delete: isAdmin },
+    // Only public forms: where visitors can't post at all, Payload's own route keeps refusing them.
+    endpoints: create === anyone ? [createUnlessSpam(slug as CollectionSlug, singular)] : [],
     hooks: {
       beforeValidate: [dropSpam, ...beforeValidate],
       beforeChange: [visitorEntriesStartNew],
