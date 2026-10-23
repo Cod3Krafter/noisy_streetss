@@ -12,10 +12,13 @@ const LAST_ADMIN = 'There must always be at least one admin. Make another accoun
  * which accounts the operation targets and checks that an admin is left outside that set.
  * Payload gives this hook the name 'delete' or 'update' for both the by-id and the bulk form.
  *
- * A demotion that would leave no admin is refused as a whole. A delete is refused per record
- * instead: the admins that must stay are noted on the request and `refuseKeptAdmin` refuses
- * them one by one, so the list view's bulk Delete gets the per-record answer it reads and
- * the rest of the selection is still deleted.
+ * A demotion that would leave no admin is refused as a whole, and so is a delete by id (the
+ * record view shows the message, and there is no list to report into; the id may also be
+ * written in a way Payload reads as a number, so it is not compared per record). A bulk
+ * delete is refused per record instead: the admins that must stay are noted on the request
+ * and `refuseKeptAdmin` refuses them one by one, so the list view's bulk Delete gets the
+ * per-record answer it reads and the rest of the selection is still deleted. Those ids always
+ * come from the found records.
  */
 const keepAnAdmin: CollectionBeforeOperationHook = async ({ args, operation }) => {
   if (operation !== 'delete' && operation !== 'update') return args
@@ -45,12 +48,13 @@ const keepAnAdmin: CollectionBeforeOperationHook = async ({ args, operation }) =
   if (totalDocs > 0) return args
 
   if (operation === 'update') rejectField(req, 'users', 'role', LAST_ADMIN)
+  if (input.id !== undefined) throw new Refusal(LAST_ADMIN)
   // Every admin is targeted, so every targeted admin stays and the rest of the selection goes.
   req.context.keepAdminIds = targeted
   return args
 }
 
-/** Refuses a record the operation hook marked as an admin that must stay. */
+/** Bulk deletes only: refuses a record the operation hook marked as an admin that must stay. */
 const refuseKeptAdmin: CollectionBeforeDeleteHook = ({ id, req }) => {
   const keep = req.context.keepAdminIds
   if (Array.isArray(keep) && keep.some((kept) => String(kept) === String(id))) throw new Refusal(LAST_ADMIN)
