@@ -37,6 +37,21 @@ textarea {
     margin-bottom: calc(var(--base) * 0.5);
     transform: none;
   }
+
+  // Payload renders the rich-text error before the label, so here the children are
+  // reordered to read label, error, editor like every other field.
+  .field-type.rich-text-lexical:has(> .field-error.tooltip--show) {
+    display: flex;
+    flex-direction: column;
+
+    > .field-error {
+      order: 1;
+    }
+
+    > .rich-text-lexical__wrap {
+      order: 2;
+    }
+  }
 }
 
 // An image placed in rich text. Payload sets landscape images to exactly 450 px wide
