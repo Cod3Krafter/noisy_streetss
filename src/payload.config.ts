@@ -68,8 +68,13 @@ export default buildConfig({
       cancel: ({ req }) => isStaffUser(req.user),
     },
     // In development the app runs due jobs itself every minute. In production
-    // Vercel Cron calls /api/payload-jobs/run instead (see vercel.json).
-    autoRun: process.env.NODE_ENV === 'production' ? [] : [{ cron: '* * * * *', queue: 'default', limit: 10 }],
+    // Vercel Cron calls /api/payload-jobs/run instead (see vercel.json). Under the
+    // tests (Vitest sets VITEST) nothing runs in the background: tests that need a
+    // job run it themselves with payload.jobs.run() or runByID.
+    autoRun:
+      process.env.NODE_ENV === 'production' || process.env.VITEST
+        ? []
+        : [{ cron: '* * * * *', queue: 'default', limit: 10 }],
   },
   onInit: (payload) => {
     if (process.env.NODE_ENV !== 'production') return

@@ -1,4 +1,5 @@
-import type { Payload, PayloadRequest } from 'payload'
+import config from '@payload-config'
+import { getPayload, type Payload, type PayloadRequest } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { Category, Media, Writer } from '@/payload-types'
@@ -133,5 +134,12 @@ describe('articles', () => {
   it('refuses to run jobs without the cron secret', async () => {
     const req = { headers: new Headers() } as unknown as PayloadRequest
     expect(await payload.config.jobs.access?.run?.({ req })).toBe(false)
+  })
+
+  it('runs no jobs in the background under the tests, even when started with crons', async () => {
+    // rest() starts Payload with crons on, through handleEndpoints. Tests run jobs themselves.
+    expect(payload.config.jobs.autoRun).toEqual([])
+    const withCrons = await getPayload({ config, cron: true })
+    expect(withCrons.crons).toEqual([])
   })
 })
