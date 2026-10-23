@@ -76,6 +76,17 @@ describe('slugs', () => {
     )
   })
 
+  it('duplicates a record with a new numbered address made from its title', async () => {
+    const tag = await payload.create({ collection: 'tags', data: { name: 'Lagos' } })
+    const tagCopy = await payload.duplicate({ collection: 'tags', id: tag.id })
+    expect(tag.slug).toBe('lagos')
+    expect(tagCopy.slug).toBe('lagos-2')
+
+    const writer = await payload.create({ collection: 'writers', data: { name: 'Dup Writer', shortBio: 'Bio.', _status: 'published' } })
+    const writerCopy = await payload.duplicate({ collection: 'writers', id: writer.id })
+    expect(writerCopy.slug).toBe(`${writer.slug}-2`)
+  })
+
   it('lets a record be saved again with its own typed slug', async () => {
     const tag = await payload.create({ collection: 'tags', data: { name: 'Lagos', slug: 'lagos-life' } })
     const updated = await payload.update({ collection: 'tags', id: tag.id, data: { name: 'Lagos 2', slug: 'lagos-life' } })

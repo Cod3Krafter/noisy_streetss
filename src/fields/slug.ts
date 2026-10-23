@@ -143,6 +143,9 @@ export function slugField(sourceField = 'title'): Field {
       description: `Made from the ${sourceField} when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.`,
     },
     hooks: {
+      // Payload's default for a unique field makes the copy's address "<slug> - Copy", which is not a valid
+      // address. null makes it empty, so the copy's address is made from its title and numbered.
+      beforeDuplicate: [() => null],
       beforeValidate: [generateSlug(sourceField)],
     },
     validate: validateSlug,
