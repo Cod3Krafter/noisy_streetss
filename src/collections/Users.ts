@@ -1,6 +1,31 @@
-import type { CollectionBeforeChangeHook, CollectionConfig } from 'payload'
+import { APIError, type CollectionBeforeChangeHook, type CollectionBeforeDeleteHook, type CollectionConfig } from 'payload'
 
 import { adminOnlyInAdmin, adminOrSelf, isAdmin, isAdminField, isStaffUser } from '@/access'
+import { rejectField } from '@/rules/validation'
+
+const LAST_ADMIN = 'There must always be at least one admin. Make another account an admin first.'
+
+async function otherAdmins(req: Parameters<CollectionBeforeDeleteHook>[0]['req'], id: number | string): Promise<number> {
+  const { totalDocs } = await req.payload.count({
+    collection: 'users',
+    where: { and: [{ role: { equals: 'admin' } }, { id: { not_equals: id } }] },
+    req,
+  })
+  return totalDocs
+}
+
+/** Deleting the only admin would leave nobody able to manage staff or shop settings. */
+const keepLastAdminOnDelete: CollectionBeforeDeleteHook = async ({ id, req }) => {
+  const doc = await req.payload.findByID({ collection: 'users', id, depth: 0, req })
+  if (doc.role === 'admin' && (await otherAdmins(req, id)) === 0) throw new APIError(LAST_ADMIN, 400, undefined, true)
+}
+
+/** Changing the only admin to an editor has the same effect. */
+const keepLastAdminOnDemote: CollectionBeforeChangeHook = async ({ data, operation, originalDoc, req }) => {
+  if (operation !== 'update' || originalDoc?.role !== 'admin' || data?.role === undefined || data.role === 'admin') return data
+  if ((await otherAdmins(req, originalDoc.id)) === 0) rejectField(req, 'users', 'role', LAST_ADMIN)
+  return data
+}
 
 /** The very first account is always an admin, so a fresh site can't be locked out. */
 const firstAccountIsAdmin: CollectionBeforeChangeHook = async ({ data, operation, req }) => {
@@ -28,7 +53,8 @@ export const Users: CollectionConfig = {
     delete: isAdmin,
   },
   hooks: {
-    beforeChange: [firstAccountIsAdmin],
+    beforeChange: [firstAccountIsAdmin, keepLastAdminOnDemote],
+    beforeDelete: [keepLastAdminOnDelete],
   },
   fields: [
     { name: 'name', type: 'text', required: true },

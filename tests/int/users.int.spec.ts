@@ -1,7 +1,7 @@
 import type { Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { createStaff, getTestPayload, resetCollections } from '../helpers/payload'
+import { createStaff, expectFieldError, getTestPayload, resetCollections } from '../helpers/payload'
 
 let payload: Payload
 
@@ -87,5 +87,31 @@ describe('staff accounts', () => {
 
   it('hides staff accounts from visitors', async () => {
     await expect(payload.find({ collection: 'users', overrideAccess: false })).rejects.toThrow()
+  })
+})
+
+describe('the last admin', () => {
+  const message = /at least one admin/
+
+  it('cannot be deleted, demoted, and demoting works once another admin exists', async () => {
+    await resetCollections(payload, ['users'])
+    const admin = await createStaff(payload, 'admin')
+    const editor = await createStaff(payload, 'editor')
+
+    await expect(payload.delete({ collection: 'users', id: admin.id })).rejects.toThrow(message)
+    await expectFieldError(payload.update({ collection: 'users', id: admin.id, data: { role: 'editor' } }), 'role', message)
+
+    await payload.update({ collection: 'users', id: editor.id, data: { role: 'admin' } })
+    const demoted = await payload.update({ collection: 'users', id: admin.id, data: { role: 'editor' } })
+    expect(demoted.role).toBe('editor')
+  })
+
+  it('still lets an editor be deleted, and an admin change other fields', async () => {
+    await resetCollections(payload, ['users'])
+    const admin = await createStaff(payload, 'admin')
+    const editor = await createStaff(payload, 'editor')
+    await payload.delete({ collection: 'users', id: editor.id })
+    const renamed = await payload.update({ collection: 'users', id: admin.id, data: { name: 'Renamed' } })
+    expect(renamed.name).toBe('Renamed')
   })
 })
