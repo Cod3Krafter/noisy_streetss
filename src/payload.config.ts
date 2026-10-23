@@ -36,6 +36,7 @@ import { SubmissionCalls } from './collections/SubmissionCalls'
 import { Tags } from './collections/Tags'
 import { Users } from './collections/Users'
 import { Writers } from './collections/Writers'
+import { publicDefaultFeatures } from './fields/richText'
 import { pageRecords } from './globals/pageRecords'
 import { ShopSettings } from './globals/ShopSettings'
 import { SiteSettings } from './globals/SiteSettings'
@@ -75,7 +76,7 @@ export default buildConfig({
       payload.logger.error(`Production setting ${name} is not set.`)
     }
   },
-  editor: lexicalEditor(),
+  editor: lexicalEditor({ features: ({ defaultFeatures }) => publicDefaultFeatures(defaultFeatures) }),
   email: emailAdapter(),
   secret: process.env.PAYLOAD_SECRET || '',
   serverURL: process.env.NEXT_PUBLIC_SERVER_URL || undefined,
