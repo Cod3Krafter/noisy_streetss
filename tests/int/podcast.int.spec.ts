@@ -30,6 +30,12 @@ describe('podcast episodes', () => {
     )
   })
 
+  it('names the listening link field by its label in the error message', async () => {
+    await expect(payload.create({ collection: 'podcast-episodes', data: episode({ _status: 'published' }) })).rejects.toThrow(
+      /The following field is invalid: Spotify link$/,
+    )
+  })
+
   it('publishes Spotify-only and YouTube-only episodes', async () => {
     const spotify = await payload.create({
       collection: 'podcast-episodes',
