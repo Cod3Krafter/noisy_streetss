@@ -1,5 +1,5 @@
 import type { Payload } from 'payload'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { User, Writer } from '@/payload-types'
 import { richText } from '@/seed/richText'
@@ -225,6 +225,64 @@ describe('over the REST API, as the admin uses it', () => {
     const body = await res.json()
     expect(body.docs.map((doc: { id: number }) => doc.id)).toEqual([unused.id])
     expect(body.errors).toEqual([expect.objectContaining({ id: used.id, message: expect.stringMatching(inUse) })])
+  })
+})
+
+describe('reading only what can hold the record', () => {
+  it('reads no page or setting to delete a tag, and still names the article using it', async () => {
+    const tag = await payload.create({ collection: 'tags', data: { name: `Guard tag ${unique()}` } })
+    const article = await newArticle({ tags: [tag.id] })
+    const findGlobal = vi.spyOn(payload, 'findGlobal')
+    try {
+      await expect(payload.delete({ collection: 'tags', id: tag.id })).rejects.toThrow(
+        `"${tag.name}" is still used by Article "${article.title}" (Tags). Remove it from there first, then delete it.`,
+      )
+      expect(findGlobal).not.toHaveBeenCalled()
+    } finally {
+      findGlobal.mockRestore()
+    }
+  })
+
+  it('reads nothing to delete a contact message, which nothing can point at', async () => {
+    const message = await payload.create({
+      collection: 'contact-messages',
+      data: { name: 'Guard Sender', email: 'guard@example.com', message: `Guard message ${unique()}`, status: 'new' },
+    })
+    const findGlobal = vi.spyOn(payload, 'findGlobal')
+    const find = vi.spyOn(payload, 'find')
+    try {
+      await payload.delete({ collection: 'contact-messages', id: message.id })
+      expect(findGlobal).not.toHaveBeenCalled()
+      expect(find).not.toHaveBeenCalled()
+    } finally {
+      findGlobal.mockRestore()
+      find.mockRestore()
+    }
+    expect((await payload.count({ collection: 'contact-messages', where: { id: { equals: message.id } } })).totalDocs).toBe(0)
+  })
+
+  it('names an article once, with both fields, when its cover is also its sharing image', async () => {
+    const image = await createImage(payload)
+    const article = await newArticle({ cover: image.id, meta: { image: image.id } })
+    await expect(payload.delete({ collection: 'media', id: image.id })).rejects.toThrow(
+      `is still used by Article "${article.title}" (Cover, SEO › Meta Image). Remove it from there first, then delete it.`,
+    )
+  })
+
+  it('asks each list once per pass for an image, however many of its fields hold images', async () => {
+    const image = await createImage(payload)
+    const find = vi.spyOn(payload, 'find')
+    let calls: string[] = []
+    try {
+      await payload.delete({ collection: 'media', id: image.id })
+      // Queries with a where look for the image in fields; those without read rich text.
+      calls = find.mock.calls.map(([options]) => `${options.collection}, ${options.draft ? 'draft' : 'published'}, ${options.where ? 'fields' : 'rich text'}`)
+    } finally {
+      find.mockRestore()
+    }
+    const repeated = calls.filter((call, index) => calls.indexOf(call) !== index)
+    expect(repeated).toEqual([])
+    expect(await stillThere('media', image.id)).toBe(false)
   })
 })
 
