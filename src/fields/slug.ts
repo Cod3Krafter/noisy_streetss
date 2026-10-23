@@ -6,6 +6,7 @@ import { rejectField } from '@/rules/validation'
 const MAX_LENGTH = 80
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const FORMAT_MESSAGE = 'Use lower-case letters, numbers and single hyphens only.'
+const LENGTH_MESSAGE = `Keep the web address to ${MAX_LENGTH} characters or fewer.`
 
 /**
  * Letters that have no accent to strip, so Unicode normalising leaves them alone.
@@ -96,6 +97,7 @@ const generateSlug =
   async ({ value, data, originalDoc, collection, req }) => {
     if (typeof value === 'string' && value.trim() !== '') {
       if (!SLUG_PATTERN.test(value)) rejectField(req, collection?.slug ?? '', 'slug', FORMAT_MESSAGE)
+      if (value.length > MAX_LENGTH) rejectField(req, collection?.slug ?? '', 'slug', LENGTH_MESSAGE)
       if (collection && (await isTaken(req, collection.slug as CollectionSlug, value, originalDoc?.id))) {
         const singular = typeof collection.labels?.singular === 'string' ? collection.labels.singular : wordsFromName(collection.slug)
         rejectField(req, collection.slug, 'slug', `Another ${singular.toLowerCase()} already uses this web address.`)
@@ -123,9 +125,8 @@ const isEmpty = (value: unknown) => value == null || (typeof value === 'string' 
  */
 export const validateSlug = (value: unknown, { event }: { event?: 'onChange' | 'submit' } = {}): true | string => {
   if (event === 'onChange' && isEmpty(value)) return true
-  return typeof value === 'string' && SLUG_PATTERN.test(value)
-    ? true
-    : FORMAT_MESSAGE
+  if (typeof value !== 'string' || !SLUG_PATTERN.test(value)) return FORMAT_MESSAGE
+  return value.length > MAX_LENGTH ? LENGTH_MESSAGE : true
 }
 
 /** The `slug` field: made from `sourceField` when left empty, editable, unique in its collection. */

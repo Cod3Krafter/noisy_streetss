@@ -54,6 +54,30 @@ describe('slugs', () => {
     expect(category.slug).toBe('long-essays')
   })
 
+  it('refuses a typed slug over 80 characters, drafts included, and keeps one of exactly 80', async () => {
+    const tooLong = /^Keep the web address to 80 characters or fewer\.$/
+    await expectFieldError(
+      payload.create({ collection: 'categories', data: { name: 'Essays', slug: 'a'.repeat(81) } }),
+      'slug',
+      tooLong,
+    )
+    await expectFieldError(
+      payload.create({
+        collection: 'writers',
+        data: { name: 'A Writer', shortBio: 'Bio.', slug: 'a'.repeat(81), _status: 'published' },
+      }),
+      'slug',
+      tooLong,
+    )
+    await expectFieldError(
+      payload.create({ collection: 'writers', data: { name: 'A Writer', shortBio: 'Bio.', slug: 'a'.repeat(81) }, draft: true }),
+      'slug',
+      tooLong,
+    )
+    const category = await payload.create({ collection: 'categories', data: { name: 'Essays', slug: 'a'.repeat(80) } })
+    expect(category.slug).toBe('a'.repeat(80))
+  })
+
   it('names the field by its label in the toast text', async () => {
     await expect(payload.create({ collection: 'tags', data: { name: 'Lagos', slug: 'Bad Slug!' } })).rejects.toThrow(
       /The following field is invalid: Web address$/,
