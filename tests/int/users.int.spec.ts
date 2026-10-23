@@ -118,3 +118,38 @@ describe('the last admin', () => {
     expect(renamed.name).toBe('Renamed')
   })
 })
+
+describe('the last admin under bulk actions', () => {
+  const message = /at least one admin/
+
+  async function twoAdminsAndAnEditor() {
+    await resetCollections(payload, ['users'])
+    await createStaff(payload, 'admin')
+    await createStaff(payload, 'admin')
+    await createStaff(payload, 'editor')
+  }
+
+  const adminCount = async () => (await payload.count({ collection: 'users', where: { role: { equals: 'admin' } } })).totalDocs
+
+  it('refuses a bulk delete of every admin', async () => {
+    await twoAdminsAndAnEditor()
+    await expect(payload.delete({ collection: 'users', where: { role: { equals: 'admin' } } })).rejects.toThrow(message)
+    expect(await adminCount()).toBe(2)
+  })
+
+  it('refuses a bulk demotion of every admin', async () => {
+    await twoAdminsAndAnEditor()
+    await expectFieldError(
+      payload.update({ collection: 'users', where: { role: { equals: 'admin' } }, data: { role: 'editor' } }),
+      'role',
+      message,
+    )
+    expect(await adminCount()).toBe(2)
+  })
+
+  it('allows a bulk delete that leaves an admin', async () => {
+    await twoAdminsAndAnEditor()
+    await payload.delete({ collection: 'users', where: { role: { equals: 'editor' } } })
+    expect(await adminCount()).toBe(2)
+  })
+})

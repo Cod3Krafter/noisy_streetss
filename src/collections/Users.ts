@@ -1,30 +1,43 @@
-import { APIError, type CollectionBeforeChangeHook, type CollectionBeforeDeleteHook, type CollectionConfig } from 'payload'
+import { APIError, type CollectionBeforeChangeHook, type CollectionBeforeOperationHook, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
 
 import { adminOnlyInAdmin, adminOrSelf, isAdmin, isAdminField, isStaffUser } from '@/access'
 import { rejectField } from '@/rules/validation'
 
 const LAST_ADMIN = 'There must always be at least one admin. Make another account an admin first.'
 
-async function otherAdmins(req: Parameters<CollectionBeforeDeleteHook>[0]['req'], id: number | string): Promise<number> {
-  const { totalDocs } = await req.payload.count({
+/**
+ * Payload runs a bulk operation's per-document hooks at the same moment, so each one would still
+ * see the other admins and let them all go. This runs once per operation instead: it works out
+ * which accounts the operation targets and checks that an admin is left outside that set.
+ * Payload gives this hook the name 'delete' or 'update' for both the by-id and the bulk form.
+ */
+const keepAnAdmin: CollectionBeforeOperationHook = async ({ args, operation }) => {
+  if (operation !== 'delete' && operation !== 'update') return args
+  const input = args as { id?: number | string; where?: Where; data?: { role?: string }; req: PayloadRequest }
+  const { req } = input
+  if (operation === 'update' && (input.data?.role === undefined || input.data.role === 'admin')) return args
+  if (input.id === undefined && !input.where) return args
+
+  const { docs } = await req.payload.find({
     collection: 'users',
-    where: { and: [{ role: { equals: 'admin' } }, { id: { not_equals: id } }] },
+    where: input.id !== undefined ? { id: { equals: input.id } } : input.where,
+    depth: 0,
+    limit: 0,
+    pagination: false,
     req,
   })
-  return totalDocs
-}
+  const targeted = docs.filter((doc) => doc.role === 'admin').map((doc) => doc.id)
+  if (targeted.length === 0) return args
 
-/** Deleting the only admin would leave nobody able to manage staff or shop settings. */
-const keepLastAdminOnDelete: CollectionBeforeDeleteHook = async ({ id, req }) => {
-  const doc = await req.payload.findByID({ collection: 'users', id, depth: 0, req })
-  if (doc.role === 'admin' && (await otherAdmins(req, id)) === 0) throw new APIError(LAST_ADMIN, 400, undefined, true)
-}
+  const { totalDocs } = await req.payload.count({
+    collection: 'users',
+    where: { and: [{ role: { equals: 'admin' } }, { id: { not_in: targeted } }] },
+    req,
+  })
+  if (totalDocs > 0) return args
 
-/** Changing the only admin to an editor has the same effect. */
-const keepLastAdminOnDemote: CollectionBeforeChangeHook = async ({ data, operation, originalDoc, req }) => {
-  if (operation !== 'update' || originalDoc?.role !== 'admin' || data?.role === undefined || data.role === 'admin') return data
-  if ((await otherAdmins(req, originalDoc.id)) === 0) rejectField(req, 'users', 'role', LAST_ADMIN)
-  return data
+  if (operation === 'update') rejectField(req, 'users', 'role', LAST_ADMIN)
+  throw new APIError(LAST_ADMIN, 400, undefined, true)
 }
 
 /** The very first account is always an admin, so a fresh site can't be locked out. */
@@ -53,8 +66,8 @@ export const Users: CollectionConfig = {
     delete: isAdmin,
   },
   hooks: {
-    beforeChange: [firstAccountIsAdmin, keepLastAdminOnDemote],
-    beforeDelete: [keepLastAdminOnDelete],
+    beforeChange: [firstAccountIsAdmin],
+    beforeOperation: [keepAnAdmin],
   },
   fields: [
     { name: 'name', type: 'text', required: true },
