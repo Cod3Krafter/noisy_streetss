@@ -83,6 +83,7 @@ B1 turns the current prototype into a Next.js app with Payload CMS inside it. B1
   - `next.config.ts` is wrapped with `withPayload`.
 - The admin lives at `/admin`, and the REST API at `/api`.
 - `src/app/(payload)/custom.scss` overrides a few of Payload's admin styles so the admin works on phones (added 23 October 2026): field error messages show in full at every width and sit above the input at 1024 px and below (Payload hides them there), images placed in rich text fit the column at 768 px and below, and the Status / Last Modified / Created row wraps instead of being cut off. Text boxes only resize vertically.
+- Expected refusals (a delete refused because the record is still in use, the last admin kept, a spam entry refused, a file over the size limit) are thrown as the project's `Refusal` error, which Payload logs as a one-line note (`info`) instead of an error with a stack trace (added 23 October 2026). Every other error keeps Payload's own logging.
 
 Folder layout:
 

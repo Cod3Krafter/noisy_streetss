@@ -1,6 +1,7 @@
-import { APIError, type CollectionBeforeChangeHook, type CollectionBeforeOperationHook, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
+import { type CollectionBeforeChangeHook, type CollectionBeforeOperationHook, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
 
 import { adminOnlyInAdmin, adminOrSelf, isAdmin, isAdminField, isStaffUser } from '@/access'
+import { Refusal } from '@/refusal'
 import { rejectField } from '@/rules/validation'
 
 const LAST_ADMIN = 'There must always be at least one admin. Make another account an admin first.'
@@ -37,7 +38,7 @@ const keepAnAdmin: CollectionBeforeOperationHook = async ({ args, operation }) =
   if (totalDocs > 0) return args
 
   if (operation === 'update') rejectField(req, 'users', 'role', LAST_ADMIN)
-  throw new APIError(LAST_ADMIN, 400, undefined, true)
+  throw new Refusal(LAST_ADMIN)
 }
 
 /** The very first account is always an admin, so a fresh site can't be locked out. */

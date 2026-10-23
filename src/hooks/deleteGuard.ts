@@ -1,5 +1,6 @@
-import { APIError, type CollectionBeforeDeleteHook, type CollectionConfig, type CollectionSlug } from 'payload'
+import { type CollectionBeforeDeleteHook, type CollectionConfig, type CollectionSlug } from 'payload'
 
+import { Refusal } from '@/refusal'
 import { findUsages, inUseMessage, recordName } from '@/rules/references'
 
 /**
@@ -20,7 +21,7 @@ export const refuseDeleteWhileInUse: CollectionBeforeDeleteHook = async ({ colle
     req,
   })
   const name = recordName(collection, (doc as Record<string, unknown> | null) ?? { id })
-  throw new APIError(inUseMessage(name, usages), 400, undefined, true)
+  throw new Refusal(inUseMessage(name, usages))
 }
 
 /** Adds the guard to every collection, ahead of any delete hooks of its own. */

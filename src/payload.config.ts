@@ -1,7 +1,7 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig } from 'payload'
+import { buildConfig, type Config } from 'payload'
 import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
@@ -42,6 +42,7 @@ import { ShopSettings } from './globals/ShopSettings'
 import { SiteSettings } from './globals/SiteSettings'
 import { guardDeletes } from './hooks/deleteGuard'
 import { missingProductionSettings } from './rules/productionSettings'
+import { REFUSAL } from './refusal'
 import { seo } from './seo'
 import { storagePlugins } from './storage'
 
@@ -89,6 +90,9 @@ export default buildConfig({
   graphQL: {
     disable: true,
   },
+  // The project's own refusals are logged as a one-line note; every other error keeps Payload's defaults.
+  // Payload's type lists only its own error names, so the cast is needed for this key.
+  loggingLevels: { [REFUSAL]: 'info' } as unknown as Config['loggingLevels'],
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
