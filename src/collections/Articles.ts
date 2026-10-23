@@ -11,10 +11,13 @@ export const Articles: CollectionConfig = {
     group: 'Editorial',
     useAsTitle: 'title',
     defaultColumns: ['title', 'publishDate', 'featured', '_status'],
+    description:
+      'An article can only be saved, even as a draft, once its title, summary, body, writer, category and publication date are filled in. That way a scheduled publish never fails.',
   },
   access: publishedOrStaffAccess,
   versions: {
-    drafts: { schedulePublish: true },
+    // Drafts are checked like a publish, so a scheduled publish can never fail on a missing field.
+    drafts: { schedulePublish: true, validate: true },
     maxPerDoc: 50,
   },
   fields: [
