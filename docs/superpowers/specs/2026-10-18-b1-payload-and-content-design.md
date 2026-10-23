@@ -150,6 +150,7 @@ docker-compose.yml       postgres + mailpit
 - **Web address (slug):** created from the title, editable, and unique within its collection. Applies to every type with its own page. A small slug field of the project's own is used, because Payload's built-in one is marked experimental in 3.90.2.
 - **SEO fields** (meta title, meta description, sharing image), from Payload's SEO plugin. Applies to books, writers, articles, podcast episodes, awards, merch, basic pages and every page record.
 - **Visibility:** visitors only ever receive published records. Staff can read drafts.
+- **Deleting a record still in use** (added 23 October 2026): a delete is refused, with a plain message naming each record or page that still uses it and the field it's in, when the record is still referenced by a relationship or image field in any list (in the published version or the latest draft), by rich text anywhere (placed images, relationship blocks and internal links), or by a page record or setting. In a bulk delete only the records still in use are refused; the rest are deleted. A record's references to itself don't count. Known limit: two records that point at each other and are deleted together in one bulk delete are both refused; deleting them one at a time works once the reference is removed.
 
 ### 6.2 Editorial collections
 

@@ -40,6 +40,7 @@ import { publicDefaultFeatures } from './fields/richText'
 import { pageRecords } from './globals/pageRecords'
 import { ShopSettings } from './globals/ShopSettings'
 import { SiteSettings } from './globals/SiteSettings'
+import { guardDeletes } from './hooks/deleteGuard'
 import { missingProductionSettings } from './rules/productionSettings'
 import { seo } from './seo'
 import { storagePlugins } from './storage'
@@ -57,7 +58,7 @@ export default buildConfig({
       titleSuffix: ' | Noisy Streetss admin',
     },
   },
-  collections: [Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans, Pages, Announcements, PopupCampaigns, PressMentions, Partners, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions],
+  collections: guardDeletes([Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans, Pages, Announcements, PopupCampaigns, PressMentions, Partners, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions]),
   globals: [...pageRecords, SiteSettings, ShopSettings],
   jobs: {
     access: {
