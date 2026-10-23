@@ -7,10 +7,13 @@ textarea {
 
 // Field error messages. Payload shows each one as a one-line tooltip above the field,
 // cut short with an ellipsis, so a long reason such as the book popup clash can't be
-// read. Here the whole message wraps, growing upwards from the field so it doesn't
-// cover the input.
+// read. Here the box spans the whole width of the field and the message wraps, growing
+// upwards from the field so it doesn't cover the input.
 .field-error.tooltip {
   white-space: normal;
+  left: 0;
+  right: 0;
+  max-width: none;
 
   .tooltip-content {
     overflow: visible;
@@ -27,7 +30,7 @@ textarea {
 // red with no reason given. There the message sits in the page above the input,
 // at full width, instead of floating.
 @media (max-width: 1024px) {
-  .field-error.tooltip--show {
+  .field-error.tooltip.tooltip--show {
     display: block;
     position: relative;
     inset: auto;
