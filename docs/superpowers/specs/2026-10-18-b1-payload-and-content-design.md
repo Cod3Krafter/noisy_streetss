@@ -57,14 +57,14 @@ B1 turns the current prototype into a Next.js app with Payload CMS inside it. B1
 | Package | Version | Reason |
 |---|---|---|
 | `payload` and every `@payloadcms/*` package | 3.90.2 | 3.91.0 was 3 days old on 18 Oct. Move to 3.91.x once it has a patch and two weeks behind it |
-| `next`, `eslint-config-next` | 16.3.8 | Payload's release templates use the 16.3 line, and 16.3.8 is its last patch. Payload needs at least 16.3.3 |
+| `next`, `eslint-config-next` | 16.4.1 | Built on 16.3.8, the last patch of the line Payload's templates use. The developer upgraded to 16.4.1 on 22 October 2026, inside Payload's supported range (16.3.3 and later) |
 | `react`, `react-dom` | 19.2.9 | The 19.2 line is the one Payload ships with. 19.2.9 came out alongside fixes for 19.0 and 19.1, which usually signals a security fix |
 | `@types/react`, `@types/react-dom` | Latest 19.2.x | Matches React |
 | `typescript` | 5.9.3 | Last 5.x release. TypeScript 6 and 7 are newer major versions |
 | Node.js | 24 LTS (24.22.x) | Current long-term-support line. Pinned in `.nvmrc` and `package.json` `engines` |
 | Postgres (Docker image) | `postgres:17.11` | Match the major version Supabase gives new projects. Check it on the day the build starts |
 | Mailpit (Docker image) | `axllent/mailpit:v1.31.6` | Current stable release |
-| `sharp` | Version Payload 3.90.2 expects | Image resizing |
+| `sharp` | 0.35.5 | Image resizing. Upgraded with Next.js on 22 October 2026 (Payload's templates pin 0.35.4) |
 
 ## 5. Setup
 
@@ -105,7 +105,8 @@ docker-compose.yml       postgres + mailpit
 `docker-compose.yml` runs:
 
 - **Postgres** on port 5432, with a named volume so data survives restarts.
-- **Mailpit**, receiving mail on port 1025 and showing its inbox at `http://localhost:8025`. Nothing is delivered to real inboxes.
+- Both services only listen on this machine (`127.0.0.1`), never the local network.
+- **Mailpit**, receiving mail on port 21025 and showing its inbox at `http://localhost:28025`. Nothing is delivered to real inboxes. (Mailpit's usual ports, 1025 and 8025, fall inside ranges Windows reserves on the development machine.)
 
 `.env.example` lists `DATABASE_URI`, `PAYLOAD_SECRET`, `NEXT_PUBLIC_SERVER_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` and `CRON_SECRET`. It also lists the file storage settings (`S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_MEDIA`, `S3_BUCKET_MANUSCRIPTS`), left empty locally. A real `.env` is never committed.
 
@@ -117,7 +118,7 @@ docker-compose.yml       postgres + mailpit
 
 ### 5.5 Files
 
-- **Images (`media`):** stored on local disk in development. In production they go in Supabase Storage through Payload's S3 storage adapter (`@payloadcms/storage-s3`), because Supabase Storage accepts the S3 protocol. The adapter only switches on when the `S3_*` settings are present, so local development needs no Supabase account.
+- **Images (`media`):** stored on local disk in development. In production they go in Supabase Storage through Payload's S3 storage adapter (`@payloadcms/storage-s3`), because Supabase Storage accepts the S3 protocol. The adapter only switches on when the `S3_*` settings are present, so local development needs no Supabase account. The adapter's own fields are always kept in the schema, so the database and its migrations are the same with storage on or off.
 - **Manuscripts:** stored in a separate folder outside `public/` in development, and in a private Supabase bucket in production. In both cases files are only served through Payload's access-checked route, so only staff can download them.
 - The adapter's compatibility with Supabase Storage is confirmed with a test upload once the client's Supabase project exists.
 
@@ -344,6 +345,7 @@ Editors don't see Shop settings or Staff accounts in the admin menu.
 |---|---|
 | Email sending service | Resend, unless the client's current site uses a service that can be reused. Only settings change, so B1 is unaffected |
 | Supabase Storage with Payload's S3 adapter | Confirmed with a test upload once the client's Supabase project exists. Local development doesn't depend on it |
+| Vercel's 4.5 MB request limit | Vercel refuses request bodies over 4.5 MB, so manuscripts up to the 10 MB limit, and large photos, can't be uploaded through the site's own server there. Before launch, uploads go straight to the bucket (the adapter's client uploads, with the bucket allowing uploads from the site's address), and the size check moves to the stored file |
 | Page records grow during frontend design | Expected under fixed layouts. Each addition ships as a migration |
 | WordPress migration deferred | Collections are designed so migrated articles, categories, tags and images fit later without changes |
 | Payload 3.91.x | Upgrade once it meets the version rule, as its own small change |
