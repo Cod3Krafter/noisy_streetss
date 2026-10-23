@@ -164,6 +164,13 @@ describe('the last admin under bulk actions', () => {
     expect(await adminCount()).toBe(1)
   })
 
+  it('refuses deleting the only admin by a string id', async () => {
+    await resetCollections(payload, ['users'])
+    const admin = await createStaff(payload, 'admin')
+    await expect(payload.delete({ collection: 'users', id: String(admin.id) })).rejects.toThrow(message)
+    expect(await adminCount()).toBe(1)
+  })
+
   it('still refuses a single delete by id, over REST as well', async () => {
     await resetCollections(payload, ['users'])
     const admin = await createStaff(payload, 'admin')

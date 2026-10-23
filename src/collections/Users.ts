@@ -53,7 +53,7 @@ const keepAnAdmin: CollectionBeforeOperationHook = async ({ args, operation }) =
 /** Refuses a record the operation hook marked as an admin that must stay. */
 const refuseKeptAdmin: CollectionBeforeDeleteHook = ({ id, req }) => {
   const keep = req.context.keepAdminIds
-  if (Array.isArray(keep) && keep.includes(id)) throw new Refusal(LAST_ADMIN)
+  if (Array.isArray(keep) && keep.some((kept) => String(kept) === String(id))) throw new Refusal(LAST_ADMIN)
 }
 
 /** The very first account is always an admin, so a fresh site can't be locked out. */
