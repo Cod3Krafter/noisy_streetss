@@ -25,6 +25,11 @@ textarea {
   }
 }
 
+// Payload sizes the rich-text error to its text, and the cap above would stretch it.
+.rich-text-lexical > .field-error.tooltip {
+  max-width: fit-content;
+}
+
 // Payload hides every tooltip at 1024 px and below, which leaves an invalid field
 // red with no reason given. There the message sits in the page above the input,
 // at full width, instead of floating.
