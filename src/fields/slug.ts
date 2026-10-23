@@ -90,6 +90,23 @@ const generateSlug =
     return firstFreeSlug(req, collection.slug as CollectionSlug, base, originalDoc?.id)
   }
 
+/** Empty as the hook sees it: nothing typed, or only spaces. The hook fills these in from the source field. */
+const isEmpty = (value: unknown) => value == null || (typeof value === 'string' && value.trim() === '')
+
+/**
+ * The slug field's check. Payload passes `event: 'onChange'` from the admin's form-state check,
+ * which runs this without the beforeValidate hook, so an empty value there would be flagged
+ * although the save fills it in; it passes. Every save (admin, REST or local API) checks with
+ * `event: 'submit'` after the hook has run, so an empty value is still refused there when the
+ * hook had nothing to make a slug from. A malformed value is flagged in both.
+ */
+export const validateSlug = (value: unknown, { event }: { event?: 'onChange' | 'submit' } = {}): true | string => {
+  if (event === 'onChange' && isEmpty(value)) return true
+  return typeof value === 'string' && SLUG_PATTERN.test(value)
+    ? true
+    : 'Use lower-case letters, numbers and single hyphens only.'
+}
+
 /** The `slug` field: made from `sourceField` when left empty, editable, unique in its collection. */
 export function slugField(sourceField = 'title'): Field {
   return {
@@ -97,7 +114,7 @@ export function slugField(sourceField = 'title'): Field {
     label: 'Web address',
     type: 'text',
     // Not `required`: the slug is made in a hook when left empty, so creates may omit it.
-    // `validate` below still refuses an empty or malformed slug on save.
+    // validateSlug still refuses an empty or malformed slug on save.
     unique: true,
     index: true,
     admin: {
@@ -107,9 +124,6 @@ export function slugField(sourceField = 'title'): Field {
     hooks: {
       beforeValidate: [generateSlug(sourceField)],
     },
-    validate: (value: unknown) =>
-      typeof value === 'string' && SLUG_PATTERN.test(value)
-        ? true
-        : 'Use lower-case letters, numbers and single hyphens only.',
+    validate: validateSlug,
   }
 }

@@ -6,7 +6,7 @@ import {
   RelationshipFeature,
   UploadFeature,
 } from '@payloadcms/richtext-lexical'
-import type { Block, CollectionSlug } from 'payload'
+import type { Block, CollectionSlug, UploadCollectionSlug } from 'payload'
 
 import { urlValidator } from '@/rules/validators'
 
@@ -46,10 +46,20 @@ export const PUBLIC_LINK_COLLECTIONS: CollectionSlug[] = [
   'categories',
 ]
 
+/** The lists rich text may place images from. */
+const UPLOAD_COLLECTIONS: UploadCollectionSlug[] = ['media']
+
+/**
+ * Every list rich text can point at: placed images, relationship blocks and internal links.
+ * Made from the same lists the editor is limited to below, so the delete guard, which reads
+ * rich text only when the record being deleted is in one of these, can't drift from the editor.
+ */
+export const RICH_TEXT_TARGETS: CollectionSlug[] = [...UPLOAD_COLLECTIONS, ...PUBLIC_LINK_COLLECTIONS]
+
 /** The default features with uploads, relationships and internal links limited to public collections. */
 export function publicDefaultFeatures(defaultFeatures: FeatureProviderServer<unknown, unknown, unknown>[]) {
   return defaultFeatures.map((feature) => {
-    if (feature.key === 'upload') return UploadFeature({ enabledCollections: ['media'] })
+    if (feature.key === 'upload') return UploadFeature({ enabledCollections: UPLOAD_COLLECTIONS })
     if (feature.key === 'relationship') return RelationshipFeature({ enabledCollections: PUBLIC_LINK_COLLECTIONS })
     if (feature.key === 'link') return LinkFeature({ enabledCollections: PUBLIC_LINK_COLLECTIONS })
     return feature

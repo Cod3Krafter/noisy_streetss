@@ -4,9 +4,12 @@ import type {
   GlobalSlug,
   PayloadRequest,
   SanitizedCollectionConfig,
+  SanitizedGlobalConfig,
   SelectType,
   Where,
 } from 'payload'
+
+import { RICH_TEXT_TARGETS } from '@/fields/richText'
 
 /** One place a record is used: the record or page holding it, and the field it's in. */
 export type Usage = {
@@ -167,14 +170,32 @@ type Index = Map<string, Usage[]>
 
 const refKey = (relationTo: string, id: number | string) => `${relationTo}:${String(id)}`
 
-/**
- * Rich text across every collection, and every reference held by a global, read once and
- * looked up by what it points at. A bulk delete calls the guard once per record with the same
- * request, so the index is kept per request rather than rebuilt for each record.
- */
-const indexes = new WeakMap<PayloadRequest, Promise<Index>>()
+/** Rich text can only point at these lists, so a record in any other is never looked for there. */
+const richTextTargets = new Set<string>(RICH_TEXT_TARGETS)
 
-async function buildIndex(req: PayloadRequest): Promise<Index> {
+const passes = (collection: SanitizedCollectionConfig) => (collection.versions?.drafts ? [false, true] : [false])
+
+/**
+ * What one request has read, kept for the next record: a bulk delete calls the guard once per
+ * record with the same request. Rich text across every collection is read once, on the first
+ * delete that could be in it, and looked up by what it points at; each global is read once, on
+ * the first delete it could hold. Neither depends on which list the record is in, so one request
+ * that deletes from several lists still gets the right answers.
+ */
+type RequestReads = { richText?: Promise<Index>; globals: Map<string, Promise<{ ref: Ref; field: string }[]>> }
+
+const reads = new WeakMap<PayloadRequest, RequestReads>()
+
+function readsFor(req: PayloadRequest): RequestReads {
+  let found = reads.get(req)
+  if (!found) {
+    found = { globals: new Map() }
+    reads.set(req, found)
+  }
+  return found
+}
+
+async function buildRichTextIndex(req: PayloadRequest): Promise<Index> {
   const index: Index = new Map()
   const add = (ref: Ref, usage: Usage) => {
     const key = refKey(ref.relationTo, ref.id)
@@ -186,7 +207,7 @@ async function buildIndex(req: PayloadRequest): Promise<Index> {
     const names = richTextFieldNames(collection.flattenedFields)
     if (names.length === 0) continue
     const select = Object.fromEntries([titleKey(collection), ...names].map((name) => [name, true])) as SelectType
-    for (const draft of collection.versions?.drafts ? [false, true] : [false]) {
+    for (const draft of passes(collection)) {
       const { docs } = await req.payload.find({
         collection: collection.slug as CollectionSlug,
         depth: 0,
@@ -204,51 +225,86 @@ async function buildIndex(req: PayloadRequest): Promise<Index> {
       }
     }
   }
-
-  for (const global of req.payload.config.globals) {
-    const data = await req.payload.findGlobal({ slug: global.slug as GlobalSlug, depth: 0, overrideAccess: true, req })
-    const holder = typeof global.label === 'string' ? global.label : wordsFromName(global.slug)
-    for (const { ref, field } of refsInData(global.flattenedFields, data, true)) add(ref, { holder, field })
-  }
   return index
+}
+
+/** Every reference a global holds, in fields and rich text, read once per request. */
+function globalRefs(req: PayloadRequest, global: SanitizedGlobalConfig): Promise<{ ref: Ref; field: string }[]> {
+  const cache = readsFor(req).globals
+  let refs = cache.get(global.slug)
+  if (!refs) {
+    refs = req.payload
+      .findGlobal({ slug: global.slug as GlobalSlug, depth: 0, overrideAccess: true, req })
+      .then((data) => refsInData(global.flattenedFields, data, true))
+    cache.set(global.slug, refs)
+  }
+  return refs
 }
 
 /**
  * Every place the record `target`/`id` is still used: relationship and upload fields in any
- * collection (published and latest draft), rich text anywhere, and the globals. A record's
- * references to itself don't count.
+ * collection (published and latest draft), rich text anywhere, and the globals. Only what could
+ * hold the record is read: a list or global with a field pointing at the record's list, and rich
+ * text only when the record's list is one rich text can point at. A record's references to
+ * itself don't count.
  */
 export async function findUsages(req: PayloadRequest, target: string, id: number | string): Promise<Usage[]> {
   const usages: Usage[] = []
+  const isTarget = (ref: Ref) => ref.relationTo === target && ref.id === String(id)
+  const inRichText = richTextTargets.has(target)
 
   for (const collection of req.payload.config.collections) {
     if (isInternal(collection.slug)) continue
-    for (const { path, label } of referenceFields(collection.flattenedFields, target)) {
-      const where: Where = { [path]: { in: [id] } }
-      for (const draft of collection.versions?.drafts ? [false, true] : [false]) {
-        const { docs } = await req.payload.find({
-          collection: collection.slug as CollectionSlug,
-          depth: 0,
-          draft,
-          overrideAccess: true,
-          pagination: false,
-          req,
-          select: { [titleKey(collection)]: true } as SelectType,
-          where,
-        })
-        for (const doc of docs as unknown as Record<string, unknown>[]) {
-          usages.push({ holder: holderName(collection, doc), field: label, record: { collection: collection.slug, id: doc.id as number | string } })
+    const fields = referenceFields(collection.flattenedFields, target)
+    if (fields.length === 0) continue
+    // One query per pass for all of this list's fields; the fields that matched are read back
+    // from the returned data, so each comes with the same label the field list gives it.
+    const where: Where = { or: fields.map(({ path }) => ({ [path]: { in: [id] } })) }
+    const holding = [titleKey(collection), ...fields.map(({ path }) => path.split('.')[0])]
+    const select = Object.fromEntries(holding.map((name) => [name, true])) as SelectType
+    const found: { doc: Record<string, unknown>; labels: Set<string> }[][] = []
+    for (const draft of passes(collection)) {
+      const { docs } = await req.payload.find({
+        collection: collection.slug as CollectionSlug,
+        depth: 0,
+        draft,
+        overrideAccess: true,
+        pagination: false,
+        req,
+        select,
+        where,
+      })
+      found.push(
+        (docs as unknown as Record<string, unknown>[]).map((doc) => ({
+          doc,
+          labels: new Set(refsInData(collection.flattenedFields, doc, true).filter(({ ref }) => isTarget(ref)).map(({ field }) => field)),
+        })),
+      )
+    }
+    // Listed field by field, then pass by pass, so places and fields keep the order they had
+    // when each field was asked for separately. Rich text matches are left to the index below.
+    for (const label of new Set(fields.map((field) => field.label))) {
+      for (const pass of found) {
+        for (const { doc, labels } of pass) {
+          if (labels.has(label)) usages.push({ holder: holderName(collection, doc), field: label, record: { collection: collection.slug, id: doc.id as number | string } })
         }
       }
     }
   }
 
-  let index = indexes.get(req)
-  if (!index) {
-    index = buildIndex(req)
-    indexes.set(req, index)
+  if (inRichText) {
+    const cached = readsFor(req)
+    cached.richText ??= buildRichTextIndex(req)
+    usages.push(...((await cached.richText).get(refKey(target, id)) ?? []))
   }
-  usages.push(...((await index).get(refKey(target, id)) ?? []))
+
+  for (const global of req.payload.config.globals) {
+    const holdsList = referenceFields(global.flattenedFields, target).length > 0
+    const holdsRichText = inRichText && richTextFieldNames(global.flattenedFields).length > 0
+    if (!holdsList && !holdsRichText) continue
+    const holder = typeof global.label === 'string' ? global.label : wordsFromName(global.slug)
+    for (const { ref, field } of await globalRefs(req, global)) if (isTarget(ref)) usages.push({ holder, field })
+  }
 
   return usages.filter((usage) => !(usage.record?.collection === target && String(usage.record.id) === String(id)))
 }
