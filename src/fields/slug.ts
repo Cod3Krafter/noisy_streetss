@@ -1,7 +1,11 @@
 import type { CollectionSlug, Field, FieldHook, PayloadRequest } from 'payload'
 
+import { wordsFromName } from '@/rules/references'
+import { rejectField } from '@/rules/validation'
+
 const MAX_LENGTH = 80
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const FORMAT_MESSAGE = 'Use lower-case letters, numbers and single hyphens only.'
 
 /**
  * Letters that have no accent to strip, so Unicode normalising leaves them alone.
@@ -54,6 +58,21 @@ function withSuffix(base: string, suffix: string): string {
   return base.slice(0, MAX_LENGTH - suffix.length).replace(/-+$/, '') + suffix
 }
 
+/** True when another record in the list already has this slug (the record being saved doesn't count). */
+async function isTaken(
+  req: PayloadRequest,
+  collection: CollectionSlug,
+  slug: string,
+  ownId: number | string | undefined,
+): Promise<boolean> {
+  const { totalDocs } = await req.payload.count({
+    collection,
+    where: { and: [{ slug: { equals: slug } }, ...(ownId !== undefined ? [{ id: { not_equals: ownId } }] : [])] },
+    req,
+  })
+  return totalDocs > 0
+}
+
 async function firstFreeSlug(
   req: PayloadRequest,
   collection: CollectionSlug,
@@ -62,25 +81,27 @@ async function firstFreeSlug(
 ): Promise<string> {
   for (let n = 1; n <= 50; n += 1) {
     const candidate = n === 1 ? base : withSuffix(base, `-${n}`)
-    const { totalDocs } = await req.payload.count({
-      collection,
-      where: {
-        and: [
-          { slug: { equals: candidate } },
-          ...(ownId !== undefined ? [{ id: { not_equals: ownId } }] : []),
-        ],
-      },
-      req,
-    })
-    if (totalDocs === 0) return candidate
+    if (!(await isTaken(req, collection, candidate, ownId))) return candidate
   }
   return withSuffix(base, `-${Date.now()}`)
 }
 
+/**
+ * An address typed by a person is never changed: it is kept as typed or the save is refused, on
+ * every save and for drafts too (draft saves skip field validation on most lists, so the check
+ * is made here). An empty address is made from the source field, numbered when taken.
+ */
 const generateSlug =
   (sourceField: string): FieldHook =>
   async ({ value, data, originalDoc, collection, req }) => {
-    if (typeof value === 'string' && value.trim() !== '') return slugify(value)
+    if (typeof value === 'string' && value.trim() !== '') {
+      if (!SLUG_PATTERN.test(value)) rejectField(req, collection?.slug ?? '', 'slug', FORMAT_MESSAGE)
+      if (collection && (await isTaken(req, collection.slug as CollectionSlug, value, originalDoc?.id))) {
+        const singular = typeof collection.labels?.singular === 'string' ? collection.labels.singular : wordsFromName(collection.slug)
+        rejectField(req, collection.slug, 'slug', `Another ${singular.toLowerCase()} already uses this web address.`)
+      }
+      return value
+    }
 
     const source = data?.[sourceField] ?? originalDoc?.[sourceField]
     if (typeof source !== 'string') return value
@@ -104,7 +125,7 @@ export const validateSlug = (value: unknown, { event }: { event?: 'onChange' | '
   if (event === 'onChange' && isEmpty(value)) return true
   return typeof value === 'string' && SLUG_PATTERN.test(value)
     ? true
-    : 'Use lower-case letters, numbers and single hyphens only.'
+    : FORMAT_MESSAGE
 }
 
 /** The `slug` field: made from `sourceField` when left empty, editable, unique in its collection. */
@@ -119,9 +140,12 @@ export function slugField(sourceField = 'title'): Field {
     index: true,
     admin: {
       position: 'sidebar',
-      description: `Made from the ${sourceField} when left empty. Lower-case letters, numbers and hyphens only.`,
+      description: `Made from the ${sourceField} when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.`,
     },
     hooks: {
+      // Payload's default for a unique field makes the copy's address "<slug> - Copy", which is not a valid
+      // address. null makes it empty, so the copy's address is made from its title and numbered.
+      beforeDuplicate: [() => null],
       beforeValidate: [generateSlug(sourceField)],
     },
     validate: validateSlug,

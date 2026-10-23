@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { slugify, validateSlug } from '@/fields/slug'
+import { slugField, slugify, validateSlug } from '@/fields/slug'
 
 describe('slugify', () => {
   it('lower-cases and hyphenates', () => {
@@ -68,5 +68,14 @@ describe('validateSlug', () => {
   it('passes a well-formed Web address', () => {
     expect(validateSlug('short-fiction-2', editing)).toBe(true)
     expect(validateSlug('short-fiction-2', saving)).toBe(true)
+  })
+})
+
+describe('slugField', () => {
+  it('explains the automatic number in its hint', () => {
+    const field = slugField('title') as { admin: { description: string } }
+    expect(field.admin.description).toBe(
+      'Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.',
+    )
   })
 })

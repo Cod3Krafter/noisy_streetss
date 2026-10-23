@@ -12,6 +12,7 @@ export const Manuscripts: CollectionConfig = {
   admin: {
     group: 'Inbox',
     useAsTitle: 'filename',
+    defaultColumns: ['filename', 'filesize', 'createdAt'],
     description: 'Files sent with manuscript submissions. Only staff can open them.',
   },
   access: { read: isStaff, create: isAdmin, update: isAdmin, delete: isAdmin },

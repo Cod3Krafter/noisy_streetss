@@ -1,4 +1,4 @@
-import { type CollectionBeforeChangeHook, type CollectionBeforeOperationHook, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
+import { type CollectionBeforeChangeHook, type CollectionBeforeDeleteHook, type CollectionBeforeOperationHook, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
 
 import { adminOnlyInAdmin, adminOrSelf, isAdmin, isAdminField, isStaffUser } from '@/access'
 import { Refusal } from '@/refusal'
@@ -11,11 +11,21 @@ const LAST_ADMIN = 'There must always be at least one admin. Make another accoun
  * see the other admins and let them all go. This runs once per operation instead: it works out
  * which accounts the operation targets and checks that an admin is left outside that set.
  * Payload gives this hook the name 'delete' or 'update' for both the by-id and the bulk form.
+ *
+ * A demotion that would leave no admin is refused as a whole, and so is a delete by id (the
+ * record view shows the message, and there is no list to report into; the id may also be
+ * written in a way Payload reads as a number, so it is not compared per record). A bulk
+ * delete is refused per record instead: the admins that must stay are noted on the request
+ * and `refuseKeptAdmin` refuses them one by one, so the list view's bulk Delete gets the
+ * per-record answer it reads and the rest of the selection is still deleted. Those ids always
+ * come from the found records.
  */
 const keepAnAdmin: CollectionBeforeOperationHook = async ({ args, operation }) => {
   if (operation !== 'delete' && operation !== 'update') return args
   const input = args as { id?: number | string; where?: Where; data?: { role?: string }; req: PayloadRequest }
   const { req } = input
+  // Set on every delete, so a value left by an earlier operation on this request can't apply.
+  if (operation === 'delete') req.context.keepAdminIds = []
   if (operation === 'update' && (input.data?.role === undefined || input.data.role === 'admin')) return args
   if (input.id === undefined && !input.where) return args
 
@@ -38,7 +48,16 @@ const keepAnAdmin: CollectionBeforeOperationHook = async ({ args, operation }) =
   if (totalDocs > 0) return args
 
   if (operation === 'update') rejectField(req, 'users', 'role', LAST_ADMIN)
-  throw new Refusal(LAST_ADMIN)
+  if (input.id !== undefined) throw new Refusal(LAST_ADMIN)
+  // Every admin is targeted, so every targeted admin stays and the rest of the selection goes.
+  req.context.keepAdminIds = targeted
+  return args
+}
+
+/** Bulk deletes only: refuses a record the operation hook marked as an admin that must stay. */
+const refuseKeptAdmin: CollectionBeforeDeleteHook = ({ id, req }) => {
+  const keep = req.context.keepAdminIds
+  if (Array.isArray(keep) && keep.some((kept) => String(kept) === String(id))) throw new Refusal(LAST_ADMIN)
 }
 
 /** The very first account is always an admin, so a fresh site can't be locked out. */
@@ -68,6 +87,7 @@ export const Users: CollectionConfig = {
   },
   hooks: {
     beforeChange: [firstAccountIsAdmin],
+    beforeDelete: [refuseKeptAdmin],
     beforeOperation: [keepAnAdmin],
   },
   fields: [

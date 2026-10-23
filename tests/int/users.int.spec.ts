@@ -1,7 +1,7 @@
 import type { Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { createStaff, expectFieldError, getTestPayload, resetCollections } from '../helpers/payload'
+import { createStaff, expectFieldError, getTestPayload, resetCollections, rest, tokenFor } from '../helpers/payload'
 
 let payload: Payload
 
@@ -131,10 +131,64 @@ describe('the last admin under bulk actions', () => {
 
   const adminCount = async () => (await payload.count({ collection: 'users', where: { role: { equals: 'admin' } } })).totalDocs
 
-  it('refuses a bulk delete of every admin', async () => {
+  it('refuses each admin when a bulk delete targets every admin, and deletes none of them', async () => {
     await twoAdminsAndAnEditor()
-    await expect(payload.delete({ collection: 'users', where: { role: { equals: 'admin' } } })).rejects.toThrow(message)
+    const result = await payload.delete({ collection: 'users', where: { role: { equals: 'admin' } } })
+    expect(result.docs).toHaveLength(0)
+    expect(result.errors).toHaveLength(2)
+    for (const error of result.errors) expect(error.message).toMatch(message)
     expect(await adminCount()).toBe(2)
+  })
+
+  it('deletes the editor and refuses the admin when the only admin is selected with an editor', async () => {
+    await resetCollections(payload, ['users'])
+    const admin = await createStaff(payload, 'admin')
+    const editor = await createStaff(payload, 'editor')
+    const result = await payload.delete({ collection: 'users', where: { id: { in: [admin.id, editor.id] } } })
+    expect(result.docs.map((doc) => doc.id)).toEqual([editor.id])
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0].id).toBe(admin.id)
+    expect(result.errors[0].message).toMatch(message)
+    expect(await adminCount()).toBe(1)
+  })
+
+  it('answers a REST bulk delete of the only admin with docs and errors, the shape the list view reads', async () => {
+    await resetCollections(payload, ['users'])
+    const admin = await createStaff(payload, 'admin')
+    const token = await tokenFor(payload, admin)
+    const response = await rest('DELETE', `/users?where[id][in]=${admin.id}`, { token })
+    expect(response.status).toBe(400)
+    const json = await response.json()
+    expect(json.docs).toEqual([])
+    expect(json.errors[0].message).toMatch(message)
+    expect(await adminCount()).toBe(1)
+  })
+
+  it('refuses deleting the only admin by a string id', async () => {
+    await resetCollections(payload, ['users'])
+    const admin = await createStaff(payload, 'admin')
+    await expect(payload.delete({ collection: 'users', id: String(admin.id) })).rejects.toThrow(message)
+    expect(await adminCount()).toBe(1)
+  })
+
+  it('refuses deleting the only admin by an oddly written id', async () => {
+    await resetCollections(payload, ['users'])
+    const admin = await createStaff(payload, 'admin')
+    for (const id of [`0${admin.id}`, `${admin.id}.0`, ` ${admin.id}`]) {
+      await expect(payload.delete({ collection: 'users', id })).rejects.toThrow(message)
+    }
+    expect(await adminCount()).toBe(1)
+  })
+
+  it('still refuses a single delete by id, over REST as well', async () => {
+    await resetCollections(payload, ['users'])
+    const admin = await createStaff(payload, 'admin')
+    const token = await tokenFor(payload, admin)
+    await expect(payload.delete({ collection: 'users', id: admin.id })).rejects.toThrow(message)
+    const response = await rest('DELETE', `/users/${admin.id}`, { token })
+    expect(response.status).toBe(400)
+    expect(JSON.stringify(await response.json())).toMatch(message)
+    expect(await adminCount()).toBe(1)
   })
 
   it('refuses a bulk demotion of every admin', async () => {

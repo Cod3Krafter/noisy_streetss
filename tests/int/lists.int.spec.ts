@@ -71,6 +71,13 @@ describe('book popup campaigns', () => {
     )
   })
 
+  it('names the field by its label in the error message', async () => {
+    await payload.create({ collection: 'popup-campaigns', data: campaign('November launch', 1, 10) })
+    await expect(payload.create({ collection: 'popup-campaigns', data: campaign('Clashing launch', 5, 15) })).rejects.toThrow(
+      /The following field is invalid: Show from$/,
+    )
+  })
+
   it('allows a disabled overlapping campaign, and one that starts as the other ends', async () => {
     const disabled = await payload.create({ collection: 'popup-campaigns', data: campaign('Draft idea', 5, 15, false) })
     expect(disabled.enabled).toBe(false)

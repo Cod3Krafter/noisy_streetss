@@ -1,5 +1,5 @@
 import { s3Storage } from '@payloadcms/storage-s3'
-import type { Plugin } from 'payload'
+import type { Field, Plugin } from 'payload'
 
 function s3ClientConfig() {
   return {
@@ -36,3 +36,24 @@ export function storagePlugins(): Plugin[] {
     }),
   ]
 }
+
+const INTERNAL_FIELDS = new Set(['prefix', '_objectKey'])
+
+/**
+ * The storage adapter adds `prefix` and `_objectKey` to each upload list. It hides them on the
+ * edit screen, but they would still be offered as list columns and filters. Runs after the
+ * storage plugins, and only changes admin settings (no schema change).
+ */
+export const hideStorageFieldsFromLists: Plugin = (config) => ({
+  ...config,
+  collections: config.collections?.map((collection) => {
+    if (collection.slug !== 'media' && collection.slug !== 'manuscripts') return collection
+    return {
+      ...collection,
+      fields: collection.fields.map((field): Field => {
+        if (!('name' in field) || !INTERNAL_FIELDS.has(field.name)) return field
+        return { ...field, admin: { ...field.admin, disableListColumn: true, disableListFilter: true } } as Field
+      }),
+    }
+  }),
+})

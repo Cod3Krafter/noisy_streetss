@@ -37,6 +37,15 @@ describe('merch', () => {
 })
 
 describe('studio services', () => {
+  it('names the rate field by its label in the error message', async () => {
+    await expect(
+      payload.create({
+        collection: 'studio-services',
+        data: { name: 'Vocal booth', description: 'Treated booth.', _status: 'published' },
+      }),
+    ).rejects.toThrow(/The following field is invalid: Hourly rate \(₦\)$/)
+  })
+
   it('needs a rate to publish', async () => {
     await expectFieldError(
       payload.create({

@@ -1,7 +1,7 @@
 import type { Payload } from 'payload'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-import { createStaff, getTestPayload, resetCollections } from '../helpers/payload'
+import { createStaff, expectFieldError, getTestPayload, resetCollections } from '../helpers/payload'
 
 let payload: Payload
 
@@ -26,19 +26,71 @@ describe('slugs', () => {
     expect(second.slug).toBe('short-fiction-2')
   })
 
-  it('tidies a typed slug', async () => {
-    const category = await payload.create({
-      collection: 'categories',
-      data: { name: 'Essays', slug: 'Long Essays!' },
-    })
+  it('refuses a badly typed slug instead of tidying it, drafts included', async () => {
+    const format = /lower-case letters, numbers and single hyphens/
+    await expectFieldError(
+      payload.create({ collection: 'categories', data: { name: 'Essays', slug: 'Bad Slug!' } }),
+      'slug',
+      format,
+    )
+    await expectFieldError(
+      payload.create({ collection: 'writers', data: { name: 'A Writer', shortBio: 'Bio.', slug: 'Bad Slug!' }, draft: true }),
+      'slug',
+      format,
+    )
+    await expectFieldError(
+      payload.create({
+        collection: 'writers',
+        data: { name: 'A Writer', shortBio: 'Bio.', slug: 'Bad Slug!', _status: 'published' },
+      }),
+      'slug',
+      format,
+    )
+    expect((await payload.count({ collection: 'categories' })).totalDocs).toBe(0)
+  })
+
+  it('saves a well-formed typed slug unchanged', async () => {
+    const category = await payload.create({ collection: 'categories', data: { name: 'Essays', slug: 'long-essays' } })
     expect(category.slug).toBe('long-essays')
   })
 
-  it('rejects a typed slug that is already taken', async () => {
-    await payload.create({ collection: 'categories', data: { name: 'Short Fiction' } })
-    await expect(
-      payload.create({ collection: 'categories', data: { name: 'Another', slug: 'short-fiction' } }),
-    ).rejects.toThrow(/slug/)
+  it('names the field by its label in the toast text', async () => {
+    await expect(payload.create({ collection: 'tags', data: { name: 'Lagos', slug: 'Bad Slug!' } })).rejects.toThrow(
+      /The following field is invalid: Web address$/,
+    )
+  })
+
+  it('refuses a typed slug that another record in the list already uses', async () => {
+    await payload.create({ collection: 'tags', data: { name: 'Short Fiction' } })
+    await expectFieldError(
+      payload.create({ collection: 'tags', data: { name: 'Another', slug: 'short-fiction' } }),
+      'slug',
+      /^Another tag already uses this web address\.$/,
+    )
+    await expectFieldError(
+      payload.create({ collection: 'writers', data: { name: 'W1', shortBio: 'Bio.', slug: 'w' }, draft: true }).then(() =>
+        payload.create({ collection: 'writers', data: { name: 'W2', shortBio: 'Bio.', slug: 'w' }, draft: true }),
+      ),
+      'slug',
+      /^Another writer already uses this web address\.$/,
+    )
+  })
+
+  it('duplicates a record with a new numbered address made from its title', async () => {
+    const tag = await payload.create({ collection: 'tags', data: { name: 'Lagos' } })
+    const tagCopy = await payload.duplicate({ collection: 'tags', id: tag.id })
+    expect(tag.slug).toBe('lagos')
+    expect(tagCopy.slug).toBe('lagos-2')
+
+    const writer = await payload.create({ collection: 'writers', data: { name: 'Dup Writer', shortBio: 'Bio.', _status: 'published' } })
+    const writerCopy = await payload.duplicate({ collection: 'writers', id: writer.id })
+    expect(writerCopy.slug).toBe(`${writer.slug}-2`)
+  })
+
+  it('lets a record be saved again with its own typed slug', async () => {
+    const tag = await payload.create({ collection: 'tags', data: { name: 'Lagos', slug: 'lagos-life' } })
+    const updated = await payload.update({ collection: 'tags', id: tag.id, data: { name: 'Lagos 2', slug: 'lagos-life' } })
+    expect(updated.slug).toBe('lagos-life')
   })
 
   it('keeps slugs unique per collection, not across collections', async () => {
