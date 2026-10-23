@@ -1,0 +1,28 @@
+name: canary
+
+# Detects the 2024-2026 repo injector. Runs server-side, so it cannot be skipped with
+# --no-verify and it covers every collaborator, not just machines with the hook installed.
+#
+# This matters specifically for this threat: the tampering was never done on a developer's
+# machine, so a local-only hook would have missed all of it.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly, so a repo that is not being actively pushed to still gets checked.
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for injector payloads
+        shell: bash
+        run: bash scripts/canary-check.sh
