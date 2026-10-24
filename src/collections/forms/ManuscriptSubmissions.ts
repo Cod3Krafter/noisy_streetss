@@ -3,6 +3,7 @@ import type { CollectionBeforeValidateHook } from 'payload'
 import { isStaff } from '@/access'
 import { callStatus } from '@/rules/submissionCalls'
 import { rejectField } from '@/rules/validation'
+import { emailValidator } from '@/rules/validators'
 
 import { formCollection } from './formCollection'
 
@@ -59,7 +60,7 @@ export const ManuscriptSubmissions = formCollection({
   fields: [
     { name: 'call', label: 'Submission call', type: 'relationship', relationTo: 'submission-calls', required: true },
     { name: 'name', type: 'text', required: true, maxLength: 200 },
-    { name: 'email', type: 'email', required: true },
+    { name: 'email', type: 'email', required: true, validate: emailValidator },
     { name: 'phone', type: 'text', maxLength: 50 },
     { name: 'workTitle', label: 'Title of the work', type: 'text', required: true, maxLength: 300 },
     { name: 'wordCount', label: 'Word count', type: 'number', min: 1 },

@@ -75,6 +75,45 @@ describe('visitors sending forms', () => {
     expect(stored.staffNotes ?? null).toBeNull()
   })
 
+  it('sets the dates itself when a visitor sends their own, in the Local API and over REST', async () => {
+    const fake = '2099-01-01T00:00:00.000Z'
+    const local = await payload.create({
+      collection: 'contact-messages',
+      data: contact({ createdAt: fake, updatedAt: fake }),
+      overrideAccess: false,
+    })
+    const res = await rest('POST', '/contact-messages', { body: contact({ createdAt: fake, updatedAt: fake }) })
+    expect(res.status).toBe(201)
+    const over = (await res.json()).doc
+    for (const id of [local.id, over.id]) {
+      const stored = await payload.findByID({ collection: 'contact-messages', id })
+      expect(new Date(stored.createdAt).getFullYear()).toBeLessThan(2090)
+      expect(new Date(stored.updatedAt).getFullYear()).toBeLessThan(2090)
+    }
+  })
+
+  it('lets staff keep creating entries', async () => {
+    const doc = await payload.create({ collection: 'contact-messages', data: contact({ status: 'done' }), user: admin, overrideAccess: false })
+    expect(doc.status).toBe('done')
+  })
+
+  it('refuses an email address longer than 254 characters, and accepts exactly 254', async () => {
+    const address = (length: number) => `${'a'.repeat(length - '@example.com'.length)}@example.com`
+    await expectFieldError(
+      payload.create({ collection: 'contact-messages', data: contact({ email: address(255) }), overrideAccess: false }),
+      'email',
+      /Keep the email address to 254 characters or fewer\./,
+    )
+    await expect(
+      payload.create({ collection: 'contact-messages', data: contact({ email: address(254) }), overrideAccess: false }),
+    ).resolves.toBeTruthy()
+    await expectFieldError(
+      payload.create({ collection: 'contact-messages', data: contact({ email: 'nope' }), overrideAccess: false }),
+      'email',
+      /valid email/i,
+    )
+  })
+
   it('never stores an entry with the hidden field filled in when server code saves it directly', async () => {
     const before = await payload.count({ collection: 'contact-messages' })
     await expect(

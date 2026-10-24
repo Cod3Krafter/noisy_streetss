@@ -1,3 +1,5 @@
+import { emailValidator } from '@/rules/validators'
+
 import { formCollection } from './formCollection'
 
 export const BookstoreApplications = formCollection({
@@ -8,7 +10,7 @@ export const BookstoreApplications = formCollection({
   fields: [
     { name: 'storeName', label: 'Store name', type: 'text', required: true, maxLength: 200 },
     { name: 'contactName', label: 'Contact name', type: 'text', required: true, maxLength: 200 },
-    { name: 'email', type: 'email', required: true },
+    { name: 'email', type: 'email', required: true, validate: emailValidator },
     { name: 'phone', type: 'text', required: true, maxLength: 50 },
     {
       name: 'address',

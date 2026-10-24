@@ -1,3 +1,5 @@
+import { email as payloadEmail, type EmailFieldValidation } from 'payload/shared'
+
 const isEmpty = (value: unknown) =>
   value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
 
@@ -19,3 +21,14 @@ export const urlValidator =
       ? true
       : 'Enter a full web address starting with https://'
   }
+
+/** The longest valid email address. */
+export const MAX_EMAIL_LENGTH = 254
+
+/** Payload's own email check, with a length cap it doesn't have. */
+export const emailValidator: EmailFieldValidation = (value, options) => {
+  if (typeof value === 'string' && value.length > MAX_EMAIL_LENGTH) {
+    return `Keep the email address to ${MAX_EMAIL_LENGTH} characters or fewer.`
+  }
+  return payloadEmail(value, options)
+}

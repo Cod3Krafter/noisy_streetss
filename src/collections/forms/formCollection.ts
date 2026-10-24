@@ -4,10 +4,16 @@ import { anyone, isAdmin, isStaff, isStaffUser } from '@/access'
 import { sendFormAlert } from '@/hooks/formAlert'
 import { createUnlessSpam, dropSpam, honeypotField } from '@/hooks/honeypot'
 
-/** Whatever a visitor sends, their entry starts as New with no staff notes. */
+/**
+ * Whatever a visitor sends, their entry starts as New with no staff notes, and Payload sets its
+ * dates (a supplied createdAt or updatedAt would otherwise be stored as given).
+ */
 const visitorEntriesStartNew: CollectionBeforeChangeHook = ({ data, operation, req }) => {
   if (operation !== 'create' || isStaffUser(req.user)) return data
-  return { ...data, status: 'new', staffNotes: null }
+  const entry: typeof data = { ...data, status: 'new', staffNotes: null }
+  delete entry.createdAt
+  delete entry.updatedAt
+  return entry
 }
 
 type FormCollectionArgs = {
