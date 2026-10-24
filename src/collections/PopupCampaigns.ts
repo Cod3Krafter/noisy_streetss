@@ -1,9 +1,22 @@
 import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
 import { anyone, staffWrites } from '@/access'
-import { overlappingCampaignsWhere } from '@/rules/popups'
+import { datesOverlap, overlappingCampaignsWhere } from '@/rules/popups'
 import { endsAfter, endsAfterField } from '@/rules/time'
 import { finalValue, rejectField } from '@/rules/validation'
+
+type SwitchingOn = { id?: number | string; headline: string; startsAt: string; endsAt: string }
+
+const SWITCHING_ON = 'popupsSwitchingOn'
+
+/** The campaigns this request has already checked as switched on. A bulk update shares one request. */
+function switchingOnList(context: Record<string, unknown>): SwitchingOn[] {
+  const existing = context[SWITCHING_ON]
+  if (Array.isArray(existing)) return existing as SwitchingOn[]
+  const list: SwitchingOn[] = []
+  context[SWITCHING_ON] = list
+  return list
+}
 
 const onlyOneAtATime: CollectionBeforeValidateHook = async ({ data, originalDoc, req }) => {
   const enabled = finalValue<boolean>(data, originalDoc, 'enabled')
@@ -12,6 +25,25 @@ const onlyOneAtATime: CollectionBeforeValidateHook = async ({ data, originalDoc,
   if (!enabled || !startsAt || !endsAt) return data
   // A backwards range gets its own field error from endsAt; don't report it as a clash.
   if (!endsAfter(startsAt, endsAt)) return data
+
+  // A bulk update runs every record's hooks in parallel before any is written, so the database
+  // check below can't see the others being switched on in the same operation. Check them here
+  // and record this one before the first await, so two parallel hooks can't both slip past.
+  const ownId = originalDoc?.id
+  const headline = finalValue<string>(data, originalDoc, 'headline') ?? ''
+  const batch = switchingOnList(req.context)
+  const sibling = batch.find(
+    (entry) => (ownId === undefined || entry.id !== ownId) && datesOverlap(startsAt, endsAt, entry.startsAt, entry.endsAt),
+  )
+  if (sibling) {
+    rejectField(
+      req,
+      'popup-campaigns',
+      'startsAt',
+      `These dates overlap with "${sibling.headline}". Only one book popup can run at a time: change the dates or switch one off.`,
+    )
+  }
+  batch.push({ id: ownId, headline, startsAt, endsAt })
 
   const clash = await req.payload.find({
     collection: 'popup-campaigns',
