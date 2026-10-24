@@ -69,10 +69,10 @@ describe('productionSettingProblems', () => {
     expect(productionSettingProblems({ ...complete, CRON_SECRET: 'x'.repeat(16) })).toEqual([])
   })
 
-  it('wants the site address as https://host with no path or trailing slash', () => {
-    const problem = ['NEXT_PUBLIC_SERVER_URL (must be https://host with no path or trailing slash)']
+  it('wants the site address as exactly https://host, lowercase, with no path, trailing slash or :443', () => {
+    const problem = ['NEXT_PUBLIC_SERVER_URL (must be exactly https://host in lowercase, with no path, trailing slash or :443)']
     for (const url of ['https://noisystreetss.example/', 'https://noisystreetss.example/shop', 'http://noisystreetss.example', 'noisystreetss.example',
-      'https://Noisystreetss.example', 'HTTPS://noisystreetss.example', 'https://noisystreetss.example:443', 'https://user@noisystreetss.example', 'https://ñoisy.example', 'https://noisystreetss.example:']) {
+      'https://Noisystreetss.example', 'HTTPS://noisystreetss.example', 'https://noisystreetss.example:443', 'https://user@noisystreetss.example', 'https://\u00f1oisy.example', 'https://noisystreetss.example:']) {
       expect(productionSettingProblems({ ...complete, NEXT_PUBLIC_SERVER_URL: url })).toEqual(problem)
     }
     expect(productionSettingProblems({ ...complete, NEXT_PUBLIC_SERVER_URL: 'https://www.noisystreetss.example:8443' })).toEqual([])

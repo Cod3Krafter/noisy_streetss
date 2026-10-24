@@ -50,7 +50,7 @@ export function productionSettingProblems(env: Record<string, string | undefined
     } else if (name === 'CRON_SECRET' && value.length < MIN_CRON_SECRET_LENGTH) {
       problems.push(`${name} (shorter than ${MIN_CRON_SECRET_LENGTH} characters)`)
     } else if (name === 'NEXT_PUBLIC_SERVER_URL' && !isExactOrigin(value)) {
-      problems.push(`${name} (must be https://host with no path or trailing slash)`)
+      problems.push(`${name} (must be exactly https://host in lowercase, with no path, trailing slash or :443)`)
     }
   }
   if (!blank('S3_BUCKET_MEDIA') || !blank('S3_BUCKET_MANUSCRIPTS')) problems.push(...STORAGE_CONNECTION.filter(blank))
