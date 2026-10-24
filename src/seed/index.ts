@@ -70,8 +70,9 @@ export async function wipe(payload: Payload): Promise<void> {
     }
   }
 
-  // Reverse config order: lists that point at others (submissions at calls, popups at books)
-  // are emptied before the records they point at, so no foreign key refuses the delete.
+  // Reverse config order. The config follows the admin menu, so it is not a dependency order:
+  // nothing here relies on it, because every reference column is cleared or cascaded when the
+  // record it points at goes (the initial migration has no restricting foreign key).
   for (const collection of [...payload.config.collections].reverse()) {
     if (collection.slug === 'payload-migrations') continue
     await payload.db.deleteMany({ collection: collection.slug, where: {} })

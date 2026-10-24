@@ -67,34 +67,34 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    users: User;
-    categories: Category;
-    tags: Tag;
-    media: Media;
-    manuscripts: Manuscript;
-    writers: Writer;
     books: Book;
-    articles: Article;
-    'podcast-shows': PodcastShow;
-    'podcast-episodes': PodcastEpisode;
+    writers: Writer;
     'submission-calls': SubmissionCall;
     awards: Award;
+    articles: Article;
+    categories: Category;
+    tags: Tag;
+    'podcast-shows': PodcastShow;
+    'podcast-episodes': PodcastEpisode;
     events: Event;
-    careers: Career;
     'book-club-sessions': BookClubSession;
+    careers: Career;
+    announcements: Announcement;
+    'popup-campaigns': PopupCampaign;
     merch: Merch;
     'studio-services': StudioService;
     'membership-plans': MembershipPlan;
-    pages: Page;
-    announcements: Announcement;
-    'popup-campaigns': PopupCampaign;
     'press-mentions': PressMention;
     partners: Partner;
+    pages: Page;
+    manuscripts: Manuscript;
     'contact-messages': ContactMessage;
     'partnership-enquiries': PartnershipEnquiry;
     'bookstore-applications': BookstoreApplication;
     'advisory-enquiries': AdvisoryEnquiry;
     'manuscript-submissions': ManuscriptSubmission;
+    media: Media;
+    users: User;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -108,34 +108,34 @@ export interface Config {
     };
   };
   collectionsSelect: {
-    users: UsersSelect<false> | UsersSelect<true>;
-    categories: CategoriesSelect<false> | CategoriesSelect<true>;
-    tags: TagsSelect<false> | TagsSelect<true>;
-    media: MediaSelect<false> | MediaSelect<true>;
-    manuscripts: ManuscriptsSelect<false> | ManuscriptsSelect<true>;
-    writers: WritersSelect<false> | WritersSelect<true>;
     books: BooksSelect<false> | BooksSelect<true>;
-    articles: ArticlesSelect<false> | ArticlesSelect<true>;
-    'podcast-shows': PodcastShowsSelect<false> | PodcastShowsSelect<true>;
-    'podcast-episodes': PodcastEpisodesSelect<false> | PodcastEpisodesSelect<true>;
+    writers: WritersSelect<false> | WritersSelect<true>;
     'submission-calls': SubmissionCallsSelect<false> | SubmissionCallsSelect<true>;
     awards: AwardsSelect<false> | AwardsSelect<true>;
+    articles: ArticlesSelect<false> | ArticlesSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    tags: TagsSelect<false> | TagsSelect<true>;
+    'podcast-shows': PodcastShowsSelect<false> | PodcastShowsSelect<true>;
+    'podcast-episodes': PodcastEpisodesSelect<false> | PodcastEpisodesSelect<true>;
     events: EventsSelect<false> | EventsSelect<true>;
-    careers: CareersSelect<false> | CareersSelect<true>;
     'book-club-sessions': BookClubSessionsSelect<false> | BookClubSessionsSelect<true>;
+    careers: CareersSelect<false> | CareersSelect<true>;
+    announcements: AnnouncementsSelect<false> | AnnouncementsSelect<true>;
+    'popup-campaigns': PopupCampaignsSelect<false> | PopupCampaignsSelect<true>;
     merch: MerchSelect<false> | MerchSelect<true>;
     'studio-services': StudioServicesSelect<false> | StudioServicesSelect<true>;
     'membership-plans': MembershipPlansSelect<false> | MembershipPlansSelect<true>;
-    pages: PagesSelect<false> | PagesSelect<true>;
-    announcements: AnnouncementsSelect<false> | AnnouncementsSelect<true>;
-    'popup-campaigns': PopupCampaignsSelect<false> | PopupCampaignsSelect<true>;
     'press-mentions': PressMentionsSelect<false> | PressMentionsSelect<true>;
     partners: PartnersSelect<false> | PartnersSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
+    manuscripts: ManuscriptsSelect<false> | ManuscriptsSelect<true>;
     'contact-messages': ContactMessagesSelect<false> | ContactMessagesSelect<true>;
     'partnership-enquiries': PartnershipEnquiriesSelect<false> | PartnershipEnquiriesSelect<true>;
     'bookstore-applications': BookstoreApplicationsSelect<false> | BookstoreApplicationsSelect<true>;
     'advisory-enquiries': AdvisoryEnquiriesSelect<false> | AdvisoryEnquiriesSelect<true>;
     'manuscript-submissions': ManuscriptSubmissionsSelect<false> | ManuscriptSubmissionsSelect<true>;
+    media: MediaSelect<false> | MediaSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -230,63 +230,69 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
+ * via the `definition` "books".
  */
-export interface User {
+export interface Book {
   id: number;
-  name: string;
+  title: string;
   /**
-   * Admins can also manage staff accounts and shop settings.
+   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
-  role: 'admin' | 'editor';
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  resetPasswordRequestedAt?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
+  slug?: string | null;
+  cover: number | Media;
+  writers: (number | Writer)[];
+  category: 'fiction' | 'poetry' | 'anthology' | 'non-fiction';
+  /**
+   * One line, shown on book cards.
+   */
+  summary: string;
+  synopsis?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  publishDate?: string | null;
+  pageCount?: number | null;
+  isbn?: string | null;
+  /**
+   * Each edition sold, such as paperback or hardback. Needed before the book can be sold.
+   */
+  formats?:
     | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
+        formatName: string;
+        priceNGN: number;
+        inStock?: boolean | null;
+        /**
+         * Used to work out delivery.
+         */
+        weightGrams: number;
+        id?: string | null;
       }[]
     | null;
-  password?: string | null;
-  collection: 'users';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
- */
-export interface Category {
-  id: number;
-  name: string;
-  /**
-   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
-   */
-  slug?: string | null;
-  description?: string | null;
+  sellInShop?: boolean | null;
+  newRelease?: boolean | null;
+  editorsChoice?: boolean | null;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tags".
- */
-export interface Tag {
-  id: number;
-  name: string;
-  /**
-   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
-   */
-  slug?: string | null;
-  updatedAt: string;
-  createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -344,28 +350,6 @@ export interface Media {
   };
 }
 /**
- * Files sent with manuscript submissions. Only staff can open them.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "manuscripts".
- */
-export interface Manuscript {
-  id: number;
-  prefix?: string | null;
-  _objectKey?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "writers".
  */
@@ -420,72 +404,6 @@ export interface Writer {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  meta?: {
-    title?: string | null;
-    description?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-  };
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "books".
- */
-export interface Book {
-  id: number;
-  title: string;
-  /**
-   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
-   */
-  slug?: string | null;
-  cover: number | Media;
-  writers: (number | Writer)[];
-  category: 'fiction' | 'poetry' | 'anthology' | 'non-fiction';
-  /**
-   * One line, shown on book cards.
-   */
-  summary: string;
-  synopsis?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  publishDate?: string | null;
-  pageCount?: number | null;
-  isbn?: string | null;
-  /**
-   * Each edition sold, such as paperback or hardback. Needed before the book can be sold.
-   */
-  formats?:
-    | {
-        formatName: string;
-        priceNGN: number;
-        inStock?: boolean | null;
-        /**
-         * Used to work out delivery.
-         */
-        weightGrams: number;
-        id?: string | null;
-      }[]
-    | null;
-  sellInShop?: boolean | null;
-  newRelease?: boolean | null;
-  editorsChoice?: boolean | null;
   meta?: {
     title?: string | null;
     description?: string | null;
@@ -556,9 +474,9 @@ export interface Article {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "podcast-shows".
+ * via the `definition` "categories".
  */
-export interface PodcastShow {
+export interface Category {
   id: number;
   name: string;
   /**
@@ -566,62 +484,22 @@ export interface PodcastShow {
    */
   slug?: string | null;
   description?: string | null;
-  cover?: (number | null) | Media;
-  spotifyUrl?: string | null;
-  youtubeUrl?: string | null;
-  appleUrl?: string | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "podcast-episodes".
+ * via the `definition` "tags".
  */
-export interface PodcastEpisode {
+export interface Tag {
   id: number;
-  title: string;
+  name: string;
   /**
-   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
+   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
    */
   slug?: string | null;
-  show: number | PodcastShow;
-  episodeNumber?: number | null;
-  date: string;
-  lengthMinutes?: number | null;
-  summary: string;
-  showNotes?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * A Spotify or YouTube link is needed before publishing.
-   */
-  spotifyUrl?: string | null;
-  youtubeUrl?: string | null;
-  cover?: (number | null) | Media;
-  guests?: (number | Writer)[] | null;
-  meta?: {
-    title?: string | null;
-    description?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-  };
   updatedAt: string;
   createdAt: string;
-  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -740,6 +618,75 @@ export interface Award {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "podcast-shows".
+ */
+export interface PodcastShow {
+  id: number;
+  name: string;
+  /**
+   * Made from the name when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
+   */
+  slug?: string | null;
+  description?: string | null;
+  cover?: (number | null) | Media;
+  spotifyUrl?: string | null;
+  youtubeUrl?: string | null;
+  appleUrl?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "podcast-episodes".
+ */
+export interface PodcastEpisode {
+  id: number;
+  title: string;
+  /**
+   * Made from the title when left empty, adding -2 (or the next free number) if that address is already used. An address you type yourself must be unused and use only lower-case letters, numbers and single hyphens.
+   */
+  slug?: string | null;
+  show: number | PodcastShow;
+  episodeNumber?: number | null;
+  date: string;
+  lengthMinutes?: number | null;
+  summary: string;
+  showNotes?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * A Spotify or YouTube link is needed before publishing.
+   */
+  spotifyUrl?: string | null;
+  youtubeUrl?: string | null;
+  cover?: (number | null) | Media;
+  guests?: (number | Writer)[] | null;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "events".
  */
 export interface Event {
@@ -771,6 +718,32 @@ export interface Event {
   image?: (number | null) | Media;
   actionUrl?: string | null;
   actionLabel?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "book-club-sessions".
+ */
+export interface BookClubSession {
+  id: number;
+  /**
+   * The book being read, if there is one.
+   */
+  book?: (number | null) | Book;
+  /**
+   * Needed when no book is chosen. Left empty, the book's title is used.
+   */
+  title?: string | null;
+  startsAt: string;
+  venue?: string | null;
+  onlineUrl?: string | null;
+  description?: string | null;
+  /**
+   * Registrations themselves arrive with the membership work.
+   */
+  registrationOpen?: boolean | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -812,30 +785,41 @@ export interface Career {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * The home page shows up to 3 current announcements, newest first. Changes go live when saved.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "book-club-sessions".
+ * via the `definition` "announcements".
  */
-export interface BookClubSession {
+export interface Announcement {
   id: number;
-  /**
-   * The book being read, if there is one.
-   */
-  book?: (number | null) | Book;
-  /**
-   * Needed when no book is chosen. Left empty, the book's title is used.
-   */
-  title?: string | null;
+  text: string;
+  url?: string | null;
+  buttonLabel?: string | null;
   startsAt: string;
-  venue?: string | null;
-  onlineUrl?: string | null;
-  description?: string | null;
   /**
-   * Registrations themselves arrive with the membership work.
+   * Leave empty to keep showing it.
    */
-  registrationOpen?: boolean | null;
+  endsAt?: string | null;
   updatedAt: string;
   createdAt: string;
-  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Only one popup can be switched on for any given dates. Changes go live when saved.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "popup-campaigns".
+ */
+export interface PopupCampaign {
+  id: number;
+  book: number | Book;
+  headline: string;
+  pitch?: string | null;
+  buttonLabel?: string | null;
+  startsAt: string;
+  endsAt: string;
+  enabled?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -920,6 +904,40 @@ export interface MembershipPlan {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "press-mentions".
+ */
+export interface PressMention {
+  id: number;
+  outlet: string;
+  headline: string;
+  url: string;
+  date?: string | null;
+  logo?: (number | null) | Media;
+  /**
+   * A short line from the piece, if there is a good one.
+   */
+  quote?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partners".
+ */
+export interface Partner {
+  id: number;
+  name: string;
+  logo?: (number | null) | Media;
+  quote?: string | null;
+  quoteBy?: string | null;
+  quoteByTitle?: string | null;
+  url?: string | null;
+  sortOrder?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Plain text pages: the legal pages and Values.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -960,75 +978,26 @@ export interface Page {
   _status?: ('draft' | 'published') | null;
 }
 /**
- * The home page shows up to 3 current announcements, newest first. Changes go live when saved.
+ * Files sent with manuscript submissions. Only staff can open them.
  *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "announcements".
+ * via the `definition` "manuscripts".
  */
-export interface Announcement {
+export interface Manuscript {
   id: number;
-  text: string;
+  prefix?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
   url?: string | null;
-  buttonLabel?: string | null;
-  startsAt: string;
-  /**
-   * Leave empty to keep showing it.
-   */
-  endsAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Only one popup can be switched on for any given dates. Changes go live when saved.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "popup-campaigns".
- */
-export interface PopupCampaign {
-  id: number;
-  book: number | Book;
-  headline: string;
-  pitch?: string | null;
-  buttonLabel?: string | null;
-  startsAt: string;
-  endsAt: string;
-  enabled?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "press-mentions".
- */
-export interface PressMention {
-  id: number;
-  outlet: string;
-  headline: string;
-  url: string;
-  date?: string | null;
-  logo?: (number | null) | Media;
-  /**
-   * A short line from the piece, if there is a good one.
-   */
-  quote?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "partners".
- */
-export interface Partner {
-  id: number;
-  name: string;
-  logo?: (number | null) | Media;
-  quote?: string | null;
-  quoteBy?: string | null;
-  quoteByTitle?: string | null;
-  url?: string | null;
-  sortOrder?: number | null;
-  updatedAt: string;
-  createdAt: string;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1140,6 +1109,37 @@ export interface ManuscriptSubmission {
   staffNotes?: string | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  name: string;
+  /**
+   * Admins can also manage staff accounts and shop settings.
+   */
+  role: 'admin' | 'editor';
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'users';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1258,44 +1258,12 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null)
-    | ({
-        relationTo: 'categories';
-        value: number | Category;
-      } | null)
-    | ({
-        relationTo: 'tags';
-        value: number | Tag;
-      } | null)
-    | ({
-        relationTo: 'media';
-        value: number | Media;
-      } | null)
-    | ({
-        relationTo: 'manuscripts';
-        value: number | Manuscript;
-      } | null)
-    | ({
-        relationTo: 'writers';
-        value: number | Writer;
-      } | null)
-    | ({
         relationTo: 'books';
         value: number | Book;
       } | null)
     | ({
-        relationTo: 'articles';
-        value: number | Article;
-      } | null)
-    | ({
-        relationTo: 'podcast-shows';
-        value: number | PodcastShow;
-      } | null)
-    | ({
-        relationTo: 'podcast-episodes';
-        value: number | PodcastEpisode;
+        relationTo: 'writers';
+        value: number | Writer;
       } | null)
     | ({
         relationTo: 'submission-calls';
@@ -1306,16 +1274,44 @@ export interface PayloadLockedDocument {
         value: number | Award;
       } | null)
     | ({
+        relationTo: 'articles';
+        value: number | Article;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'tags';
+        value: number | Tag;
+      } | null)
+    | ({
+        relationTo: 'podcast-shows';
+        value: number | PodcastShow;
+      } | null)
+    | ({
+        relationTo: 'podcast-episodes';
+        value: number | PodcastEpisode;
+      } | null)
+    | ({
         relationTo: 'events';
         value: number | Event;
+      } | null)
+    | ({
+        relationTo: 'book-club-sessions';
+        value: number | BookClubSession;
       } | null)
     | ({
         relationTo: 'careers';
         value: number | Career;
       } | null)
     | ({
-        relationTo: 'book-club-sessions';
-        value: number | BookClubSession;
+        relationTo: 'announcements';
+        value: number | Announcement;
+      } | null)
+    | ({
+        relationTo: 'popup-campaigns';
+        value: number | PopupCampaign;
       } | null)
     | ({
         relationTo: 'merch';
@@ -1330,24 +1326,20 @@ export interface PayloadLockedDocument {
         value: number | MembershipPlan;
       } | null)
     | ({
-        relationTo: 'pages';
-        value: number | Page;
-      } | null)
-    | ({
-        relationTo: 'announcements';
-        value: number | Announcement;
-      } | null)
-    | ({
-        relationTo: 'popup-campaigns';
-        value: number | PopupCampaign;
-      } | null)
-    | ({
         relationTo: 'press-mentions';
         value: number | PressMention;
       } | null)
     | ({
         relationTo: 'partners';
         value: number | Partner;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'manuscripts';
+        value: number | Manuscript;
       } | null)
     | ({
         relationTo: 'contact-messages';
@@ -1368,6 +1360,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'manuscript-submissions';
         value: number | ManuscriptSubmission;
+      } | null)
+    | ({
+        relationTo: 'media';
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1413,158 +1413,6 @@ export interface PayloadMigration {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  name?: T;
-  role?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  resetPasswordRequestedAt?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories_select".
- */
-export interface CategoriesSelect<T extends boolean = true> {
-  name?: T;
-  slug?: T;
-  description?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tags_select".
- */
-export interface TagsSelect<T extends boolean = true> {
-  name?: T;
-  slug?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media_select".
- */
-export interface MediaSelect<T extends boolean = true> {
-  alt?: T;
-  caption?: T;
-  credit?: T;
-  prefix?: T;
-  _objectKey?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
-  sizes?:
-    | T
-    | {
-        thumbnail?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        card?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        large?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-      };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "manuscripts_select".
- */
-export interface ManuscriptsSelect<T extends boolean = true> {
-  prefix?: T;
-  _objectKey?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "writers_select".
- */
-export interface WritersSelect<T extends boolean = true> {
-  name?: T;
-  slug?: T;
-  photo?: T;
-  shortBio?: T;
-  bio?: T;
-  links?:
-    | T
-    | {
-        label?: T;
-        url?: T;
-        id?: T;
-      };
-  showOnWritersPage?: T;
-  books?: T;
-  articles?: T;
-  meta?:
-    | T
-    | {
-        title?: T;
-        description?: T;
-        image?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "books_select".
  */
 export interface BooksSelect<T extends boolean = true> {
@@ -1603,62 +1451,24 @@ export interface BooksSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "articles_select".
+ * via the `definition` "writers_select".
  */
-export interface ArticlesSelect<T extends boolean = true> {
-  title?: T;
-  slug?: T;
-  cover?: T;
-  summary?: T;
-  body?: T;
-  writers?: T;
-  categories?: T;
-  tags?: T;
-  featured?: T;
-  publishDate?: T;
-  meta?:
-    | T
-    | {
-        title?: T;
-        description?: T;
-        image?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "podcast-shows_select".
- */
-export interface PodcastShowsSelect<T extends boolean = true> {
+export interface WritersSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
-  description?: T;
-  cover?: T;
-  spotifyUrl?: T;
-  youtubeUrl?: T;
-  appleUrl?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "podcast-episodes_select".
- */
-export interface PodcastEpisodesSelect<T extends boolean = true> {
-  title?: T;
-  slug?: T;
-  show?: T;
-  episodeNumber?: T;
-  date?: T;
-  lengthMinutes?: T;
-  summary?: T;
-  showNotes?: T;
-  spotifyUrl?: T;
-  youtubeUrl?: T;
-  cover?: T;
-  guests?: T;
+  photo?: T;
+  shortBio?: T;
+  bio?: T;
+  links?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        id?: T;
+      };
+  showOnWritersPage?: T;
+  books?: T;
+  articles?: T;
   meta?:
     | T
     | {
@@ -1730,6 +1540,96 @@ export interface AwardsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "articles_select".
+ */
+export interface ArticlesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  cover?: T;
+  summary?: T;
+  body?: T;
+  writers?: T;
+  categories?: T;
+  tags?: T;
+  featured?: T;
+  publishDate?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags_select".
+ */
+export interface TagsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "podcast-shows_select".
+ */
+export interface PodcastShowsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  cover?: T;
+  spotifyUrl?: T;
+  youtubeUrl?: T;
+  appleUrl?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "podcast-episodes_select".
+ */
+export interface PodcastEpisodesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  show?: T;
+  episodeNumber?: T;
+  date?: T;
+  lengthMinutes?: T;
+  summary?: T;
+  showNotes?: T;
+  spotifyUrl?: T;
+  youtubeUrl?: T;
+  cover?: T;
+  guests?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "events_select".
  */
 export interface EventsSelect<T extends boolean = true> {
@@ -1743,6 +1643,22 @@ export interface EventsSelect<T extends boolean = true> {
   image?: T;
   actionUrl?: T;
   actionLabel?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "book-club-sessions_select".
+ */
+export interface BookClubSessionsSelect<T extends boolean = true> {
+  book?: T;
+  title?: T;
+  startsAt?: T;
+  venue?: T;
+  onlineUrl?: T;
+  description?: T;
+  registrationOpen?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1765,19 +1681,31 @@ export interface CareersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "book-club-sessions_select".
+ * via the `definition` "announcements_select".
  */
-export interface BookClubSessionsSelect<T extends boolean = true> {
-  book?: T;
-  title?: T;
+export interface AnnouncementsSelect<T extends boolean = true> {
+  text?: T;
+  url?: T;
+  buttonLabel?: T;
   startsAt?: T;
-  venue?: T;
-  onlineUrl?: T;
-  description?: T;
-  registrationOpen?: T;
+  endsAt?: T;
   updatedAt?: T;
   createdAt?: T;
-  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "popup-campaigns_select".
+ */
+export interface PopupCampaignsSelect<T extends boolean = true> {
+  book?: T;
+  headline?: T;
+  pitch?: T;
+  buttonLabel?: T;
+  startsAt?: T;
+  endsAt?: T;
+  enabled?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1848,53 +1776,6 @@ export interface MembershipPlansSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "pages_select".
- */
-export interface PagesSelect<T extends boolean = true> {
-  title?: T;
-  slug?: T;
-  body?: T;
-  meta?:
-    | T
-    | {
-        title?: T;
-        description?: T;
-        image?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "announcements_select".
- */
-export interface AnnouncementsSelect<T extends boolean = true> {
-  text?: T;
-  url?: T;
-  buttonLabel?: T;
-  startsAt?: T;
-  endsAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "popup-campaigns_select".
- */
-export interface PopupCampaignsSelect<T extends boolean = true> {
-  book?: T;
-  headline?: T;
-  pitch?: T;
-  buttonLabel?: T;
-  startsAt?: T;
-  endsAt?: T;
-  enabled?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "press-mentions_select".
  */
 export interface PressMentionsSelect<T extends boolean = true> {
@@ -1921,6 +1802,44 @@ export interface PartnersSelect<T extends boolean = true> {
   sortOrder?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  body?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "manuscripts_select".
+ */
+export interface ManuscriptsSelect<T extends boolean = true> {
+  prefix?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2014,6 +1933,87 @@ export interface ManuscriptSubmissionsSelect<T extends boolean = true> {
   staffNotes?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media_select".
+ */
+export interface MediaSelect<T extends boolean = true> {
+  alt?: T;
+  caption?: T;
+  credit?: T;
+  prefix?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+  sizes?:
+    | T
+    | {
+        thumbnail?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        card?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        large?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  role?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  resetPasswordRequestedAt?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

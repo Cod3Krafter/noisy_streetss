@@ -276,15 +276,17 @@ Editors don't see Shop settings or Staff accounts in the admin menu.
 
 ### 7.3 Admin menu groups
 
+The groups are listed in the order the admin menu shows them. Payload orders groups by their first list, in the order of the `collections` list in `src/payload.config.ts`, and always puts a group that only holds page records or settings after those, so Pages comes last. Within a group, lists follow the same order.
+
 - **Publishing:** Books, Writers, Submission calls, Awards
 - **Editorial:** Articles, Categories, Tags, Podcast shows, Podcast episodes
 - **What's on:** Events, Book Club sessions, Careers, Announcements, Book popup campaigns
 - **Shop and services:** Merch, Studio services, Membership plans
 - **About:** Press mentions, People we've worked with, Basic pages
-- **Pages:** every page record
-- **Inbox:** the five form-entry collections and Manuscripts
+- **Inbox:** Manuscripts first (a manuscript submission's file points at it), then the five form-entry collections
 - **Media:** Images
-- **Settings:** Site settings, Shop settings, Staff accounts
+- **Settings:** Staff accounts, then Site settings and Shop settings (an editor has no Staff accounts list, so for an editor Settings holds only settings and comes after Pages)
+- **Pages:** every page record
 
 ## 8. Dummy content (seed)
 

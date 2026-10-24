@@ -62,24 +62,60 @@ export async function expectFieldError(promise: Promise<unknown>, fieldPath: str
   })
 }
 
+type FieldNode = { type?: string; relationTo?: string | string[]; flattenedFields?: FieldNode[]; blocks?: { flattenedFields?: FieldNode[] }[] }
+
+/** Every collection slug the given fields point at, looking inside groups, arrays and blocks. */
+function pointedAt(fields: FieldNode[] | undefined, into: Set<string>): void {
+  for (const field of fields ?? []) {
+    if ((field.type === 'relationship' || field.type === 'upload') && field.relationTo) {
+      for (const slug of [field.relationTo].flat()) into.add(slug)
+    }
+    pointedAt(field.flattenedFields, into)
+    for (const block of field.blocks ?? []) pointedAt(block.flattenedFields, into)
+  }
+}
+
 /**
- * Empties the given collections, and every collection configured after the first of them.
- * Records in later collections can point at earlier ones (a manuscript submission at a
- * submission call, a popup at a book), and the foreign key refuses to delete a call that a
- * submission still names. Test files run in any order and share one database, so rows left by
- * another file must not block this one. Deleting in reverse config order, as the seed's wipe
- * does, removes the pointing records before the ones they point at.
+ * Empties the given collections, and every collection that points at one of them (a manuscript
+ * submission at a submission call, a popup at a book), however far along. Test files run in any
+ * order and share one database, so rows left by another file must not block this one. The
+ * dependents come from the relationship fields themselves, not from the order of the config, so
+ * the admin menu order does not matter here. They are deleted before the records they point at.
  */
 export async function resetCollections(payload: Payload, slugs: CollectionSlug[]): Promise<void> {
-  const ordered = payload.config.collections.map((collection) => collection.slug as CollectionSlug)
-  const first = Math.min(...slugs.map((slug) => ordered.indexOf(slug)))
-  if (!Number.isFinite(first) || first < 0) throw new Error(`resetCollections: unknown collection in ${slugs.join(', ')}`)
-  const doomed = new Set<CollectionSlug>([...slugs, ...ordered.slice(first)])
-  for (const collection of [...payload.config.collections].reverse()) {
-    const slug = collection.slug as CollectionSlug
-    if (!doomed.has(slug)) continue
-    await payload.db.deleteMany({ collection: slug, where: {} })
-    if (collection.versions) await payload.db.deleteVersions({ collection: slug, where: {} })
+  const known = new Set<string>(payload.config.collections.map((collection) => collection.slug))
+  const unknown = slugs.filter((slug) => !known.has(slug))
+  if (unknown.length > 0) throw new Error(`resetCollections: unknown collection in ${unknown.join(', ')}`)
+
+  const targets = new Map<string, Set<string>>()
+  for (const collection of payload.config.collections) {
+    const into = new Set<string>()
+    pointedAt(collection.flattenedFields as FieldNode[], into)
+    targets.set(collection.slug, into)
+  }
+
+  const doomed = new Set<string>(slugs)
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const [slug, pointsAt] of targets) {
+      if (doomed.has(slug)) continue
+      if ([...pointsAt].some((target) => doomed.has(target))) {
+        doomed.add(slug)
+        grew = true
+      }
+    }
+  }
+
+  // Dependents first: repeatedly take a doomed collection that no other doomed one still points at.
+  const remaining = new Set(doomed)
+  while (remaining.size > 0) {
+    const next =
+      [...remaining].find((slug) => ![...remaining].some((other) => other !== slug && targets.get(other)?.has(slug))) ??
+      [...remaining][0]
+    remaining.delete(next)
+    const collection = payload.config.collections.find((candidate) => candidate.slug === next)
+    await payload.db.deleteMany({ collection: next as CollectionSlug, where: {} })
+    if (collection?.versions) await payload.db.deleteVersions({ collection: next as CollectionSlug, where: {} })
   }
 }
 

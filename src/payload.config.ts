@@ -59,7 +59,11 @@ export default buildConfig({
       titleSuffix: ' | Noisy Streetss admin',
     },
   },
-  collections: guardDeletes([Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans, Pages, Announcements, PopupCampaigns, PressMentions, Partners, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions]),
+  // The order here is the order of the admin menu: Payload lists the groups by their first list, in
+  // this order, then the groups that only hold page records and settings (globals) after them.
+  // It follows spec 7.3. Nothing else relies on it: the test helper and the seed's wipe work out
+  // what points at what from the fields.
+  collections: guardDeletes([Books, Writers, SubmissionCalls, Awards, Articles, Categories, Tags, PodcastShows, PodcastEpisodes, Events, BookClubSessions, Careers, Announcements, PopupCampaigns, Merch, StudioServices, MembershipPlans, PressMentions, Partners, Pages, Manuscripts, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions, Media, Users]),
   globals: [...pageRecords, SiteSettings, ShopSettings],
   jobs: {
     access: {
