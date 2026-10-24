@@ -1,5 +1,5 @@
 import type { Payload } from 'payload'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { Category, Media, User, Writer } from '@/payload-types'
 import { richText } from '@/seed/richText'
@@ -24,9 +24,11 @@ const article = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
+const queued: number[] = []
+
 /** Queues a scheduled publish the way the admin does: ids as strings, and the account that scheduled it. */
-const schedule = (articleId: number, user: User, days = 7) =>
-  payload.jobs.queue({
+const schedule = async (articleId: number, user: User, days = 7) => {
+  const job = await payload.jobs.queue({
     task: 'schedulePublish',
     input: {
       type: 'publish',
@@ -35,6 +37,9 @@ const schedule = (articleId: number, user: User, days = 7) =>
     },
     waitUntil: new Date(Date.now() + days * DAY),
   })
+  queued.push(job.id)
+  return job
+}
 
 beforeAll(async () => {
   payload = await getTestPayload()
@@ -53,6 +58,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+// The jobs these tests queue are due in days. Left in the shared test database, a later
+// payload.jobs.run() in another file would run them once due, and the failing ones would email.
+afterAll(async () => {
+  await payload.db.deleteMany({ collection: 'payload-jobs', where: { id: { in: queued } } })
+})
+
 describe('deleting a staff account with publishes waiting', () => {
   it('is refused with the article named, and works once the job is gone', async () => {
     const editor = await createStaff(payload, 'editor')
@@ -60,7 +71,7 @@ describe('deleting a staff account with publishes waiting', () => {
     const job = await schedule(draft.id, editor)
 
     await expect(payload.delete({ collection: 'users', id: editor.id })).rejects.toThrow(
-      /has 1 scheduled publish waiting: "The Waiting Piece" \(\d{1,2} \w+ \d{4}, \d\d:\d\d\)\. Cancel them from each article's Schedule Publish/,
+      /has 1 scheduled publish waiting: "The Waiting Piece" \(\d{1,2} \w+ \d{4}, \d\d:\d\d\)\. Cancel it from the article's Schedule Publish, or ask another staff member to schedule it again/,
     )
     expect((await payload.count({ collection: 'users', where: { id: { equals: editor.id } } })).totalDocs).toBe(1)
 
@@ -79,6 +90,7 @@ describe('deleting a staff account with publishes waiting', () => {
     expect(error).toBeInstanceOf(Error)
     const message = (error as Error).message
     expect(message).toMatch(/has 7 scheduled publishes waiting/)
+    expect(message).toMatch(/Cancel them from the article's Schedule Publish, or ask another staff member to schedule them again/)
     expect(message).toContain('"Queued piece 5"')
     expect(message).not.toContain('"Queued piece 6"')
     expect(message).toMatch(/, and 2 more\./)
@@ -149,6 +161,7 @@ describe('a scheduled publish that fails', () => {
       input: { type: 'publish', doc: { relationTo: 'articles', value: '99999999' as unknown as number }, user: { relationTo: 'users', value: admin.id } },
       waitUntil: new Date(Date.now() + DAY),
     })
+    queued.push(job.id)
     await payload.jobs.runByID({ id: job.id })
     expect(send).toHaveBeenCalledTimes(1)
     expect((send.mock.calls[0][0] as { text: string }).text).toContain('no longer exists')

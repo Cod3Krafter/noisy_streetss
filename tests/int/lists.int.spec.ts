@@ -129,9 +129,11 @@ describe('book popup campaigns', () => {
     })
     expect(result.docs).toHaveLength(1)
     expect(result.errors).toHaveLength(1)
-    expect(result.errors[0].message).toMatch(/Show from/)
+    expect(result.errors[0].message).toMatch(/These dates overlap with "Bulk [AB]"/)
     const live = await payload.find({ collection: 'popup-campaigns', where: { enabled: { equals: true } }, pagination: false })
     expect(live.docs).toHaveLength(1)
+    // The refused campaign's message names the one that went live.
+    expect(result.errors[0].message).toContain(`"${live.docs[0].headline}"`)
   })
 
   it('lets a bulk switch-on of campaigns that do not overlap succeed for both', async () => {

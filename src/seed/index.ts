@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type { GlobalSlug, Payload } from 'payload'
+import type { CollectionSlug, GlobalSlug, Payload } from 'payload'
 
 import {
   ARTICLES,
@@ -23,6 +23,7 @@ import {
   TAGS,
   WRITERS,
 } from './data'
+import { deleteOrder } from './deleteOrder'
 import { assertSafeToSeed } from './guard'
 import { emptyFieldData, mergeSeeded } from './resetGlobals'
 import { richText } from './richText'
@@ -70,13 +71,14 @@ export async function wipe(payload: Payload): Promise<void> {
     }
   }
 
-  // Reverse config order. The config follows the admin menu, so it is not a dependency order:
-  // nothing here relies on it, because every reference column is cleared or cascaded when the
-  // record it points at goes (the initial migration has no restricting foreign key).
-  for (const collection of [...payload.config.collections].reverse()) {
-    if (collection.slug === 'payload-migrations') continue
-    await payload.db.deleteMany({ collection: collection.slug, where: {} })
-    if (collection.versions) await payload.db.deleteVersions({ collection: collection.slug, where: {} })
+  // Dependency order, not config order: the config follows the admin menu, and a popup's book, a
+  // manuscript submission's call and its file are NOT NULL columns, so Postgres refuses to delete a
+  // book, call or manuscript that one still names. Records that point at others go first.
+  const everything = payload.config.collections.map((collection) => collection.slug).filter((slug) => slug !== 'payload-migrations')
+  for (const slug of deleteOrder(payload.config.collections, everything)) {
+    const collection = payload.config.collections.find((candidate) => candidate.slug === slug)
+    await payload.db.deleteMany({ collection: slug as CollectionSlug, where: {} })
+    if (collection?.versions) await payload.db.deleteVersions({ collection: slug as CollectionSlug, where: {} })
   }
   for (const dir of uploadDirs) fs.rmSync(dir, { recursive: true, force: true })
 }

@@ -21,8 +21,9 @@ const bookId = (book: BookValue) => (typeof book === 'object' && book !== null ?
  * the book while the title is still the one copied from it: when the book changes and the stored
  * title equals the previous book's title (it was never edited), the new book's title is copied.
  * A typed title is kept. An empty or spaces-only title takes the book's title, the same trimmed
- * check as bookOrTitleProblem. A later rename of the book itself is not picked up until the
- * session is saved with a different book.
+ * check as bookOrTitleProblem. A later rename of the book itself is not picked up: once the book
+ * is renamed, the stored title no longer equals its title, so it counts as typed and stays, even
+ * when the book is changed. Clearing the title takes the current book's title.
  */
 const titleFromBook: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
   const id = bookId(finalValue<BookValue>(data, originalDoc, 'book'))
@@ -38,7 +39,7 @@ const titleFromBook: CollectionBeforeChangeHook = async ({ data, originalDoc, re
     const previous = await req.payload
       .findByID({ collection: 'books', id: previousId, depth: 0, req, overrideAccess: true })
       .catch(() => null)
-    if (!previous || previous.title.trim() !== typed) return data
+    if (!previous || (previous.title ?? '').trim() !== typed) return data
   }
 
   const found = await req.payload.findByID({ collection: 'books', id, depth: 0, req, overrideAccess: true })

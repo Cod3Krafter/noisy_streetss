@@ -1,6 +1,7 @@
 import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
 import { anyone, staffWrites } from '@/access'
+import { Refusal } from '@/refusal'
 import { datesOverlap, overlappingCampaignsWhere } from '@/rules/popups'
 import { endsAfter, endsAfterField } from '@/rules/time'
 import { finalValue, rejectField } from '@/rules/validation'
@@ -28,7 +29,9 @@ const onlyOneAtATime: CollectionBeforeValidateHook = async ({ data, originalDoc,
 
   // A bulk update runs every record's hooks in parallel before any is written, so the database
   // check below can't see the others being switched on in the same operation. Check them here
-  // and record this one before the first await, so two parallel hooks can't both slip past.
+  // and record this one before the first await, so two parallel hooks can't both slip past. A campaign
+  // the database check below then refuses stays recorded, so a third campaign that overlaps only it is
+  // refused too (deliberately on the safe side).
   const ownId = originalDoc?.id
   const headline = finalValue<string>(data, originalDoc, 'headline') ?? ''
   const batch = switchingOnList(req.context)
@@ -36,10 +39,9 @@ const onlyOneAtATime: CollectionBeforeValidateHook = async ({ data, originalDoc,
     (entry) => (ownId === undefined || entry.id !== ownId) && datesOverlap(startsAt, endsAt, entry.startsAt, entry.endsAt),
   )
   if (sibling) {
-    rejectField(
-      req,
-      'popup-campaigns',
-      'startsAt',
+    // Only possible in a bulk operation. A Refusal rather than a field error, because a bulk result
+    // reports only an error's message, and this one has to name the other campaign.
+    throw new Refusal(
       `These dates overlap with "${sibling.headline}". Only one book popup can run at a time: change the dates or switch one off.`,
     )
   }

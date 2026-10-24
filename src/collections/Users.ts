@@ -76,7 +76,7 @@ const refuseWhilePublishesWait: CollectionBeforeDeleteHook = async ({ id, req })
   const more = waiting.length > SHOWN_PUBLISHES ? `, and ${waiting.length - SHOWN_PUBLISHES} more` : ''
   const count = waiting.length === 1 ? '1 scheduled publish' : `${waiting.length} scheduled publishes`
   throw new Refusal(
-    `${user?.name ?? 'This account'} has ${count} waiting: ${shown.join(', ')}${more}. Cancel them from each article's Schedule Publish, or ask another staff member to schedule them again, then delete the account.`,
+    `${user?.name ?? 'This account'} has ${count} waiting: ${shown.join(', ')}${more}. ${waiting.length === 1 ? 'Cancel it' : 'Cancel them'} from the article's Schedule Publish, or ask another staff member to schedule ${waiting.length === 1 ? 'it' : 'them'} again, then delete the account.`,
   )
 }
 

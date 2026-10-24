@@ -11,7 +11,7 @@ beforeAll(async () => {
 
 // Each test builds the categories it needs, so the tests pass in any order.
 beforeEach(async () => {
-  await resetCollections(payload, ['categories', 'tags'])
+  await resetCollections(payload, ['categories', 'tags', 'writers'])
 })
 
 describe('slugs', () => {
@@ -133,9 +133,14 @@ describe('slugs', () => {
     await resetCollections(payload, ['writers'])
     const first = await payload.create({ collection: 'writers', data: { name: '', slug: '' }, draft: true })
     const second = await payload.create({ collection: 'writers', data: { name: '', slug: '' }, draft: true })
-    expect(first.slug).toBeFalsy()
-    expect(second.slug).toBeFalsy()
+    expect(first.slug).toBeNull()
+    expect(second.slug).toBeNull()
     expect(second.id).not.toBe(first.id)
+    // No name at all, not even an empty one.
+    const third = await payload.create({ collection: 'writers', data: { slug: '' }, draft: true })
+    const fourth = await payload.create({ collection: 'writers', data: {}, draft: true })
+    expect(third.slug).toBeNull()
+    expect(fourth.slug).toBeNull()
     await resetCollections(payload, ['writers'])
   })
 

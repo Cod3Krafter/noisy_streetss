@@ -5,6 +5,7 @@ import { expect } from 'vitest'
 
 import type { StaffRole } from '@/access'
 import type { Media, User, Writer } from '@/payload-types'
+import { deleteOrder } from '@/seed/deleteOrder'
 
 const testPhoto = path.resolve('public/images/unsplash/unsplash-1543002588-bfa74002ed7e.jpg')
 
@@ -62,60 +63,17 @@ export async function expectFieldError(promise: Promise<unknown>, fieldPath: str
   })
 }
 
-type FieldNode = { type?: string; relationTo?: string | string[]; flattenedFields?: FieldNode[]; blocks?: { flattenedFields?: FieldNode[] }[] }
-
-/** Every collection slug the given fields point at, looking inside groups, arrays and blocks. */
-function pointedAt(fields: FieldNode[] | undefined, into: Set<string>): void {
-  for (const field of fields ?? []) {
-    if ((field.type === 'relationship' || field.type === 'upload') && field.relationTo) {
-      for (const slug of [field.relationTo].flat()) into.add(slug)
-    }
-    pointedAt(field.flattenedFields, into)
-    for (const block of field.blocks ?? []) pointedAt(block.flattenedFields, into)
-  }
-}
-
 /**
  * Empties the given collections, and every collection that points at one of them (a manuscript
  * submission at a submission call, a popup at a book), however far along. Test files run in any
- * order and share one database, so rows left by another file must not block this one. The
- * dependents come from the relationship fields themselves, not from the order of the config, so
- * the admin menu order does not matter here. They are deleted before the records they point at.
+ * order and share one database, so rows left by another file must not block this one. The order
+ * is a dependency order (see deleteOrder), so a record that points at another goes first.
  */
 export async function resetCollections(payload: Payload, slugs: CollectionSlug[]): Promise<void> {
-  const known = new Set<string>(payload.config.collections.map((collection) => collection.slug))
-  const unknown = slugs.filter((slug) => !known.has(slug))
-  if (unknown.length > 0) throw new Error(`resetCollections: unknown collection in ${unknown.join(', ')}`)
-
-  const targets = new Map<string, Set<string>>()
-  for (const collection of payload.config.collections) {
-    const into = new Set<string>()
-    pointedAt(collection.flattenedFields as FieldNode[], into)
-    targets.set(collection.slug, into)
-  }
-
-  const doomed = new Set<string>(slugs)
-  for (let grew = true; grew; ) {
-    grew = false
-    for (const [slug, pointsAt] of targets) {
-      if (doomed.has(slug)) continue
-      if ([...pointsAt].some((target) => doomed.has(target))) {
-        doomed.add(slug)
-        grew = true
-      }
-    }
-  }
-
-  // Dependents first: repeatedly take a doomed collection that no other doomed one still points at.
-  const remaining = new Set(doomed)
-  while (remaining.size > 0) {
-    const next =
-      [...remaining].find((slug) => ![...remaining].some((other) => other !== slug && targets.get(other)?.has(slug))) ??
-      [...remaining][0]
-    remaining.delete(next)
-    const collection = payload.config.collections.find((candidate) => candidate.slug === next)
-    await payload.db.deleteMany({ collection: next as CollectionSlug, where: {} })
-    if (collection?.versions) await payload.db.deleteVersions({ collection: next as CollectionSlug, where: {} })
+  for (const slug of deleteOrder(payload.config.collections, slugs)) {
+    const collection = payload.config.collections.find((candidate) => candidate.slug === slug)
+    await payload.db.deleteMany({ collection: slug as CollectionSlug, where: {} })
+    if (collection?.versions) await payload.db.deleteVersions({ collection: slug as CollectionSlug, where: {} })
   }
 }
 

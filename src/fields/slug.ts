@@ -106,7 +106,8 @@ const generateSlug =
     }
 
     const source = data?.[sourceField] ?? originalDoc?.[sourceField]
-    if (typeof source !== 'string') return value
+    // No title or name to make it from either: store none, never an empty string.
+    if (typeof source !== 'string') return null
     const base = slugify(source)
     // Nothing to make an address from: store none. An empty string would clash on the unique index
     // with the next untitled draft, while null does not.
