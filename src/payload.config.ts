@@ -41,6 +41,7 @@ import { pageRecords } from './globals/pageRecords'
 import { ShopSettings } from './globals/ShopSettings'
 import { SiteSettings } from './globals/SiteSettings'
 import { guardDeletes } from './hooks/deleteGuard'
+import { withScheduledPublishAlerts } from './jobs/scheduledPublishAlerts'
 import { productionSettingProblems } from './rules/productionSettings'
 import { REFUSAL } from './refusal'
 import { seo } from './seo'
@@ -59,7 +60,11 @@ export default buildConfig({
       titleSuffix: ' | Noisy Streetss admin',
     },
   },
-  collections: guardDeletes([Users, Categories, Tags, Media, Manuscripts, Writers, Books, Articles, PodcastShows, PodcastEpisodes, SubmissionCalls, Awards, Events, Careers, BookClubSessions, Merch, StudioServices, MembershipPlans, Pages, Announcements, PopupCampaigns, PressMentions, Partners, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions]),
+  // The order here is the order of the admin menu: Payload lists the groups by their first list, in
+  // this order, then the groups that only hold page records and settings (globals) after them.
+  // It follows spec 7.3. Nothing relies on it for deleting: the test helper and the seed's wipe use
+  // src/seed/deleteOrder.ts, which works out what points at what from the fields.
+  collections: guardDeletes([Books, Writers, SubmissionCalls, Awards, Articles, Categories, Tags, PodcastShows, PodcastEpisodes, Events, BookClubSessions, Careers, Announcements, PopupCampaigns, Merch, StudioServices, MembershipPlans, PressMentions, Partners, Pages, Manuscripts, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions, Media, Users]),
   globals: [...pageRecords, SiteSettings, ShopSettings],
   jobs: {
     access: {
@@ -105,4 +110,4 @@ export default buildConfig({
   }),
   sharp,
   plugins: [...storagePlugins(), hideStorageFieldsFromLists, seo],
-})
+}).then(withScheduledPublishAlerts)

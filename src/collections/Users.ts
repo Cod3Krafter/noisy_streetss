@@ -1,6 +1,7 @@
 import { type CollectionBeforeChangeHook, type CollectionBeforeDeleteHook, type CollectionBeforeOperationHook, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
 
 import { adminOnlyInAdmin, adminOrSelf, isAdmin, isAdminField, isStaffUser } from '@/access'
+import { pendingPublishesBy } from '@/jobs/scheduledPublishAlerts'
 import { Refusal } from '@/refusal'
 import { rejectField } from '@/rules/validation'
 
@@ -60,6 +61,25 @@ const refuseKeptAdmin: CollectionBeforeDeleteHook = ({ id, req }) => {
   if (Array.isArray(keep) && keep.some((kept) => String(kept) === String(id))) throw new Refusal(LAST_ADMIN)
 }
 
+const SHOWN_PUBLISHES = 5
+
+/**
+ * Refuses deleting an account that has scheduled publishes still waiting: Payload's scheduled publish
+ * looks the account up when it runs and fails if it is gone. Per record, so a bulk delete reports each
+ * refusal and still deletes the rest.
+ */
+const refuseWhilePublishesWait: CollectionBeforeDeleteHook = async ({ id, req }) => {
+  const waiting = await pendingPublishesBy(req, id)
+  if (waiting.length === 0) return
+  const user = await req.payload.findByID({ collection: 'users', id, depth: 0, overrideAccess: true, req }).catch(() => null)
+  const shown = waiting.slice(0, SHOWN_PUBLISHES).map((item) => `"${item.title}" (${item.when})`)
+  const more = waiting.length > SHOWN_PUBLISHES ? `, and ${waiting.length - SHOWN_PUBLISHES} more` : ''
+  const count = waiting.length === 1 ? '1 scheduled publish' : `${waiting.length} scheduled publishes`
+  throw new Refusal(
+    `${user?.name ?? 'This account'} has ${count} waiting: ${shown.join(', ')}${more}. ${waiting.length === 1 ? 'Cancel it' : 'Cancel them'} from ${waiting.length === 1 ? 'the' : 'each'} article's Schedule Publish, or ask another staff member to schedule ${waiting.length === 1 ? 'it' : 'them'} again, then delete the account.`,
+  )
+}
+
 /** The very first account is always an admin, so a fresh site can't be locked out. */
 const firstAccountIsAdmin: CollectionBeforeChangeHook = async ({ data, operation, req }) => {
   if (operation !== 'create') return data
@@ -87,7 +107,7 @@ export const Users: CollectionConfig = {
   },
   hooks: {
     beforeChange: [firstAccountIsAdmin],
-    beforeDelete: [refuseKeptAdmin],
+    beforeDelete: [refuseKeptAdmin, refuseWhilePublishesWait],
     beforeOperation: [keepAnAdmin],
   },
   fields: [

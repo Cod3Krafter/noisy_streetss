@@ -6,6 +6,7 @@ import { isCareerVisible } from '@/rules/careers'
 import { isUpcomingEvent } from '@/rules/events'
 import { callStatus } from '@/rules/submissionCalls'
 import { seed, wipe } from '@/seed'
+import { deleteOrder } from '@/seed/deleteOrder'
 
 import { getTestPayload } from '../helpers/payload'
 
@@ -130,5 +131,14 @@ describe('wipe', () => {
     await expect(wipe(payload)).rejects.toThrow(/local database/)
     process.env.DATABASE_URI = saved
     expect((await payload.count({ collection: 'books' })).totalDocs).toBe(before)
+  })
+})
+
+describe('the delete order for the real config', () => {
+  it('empties popups before books, and manuscript submissions before calls and manuscripts', () => {
+    const order = deleteOrder(payload.config.collections, payload.config.collections.map((collection) => collection.slug))
+    expect(order.indexOf('popup-campaigns')).toBeLessThan(order.indexOf('books'))
+    expect(order.indexOf('manuscript-submissions')).toBeLessThan(order.indexOf('submission-calls'))
+    expect(order.indexOf('manuscript-submissions')).toBeLessThan(order.indexOf('manuscripts'))
   })
 })

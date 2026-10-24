@@ -5,6 +5,7 @@ import { expect } from 'vitest'
 
 import type { StaffRole } from '@/access'
 import type { Media, User, Writer } from '@/payload-types'
+import { deleteInOrder } from '@/seed/deleteOrder'
 
 const testPhoto = path.resolve('public/images/unsplash/unsplash-1543002588-bfa74002ed7e.jpg')
 
@@ -63,24 +64,13 @@ export async function expectFieldError(promise: Promise<unknown>, fieldPath: str
 }
 
 /**
- * Empties the given collections, and every collection configured after the first of them.
- * Records in later collections can point at earlier ones (a manuscript submission at a
- * submission call, a popup at a book), and the foreign key refuses to delete a call that a
- * submission still names. Test files run in any order and share one database, so rows left by
- * another file must not block this one. Deleting in reverse config order, as the seed's wipe
- * does, removes the pointing records before the ones they point at.
+ * Empties the given collections, and every collection that points at one of them (a manuscript
+ * submission at a submission call, a popup at a book), however far along. Test files run in any
+ * order and share one database, so rows left by another file must not block this one. The order
+ * is a dependency order (see deleteOrder), so a record that points at another goes first.
  */
 export async function resetCollections(payload: Payload, slugs: CollectionSlug[]): Promise<void> {
-  const ordered = payload.config.collections.map((collection) => collection.slug as CollectionSlug)
-  const first = Math.min(...slugs.map((slug) => ordered.indexOf(slug)))
-  if (!Number.isFinite(first) || first < 0) throw new Error(`resetCollections: unknown collection in ${slugs.join(', ')}`)
-  const doomed = new Set<CollectionSlug>([...slugs, ...ordered.slice(first)])
-  for (const collection of [...payload.config.collections].reverse()) {
-    const slug = collection.slug as CollectionSlug
-    if (!doomed.has(slug)) continue
-    await payload.db.deleteMany({ collection: slug, where: {} })
-    if (collection.versions) await payload.db.deleteVersions({ collection: slug, where: {} })
-  }
+  await deleteInOrder(payload, slugs)
 }
 
 /** A login token for an account made by createStaff, for REST requests. */

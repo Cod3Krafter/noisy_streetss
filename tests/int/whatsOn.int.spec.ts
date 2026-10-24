@@ -100,4 +100,64 @@ describe('book club sessions', () => {
     })
     expect(typed.title).toBe('Chapter one')
   })
+
+  describe('title following the book', () => {
+    const makeBook = async (title: string) => {
+      const cover = await createImage(payload)
+      const writer = await createWriter(payload)
+      return payload.create({
+        collection: 'books',
+        data: { title, cover: cover.id, writers: [writer.id], category: 'poetry', summary: 'For the follow tests.', _status: 'published' },
+      })
+    }
+
+    it('follows the book while the title is the one copied from it', async () => {
+      const a = await makeBook('Book A')
+      const b = await makeBook('Book B')
+      const session = await payload.create({ collection: 'book-club-sessions', data: { book: a.id, startsAt: fromNow(7) } })
+      expect(session.title).toBe('Book A')
+      const moved = await payload.update({ collection: 'book-club-sessions', id: session.id, data: { book: b.id } })
+      expect(moved.title).toBe('Book B')
+    })
+
+    it('keeps a typed title when the book changes', async () => {
+      const a = await makeBook('Book A typed')
+      const b = await makeBook('Book B typed')
+      const session = await payload.create({
+        collection: 'book-club-sessions',
+        data: { book: b.id, title: 'Reader pick', startsAt: fromNow(7) },
+      })
+      const moved = await payload.update({ collection: 'book-club-sessions', id: session.id, data: { book: a.id } })
+      expect(moved.title).toBe('Reader pick')
+    })
+
+    it('keeps a typed title when the previous book has no title, and does not follow a renamed book', async () => {
+      const untitled = await payload.create({ collection: 'books', data: {}, draft: true })
+      const b = await makeBook('Book B untitled')
+      const session = await payload.create({
+        collection: 'book-club-sessions',
+        data: { book: untitled.id, title: 'Typed beside an untitled book', startsAt: fromNow(7) },
+      })
+      const moved = await payload.update({ collection: 'book-club-sessions', id: session.id, data: { book: b.id } })
+      expect(moved.title).toBe('Typed beside an untitled book')
+
+      const c = await makeBook('Book C old')
+      const d = await makeBook('Book D renamed')
+      const followed = await payload.create({ collection: 'book-club-sessions', data: { book: c.id, startsAt: fromNow(7) } })
+      await payload.update({ collection: 'books', id: c.id, data: { title: 'Book C new' }, draft: false })
+      const afterRename = await payload.update({ collection: 'book-club-sessions', id: followed.id, data: { book: d.id } })
+      expect(afterRename.title).toBe('Book C old')
+      const cleared = await payload.update({ collection: 'book-club-sessions', id: followed.id, data: { title: '' } })
+      expect(cleared.title).toBe('Book D renamed')
+    })
+
+    it('takes the book title when the title is only spaces', async () => {
+      const a = await makeBook('Book A spaces')
+      const session = await payload.create({
+        collection: 'book-club-sessions',
+        data: { book: a.id, title: '   ', startsAt: fromNow(7) },
+      })
+      expect(session.title).toBe('Book A spaces')
+    })
+  })
 })

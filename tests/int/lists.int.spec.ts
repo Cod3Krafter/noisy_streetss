@@ -119,6 +119,35 @@ describe('book popup campaigns', () => {
     )
   })
 
+  it('does not let a bulk switch-on put two overlapping campaigns live', async () => {
+    const a = await payload.create({ collection: 'popup-campaigns', data: campaign('Bulk A', 400, 410, false) })
+    const b = await payload.create({ collection: 'popup-campaigns', data: campaign('Bulk B', 405, 415, false) })
+    const result = await payload.update({
+      collection: 'popup-campaigns',
+      where: { id: { in: [a.id, b.id] } },
+      data: { enabled: true },
+    })
+    expect(result.docs).toHaveLength(1)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0].message).toMatch(/These dates overlap with "Bulk [AB]"/)
+    const live = await payload.find({ collection: 'popup-campaigns', where: { enabled: { equals: true } }, pagination: false })
+    expect(live.docs).toHaveLength(1)
+    // The refused campaign's message names the one that went live.
+    expect(result.errors[0].message).toContain(`"${live.docs[0].headline}"`)
+  })
+
+  it('lets a bulk switch-on of campaigns that do not overlap succeed for both', async () => {
+    const a = await payload.create({ collection: 'popup-campaigns', data: campaign('Apart A', 500, 510, false) })
+    const b = await payload.create({ collection: 'popup-campaigns', data: campaign('Apart B', 510, 520, false) })
+    const result = await payload.update({
+      collection: 'popup-campaigns',
+      where: { id: { in: [a.id, b.id] } },
+      data: { enabled: true },
+    })
+    expect(result.errors).toHaveLength(0)
+    expect(result.docs).toHaveLength(2)
+  })
+
   it('reports a backwards range as a date error, not a clash', async () => {
     await payload.create({ collection: 'popup-campaigns', data: campaign('Neighbour', 300, 310) })
     await expectFieldError(

@@ -23,6 +23,7 @@ import {
   TAGS,
   WRITERS,
 } from './data'
+import { deleteInOrder } from './deleteOrder'
 import { assertSafeToSeed } from './guard'
 import { emptyFieldData, mergeSeeded } from './resetGlobals'
 import { richText } from './richText'
@@ -70,13 +71,11 @@ export async function wipe(payload: Payload): Promise<void> {
     }
   }
 
-  // Reverse config order: lists that point at others (submissions at calls, popups at books)
-  // are emptied before the records they point at, so no foreign key refuses the delete.
-  for (const collection of [...payload.config.collections].reverse()) {
-    if (collection.slug === 'payload-migrations') continue
-    await payload.db.deleteMany({ collection: collection.slug, where: {} })
-    if (collection.versions) await payload.db.deleteVersions({ collection: collection.slug, where: {} })
-  }
+  // Dependency order, not config order: the config follows the admin menu, and a popup's book, a
+  // manuscript submission's call and its file are NOT NULL columns, so Postgres refuses to delete a
+  // book, call or manuscript that one still names. Records that point at others go first.
+  const everything = payload.config.collections.map((collection) => collection.slug).filter((slug) => slug !== 'payload-migrations')
+  await deleteInOrder(payload, everything)
   for (const dir of uploadDirs) fs.rmSync(dir, { recursive: true, force: true })
 }
 

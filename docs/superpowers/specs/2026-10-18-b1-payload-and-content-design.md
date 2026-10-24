@@ -147,7 +147,7 @@ docker-compose.yml       postgres + mailpit
 ### 6.1 Shared behaviour
 
 - **Drafts and version history:** books, writers, articles, podcast episodes, submission calls, awards, events, careers, Book Club sessions, merch, studio services and basic pages. Editors can save without publishing and restore earlier versions.
-- **Scheduled publishing:** articles only. Article drafts are validated like a publish (`drafts.validate`, decided 23 October 2026), so an article can only be saved once every required field is filled in, and a scheduled publish can't fail on a missing field. Other lists still save incomplete drafts.
+- **Scheduled publishing:** articles only. Article drafts are validated like a publish (`drafts.validate`, decided 23 October 2026), so an article can only be saved once every required field is filled in, and a scheduled publish can't fail on a missing field. Deleting a staff account that still has scheduled publishes waiting is refused, naming the articles, so the job never loses the account it runs as. Any scheduled publish that still fails (for example its web address was taken in the meantime) emails the form alert address, naming the article, linking to it and giving the reason; the failure is still recorded in the jobs list. Other lists still save incomplete drafts.
 - **Web address (slug):** created from the title, editable, and unique within its collection. Applies to every type with its own page. A small slug field of the project's own is used, because Payload's built-in one is marked experimental in 3.90.2.
 - **SEO fields** (meta title, meta description, sharing image), from Payload's SEO plugin. Applies to books, writers, articles, podcast episodes, awards, merch, basic pages and every page record.
 - **Visibility:** visitors only ever receive published records. Staff can read drafts.
@@ -276,15 +276,17 @@ Editors don't see Shop settings or Staff accounts in the admin menu.
 
 ### 7.3 Admin menu groups
 
+The groups are listed in the order the admin menu shows them. Payload orders groups by their first list, in the order of the `collections` list in `src/payload.config.ts`, and always puts a group that only holds page records or settings after those, so Pages comes last. Within a group, lists follow the same order.
+
 - **Publishing:** Books, Writers, Submission calls, Awards
 - **Editorial:** Articles, Categories, Tags, Podcast shows, Podcast episodes
 - **What's on:** Events, Book Club sessions, Careers, Announcements, Book popup campaigns
 - **Shop and services:** Merch, Studio services, Membership plans
 - **About:** Press mentions, People we've worked with, Basic pages
-- **Pages:** every page record
-- **Inbox:** the five form-entry collections and Manuscripts
+- **Inbox:** Manuscripts first (a manuscript submission's file points at it), then the five form-entry collections
 - **Media:** Images
-- **Settings:** Site settings, Shop settings, Staff accounts
+- **Settings:** Staff accounts, then Site settings and Shop settings (an editor has no Staff accounts list, so for an editor Settings holds only settings and comes after Pages)
+- **Pages:** every page record
 
 ## 8. Dummy content (seed)
 

@@ -106,9 +106,13 @@ const generateSlug =
     }
 
     const source = data?.[sourceField] ?? originalDoc?.[sourceField]
-    if (typeof source !== 'string') return value
+    // No title or name to make it from either: store none, never an empty string.
+    if (typeof source !== 'string') return null
     const base = slugify(source)
-    if (!base || !collection) return base || value
+    // Nothing to make an address from: store none. An empty string would clash on the unique index
+    // with the next untitled draft, while null does not.
+    if (!base) return null
+    if (!collection) return base
 
     return firstFreeSlug(req, collection.slug as CollectionSlug, base, originalDoc?.id)
   }
