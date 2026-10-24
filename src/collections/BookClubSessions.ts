@@ -12,12 +12,35 @@ const requireBookOrTitle: CollectionBeforeValidateHook = ({ data, originalDoc, r
   return data
 }
 
-/** A session with a book but no typed title takes the book's title, so it never shows as untitled. */
+type BookValue = number | string | { id: number | string } | null | undefined
+
+const bookId = (book: BookValue) => (typeof book === 'object' && book !== null ? book.id : book) || undefined
+
+/**
+ * A session with a book takes the book's title, so it never shows as untitled, and keeps following
+ * the book while the title is still the one copied from it: when the book changes and the stored
+ * title equals the previous book's title (it was never edited), the new book's title is copied.
+ * A typed title is kept. An empty or spaces-only title takes the book's title, the same trimmed
+ * check as bookOrTitleProblem. A later rename of the book itself is not picked up until the
+ * session is saved with a different book.
+ */
 const titleFromBook: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
-  if (finalValue(data, originalDoc, 'title')) return data
-  const book = finalValue<number | { id: number } | null>(data, originalDoc, 'book')
-  const id = typeof book === 'object' && book !== null ? book.id : book
+  const id = bookId(finalValue<BookValue>(data, originalDoc, 'book'))
   if (!id) return data
+
+  const title = finalValue<string | null>(data, originalDoc, 'title')
+  const typed = typeof title === 'string' ? title.trim() : ''
+  const previousId = bookId(originalDoc?.book as BookValue)
+
+  if (typed) {
+    // Not the first book, or the book has not changed: a typed title stays as it is.
+    if (!previousId || previousId === id) return data
+    const previous = await req.payload
+      .findByID({ collection: 'books', id: previousId, depth: 0, req, overrideAccess: true })
+      .catch(() => null)
+    if (!previous || previous.title.trim() !== typed) return data
+  }
+
   const found = await req.payload.findByID({ collection: 'books', id, depth: 0, req, overrideAccess: true })
   return { ...data, title: found.title }
 }
