@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Payload } from 'payload'
+import type { GlobalSlug, Payload } from 'payload'
 
 import {
   ARTICLES,
@@ -23,6 +23,8 @@ import {
   TAGS,
   WRITERS,
 } from './data'
+import { assertSafeToSeed } from './guard'
+import { emptyFieldData, mergeSeeded } from './resetGlobals'
 import { richText } from './richText'
 import { samplePdf } from './samplePdf'
 
@@ -51,8 +53,13 @@ export function isSeedUploadFolder(dir: string, root: string = process.cwd()): b
   return isInsideFolder(resolved, path.join(base, '.test-uploads'))
 }
 
-/** Empties every collection except the migrations record, and the local upload folders. */
+/**
+ * Empties every collection except the migrations record, and the local upload folders. The
+ * settings and page records are rewritten in full by `seed`, see `writeGlobal`. Refuses outright
+ * unless the environment points at a local database.
+ */
 export async function wipe(payload: Payload): Promise<void> {
+  assertSafeToSeed(process.env)
   // Check every upload folder before anything is deleted, so an unsafe setting stops the seed cold.
   const uploadDirs = payload.config.collections.flatMap((collection) =>
     collection.upload && collection.upload.staticDir ? [collection.upload.staticDir] : [],
@@ -71,6 +78,17 @@ export async function wipe(payload: Payload): Promise<void> {
     if (collection.versions) await payload.db.deleteVersions({ collection: collection.slug, where: {} })
   }
   for (const dir of uploadDirs) fs.rmSync(dir, { recursive: true, force: true })
+}
+
+/**
+ * Writes a settings or page record so it holds exactly `data`. `updateGlobal` merges into what is
+ * stored, so every field the seed does not set is emptied first (from the global's own config).
+ */
+async function writeGlobal(payload: Payload, slug: GlobalSlug, data: Record<string, unknown> = {}): Promise<void> {
+  const global = payload.config.globals.find((candidate) => candidate.slug === slug)
+  if (!global) throw new Error(`Unknown global ${slug}`)
+  const full = mergeSeeded(emptyFieldData(global.fields), data)
+  await payload.updateGlobal({ slug, data: full as Parameters<Payload['updateGlobal']>[0]['data'] })
 }
 
 async function byKey<T extends { key: string }>(items: T[], make: (item: T) => Promise<{ id: number }>) {
@@ -389,48 +407,48 @@ export async function seed(payload: Payload): Promise<void> {
   }
 
   // Settings and page records
-  await payload.updateGlobal({
-    slug: 'site-settings',
-    data: {
-      contactEmail: 'hello@noisystreetss.test',
-      phone: '+234 800 000 0000',
-      address: 'Dummy address, Shomolu, Lagos',
-      socialLinks: [
-        { platform: 'instagram', url: 'https://www.instagram.com/dummy' },
-        { platform: 'x', url: 'https://x.com/dummy' },
-      ],
-      footerText: 'Dummy text: footer line.',
-      newsletterText: 'Dummy text: new books and events, once a month.',
-      defaultShareImage: photos.bookTunnel,
-      formAlertEmail: 'inbox@noisystreetss.test',
-    },
+  const written = new Set<string>()
+  const write = async (slug: GlobalSlug, data: Record<string, unknown>) => {
+    await writeGlobal(payload, slug, data)
+    written.add(slug)
+  }
+  await write('site-settings', {
+    contactEmail: 'hello@noisystreetss.test',
+    phone: '+234 800 000 0000',
+    address: 'Dummy address, Shomolu, Lagos',
+    socialLinks: [
+      { platform: 'instagram', url: 'https://www.instagram.com/dummy' },
+      { platform: 'x', url: 'https://x.com/dummy' },
+    ],
+    footerText: 'Dummy text: footer line.',
+    newsletterText: 'Dummy text: new books and events, once a month.',
+    defaultShareImage: photos.bookTunnel,
+    formAlertEmail: 'inbox@noisystreetss.test',
   })
-  await payload.updateGlobal({
-    slug: 'shop-settings',
-    data: {
-      pickupAddress: { name: 'Dummy Dispatch', phone: '+234 800 000 0001', line1: 'Dummy street', city: 'Lagos', state: 'Lagos', country: 'Nigeria' },
-      flatDeliveryPrices: [
-        { areaName: 'Lagos Mainland', priceNGN: 2500 },
-        { areaName: 'Lagos Island', priceNGN: 3000 },
-        { areaName: 'Rest of Nigeria', priceNGN: 5000 },
-      ],
-      memberDiscountPercent: 20,
-      unpaidOrderExpiryMinutes: 30,
-      orderAlertEmail: 'orders@noisystreetss.test',
-    },
+  await write('shop-settings', {
+    pickupAddress: { name: 'Dummy Dispatch', phone: '+234 800 000 0001', line1: 'Dummy street', city: 'Lagos', state: 'Lagos', country: 'Nigeria' },
+    flatDeliveryPrices: [
+      { areaName: 'Lagos Mainland', priceNGN: 2500 },
+      { areaName: 'Lagos Island', priceNGN: 3000 },
+      { areaName: 'Rest of Nigeria', priceNGN: 5000 },
+    ],
+    memberDiscountPercent: 20,
+    unpaidOrderExpiryMinutes: 30,
+    orderAlertEmail: 'orders@noisystreetss.test',
   })
   for (const [slug, copy] of Object.entries(PAGE_COPY)) {
-    await payload.updateGlobal({
-      slug: slug as 'page-home',
-      data: {
-        heading: copy.heading,
-        intro: richText(copy.intro),
-        heroImage: copy.heroImage ? photos[copy.heroImage] : undefined,
-        ...(slug === 'page-submissions'
-          ? { guidelines: richText('Dummy text: the general submission guidelines go here.') }
-          : {}),
-      },
+    await write(slug as GlobalSlug, {
+      heading: copy.heading,
+      intro: richText(copy.intro),
+      heroImage: copy.heroImage ? photos[copy.heroImage] : undefined,
+      ...(slug === 'page-submissions'
+        ? { guidelines: richText('Dummy text: the general submission guidelines go here.') }
+        : {}),
     })
+  }
+  // Any record the seed has no copy for is reset too, so nothing typed by hand survives.
+  for (const global of payload.config.globals) {
+    if (!written.has(global.slug)) await writeGlobal(payload, global.slug as GlobalSlug)
   }
 
   // Form entries, two per form. Passed as the admin so statuses and notes are kept.

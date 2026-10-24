@@ -1,11 +1,11 @@
 import type { CollectionSlug, Payload } from 'payload'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { activeAnnouncementsWhere } from '@/rules/announcements'
 import { isCareerVisible } from '@/rules/careers'
 import { isUpcomingEvent } from '@/rules/events'
 import { callStatus } from '@/rules/submissionCalls'
-import { seed } from '@/seed'
+import { seed, wipe } from '@/seed'
 
 import { getTestPayload } from '../helpers/payload'
 
@@ -98,5 +98,37 @@ describe('the seed', () => {
     }
     const privacy = await payload.find({ collection: 'pages', where: { slug: { equals: 'privacy-policy' } } })
     expect(JSON.stringify(privacy.docs[0]?.body)).toContain("Placeholder: replace with the client's policy")
+  })
+})
+
+describe('a fresh seed', () => {
+  it('clears anything typed by hand into a page record or the settings', async () => {
+    await payload.updateGlobal({ slug: 'page-home', data: { meta: { title: 'Typed by hand', description: 'Also typed by hand' } } })
+    await payload.updateGlobal({ slug: 'shop-settings', data: { pickupAddress: { line1: 'Typed by hand' } } })
+    await seed(payload)
+    const home = await payload.findGlobal({ slug: 'page-home' })
+    expect(home.meta?.title ?? null).toBeNull()
+    expect(home.meta?.description ?? null).toBeNull()
+    const shop = await payload.findGlobal({ slug: 'shop-settings' })
+    expect(shop.pickupAddress?.line1).toBe('Dummy street')
+    const site = await payload.findGlobal({ slug: 'site-settings' })
+    expect(site.formAlertEmail).toBe('inbox@noisystreetss.test')
+    expect((await payload.count({ collection: 'pages' })).totalDocs).toBe(5)
+    expect((await payload.count({ collection: 'books' })).totalDocs).toBe(6)
+  }, 300_000)
+})
+
+describe('wipe', () => {
+  const saved = process.env.DATABASE_URI
+  afterEach(() => {
+    process.env.DATABASE_URI = saved
+  })
+
+  it('refuses when the database is not on this machine, before touching anything', async () => {
+    process.env.DATABASE_URI = 'postgresql://user:pass@db.abcdefgh.supabase.co:5432/postgres'
+    const before = (await payload.count({ collection: 'books' })).totalDocs
+    await expect(wipe(payload)).rejects.toThrow(/local database/)
+    process.env.DATABASE_URI = saved
+    expect((await payload.count({ collection: 'books' })).totalDocs).toBe(before)
   })
 })

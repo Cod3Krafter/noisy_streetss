@@ -41,7 +41,7 @@ import { pageRecords } from './globals/pageRecords'
 import { ShopSettings } from './globals/ShopSettings'
 import { SiteSettings } from './globals/SiteSettings'
 import { guardDeletes } from './hooks/deleteGuard'
-import { missingProductionSettings } from './rules/productionSettings'
+import { productionSettingProblems } from './rules/productionSettings'
 import { REFUSAL } from './refusal'
 import { seo } from './seo'
 import { hideStorageFieldsFromLists, storagePlugins } from './storage'
@@ -79,8 +79,9 @@ export default buildConfig({
   },
   onInit: (payload) => {
     if (process.env.NODE_ENV !== 'production') return
-    for (const name of missingProductionSettings(process.env)) {
-      payload.logger.error(`Production setting ${name} is not set.`)
+    for (const problem of productionSettingProblems(process.env)) {
+      // A bare name means the setting is blank; anything longer says what is wrong with it.
+      payload.logger.error(/^[A-Z0-9_]+$/.test(problem) ? `Production setting ${problem} is not set.` : `Production setting problem: ${problem}.`)
     }
   },
   editor: lexicalEditor({ features: ({ defaultFeatures }) => publicDefaultFeatures(defaultFeatures) }),

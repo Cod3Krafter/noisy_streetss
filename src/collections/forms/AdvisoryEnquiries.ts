@@ -1,3 +1,5 @@
+import { emailValidator } from '@/rules/validators'
+
 import { formCollection } from './formCollection'
 
 export const AdvisoryEnquiries = formCollection({
@@ -8,7 +10,7 @@ export const AdvisoryEnquiries = formCollection({
   fields: [
     { name: 'name', type: 'text', required: true, maxLength: 200 },
     { name: 'organisation', type: 'text', maxLength: 200 },
-    { name: 'email', type: 'email', required: true },
+    { name: 'email', type: 'email', required: true, validate: emailValidator },
     { name: 'phone', type: 'text', maxLength: 50 },
     { name: 'needs', label: 'What they need', type: 'textarea', required: true, maxLength: 5000 },
   ],

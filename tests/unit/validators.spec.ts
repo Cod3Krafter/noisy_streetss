@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { formatsProblem } from '@/rules/books'
 import { finalValue, isPublishing } from '@/rules/validation'
-import { nairaValidator, urlValidator } from '@/rules/validators'
+import { emailValidator, nairaValidator, urlValidator } from '@/rules/validators'
 
 describe('nairaValidator', () => {
   const required = nairaValidator(true)
@@ -65,5 +65,26 @@ describe('formatsProblem', () => {
     expect(formatsProblem(true, [{ formatName: 'Paperback' }])).toBeNull()
     expect(formatsProblem(true, [])).toMatch(/at least one format/)
     expect(formatsProblem(true, undefined)).toMatch(/at least one format/)
+  })
+})
+
+describe('emailValidator', () => {
+  type Options = Parameters<typeof emailValidator>[1]
+  const options = {
+    req: { payload: { collections: {}, config: { collections: [] } }, t: (key: string) => key },
+    required: true,
+    siblingData: {},
+  } as unknown as Options
+  const address = (length: number) => `${'a'.repeat(length - '@example.com'.length)}@example.com`
+
+  it('accepts an address of 254 characters and refuses 255', () => {
+    expect(emailValidator(address(254), options)).toBe(true)
+    expect(address(255)).toHaveLength(255)
+    expect(emailValidator(address(255), options)).toBe('Keep the email address to 254 characters or fewer.')
+  })
+
+  it('keeps the usual format check', () => {
+    expect(emailValidator('ada@example.com', options)).toBe(true)
+    expect(emailValidator('not an email', options)).toBe('validation:emailAddress')
   })
 })
