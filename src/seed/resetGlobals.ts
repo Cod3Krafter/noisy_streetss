@@ -33,3 +33,21 @@ export function emptyFieldData(fields: Field[]): Record<string, Empty> {
   }
   return empty
 }
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
+ * Lays the seeded values over the emptied record. A group is merged field by field, so a group the
+ * seed sets only partly still has its other subfields emptied; anything else (a list, a rich text
+ * value, an id) is replaced whole. An undefined seeded value counts as not set.
+ */
+export function mergeSeeded(empty: Record<string, unknown>, seeded: Record<string, unknown>): Record<string, unknown> {
+  const merged = { ...empty }
+  for (const [key, value] of Object.entries(seeded)) {
+    if (value === undefined) continue
+    const base = empty[key]
+    merged[key] = isPlainObject(base) && isPlainObject(value) ? mergeSeeded(base, value) : value
+  }
+  return merged
+}

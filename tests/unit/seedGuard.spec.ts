@@ -2,7 +2,7 @@ import type { Field } from 'payload'
 import { describe, expect, it } from 'vitest'
 
 import { assertSafeToSeed } from '@/seed/guard'
-import { emptyFieldData } from '@/seed/resetGlobals'
+import { emptyFieldData, mergeSeeded } from '@/seed/resetGlobals'
 
 describe('assertSafeToSeed', () => {
   it('allows a database on this machine', () => {
@@ -69,5 +69,20 @@ describe('emptyFieldData', () => {
       meta: { title: null, image: null },
       phone: null,
     })
+  })
+})
+
+describe('mergeSeeded', () => {
+  it('empties the subfields of a group that the seed sets only partly', () => {
+    const empty = { heading: null, meta: { title: null, description: null, image: null }, tags: [] }
+    expect(mergeSeeded(empty, { heading: 'Home', meta: { title: 'Seeded' } })).toEqual({
+      heading: 'Home',
+      meta: { title: 'Seeded', description: null, image: null },
+      tags: [],
+    })
+  })
+
+  it('keeps lists and values whole, and ignores undefined', () => {
+    expect(mergeSeeded({ links: [], image: null }, { links: [{ url: 'x' }], image: undefined })).toEqual({ links: [{ url: 'x' }], image: null })
   })
 })

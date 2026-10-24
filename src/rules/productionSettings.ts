@@ -19,10 +19,18 @@ export const MIN_PAYLOAD_SECRET_LENGTH = 32
 export const MIN_CRON_SECRET_LENGTH = 16
 
 /**
- * The login cookie is only accepted when the browser's Origin matches this address exactly, so
- * anything but a bare https://host (a port is fine) quietly breaks admin saves.
+ * The login cookie is only accepted when the browser's Origin matches this address exactly, and a
+ * browser sends the origin in its canonical form (lowercase host, internationalised names as
+ * xn--, no default port, no path). So the address must equal its own parsed origin.
  */
-const SITE_ADDRESS = /^https:\/\/[^/?#\s]+$/i
+function isExactOrigin(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && url.origin === value
+  } catch {
+    return false
+  }
+}
 
 /**
  * The production settings that are missing, blank or unusable in `env`, one entry each. A blank
@@ -41,7 +49,7 @@ export function productionSettingProblems(env: Record<string, string | undefined
       problems.push(`${name} (shorter than ${MIN_PAYLOAD_SECRET_LENGTH} characters)`)
     } else if (name === 'CRON_SECRET' && value.length < MIN_CRON_SECRET_LENGTH) {
       problems.push(`${name} (shorter than ${MIN_CRON_SECRET_LENGTH} characters)`)
-    } else if (name === 'NEXT_PUBLIC_SERVER_URL' && !SITE_ADDRESS.test(value)) {
+    } else if (name === 'NEXT_PUBLIC_SERVER_URL' && !isExactOrigin(value)) {
       problems.push(`${name} (must be https://host with no path or trailing slash)`)
     }
   }

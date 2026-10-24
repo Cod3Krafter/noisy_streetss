@@ -24,7 +24,7 @@ import {
   WRITERS,
 } from './data'
 import { assertSafeToSeed } from './guard'
-import { emptyFieldData } from './resetGlobals'
+import { emptyFieldData, mergeSeeded } from './resetGlobals'
 import { richText } from './richText'
 import { samplePdf } from './samplePdf'
 
@@ -87,9 +87,7 @@ export async function wipe(payload: Payload): Promise<void> {
 async function writeGlobal(payload: Payload, slug: GlobalSlug, data: Record<string, unknown> = {}): Promise<void> {
   const global = payload.config.globals.find((candidate) => candidate.slug === slug)
   if (!global) throw new Error(`Unknown global ${slug}`)
-  // An undefined value would leave the stored one alone, so it counts as not set.
-  const set = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined))
-  const full = { ...emptyFieldData(global.fields), ...set }
+  const full = mergeSeeded(emptyFieldData(global.fields), data)
   await payload.updateGlobal({ slug, data: full as Parameters<Payload['updateGlobal']>[0]['data'] })
 }
 

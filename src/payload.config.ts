@@ -80,7 +80,8 @@ export default buildConfig({
   onInit: (payload) => {
     if (process.env.NODE_ENV !== 'production') return
     for (const problem of productionSettingProblems(process.env)) {
-      payload.logger.error(`Production setting problem: ${problem}.`)
+      // A bare name means the setting is blank; anything longer says what is wrong with it.
+      payload.logger.error(/^[A-Z0-9_]+$/.test(problem) ? `Production setting ${problem} is not set.` : `Production setting problem: ${problem}.`)
     }
   },
   editor: lexicalEditor({ features: ({ defaultFeatures }) => publicDefaultFeatures(defaultFeatures) }),
