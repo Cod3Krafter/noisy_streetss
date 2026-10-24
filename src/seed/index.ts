@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type { CollectionSlug, GlobalSlug, Payload } from 'payload'
+import type { GlobalSlug, Payload } from 'payload'
 
 import {
   ARTICLES,
@@ -23,7 +23,7 @@ import {
   TAGS,
   WRITERS,
 } from './data'
-import { deleteOrder } from './deleteOrder'
+import { deleteInOrder } from './deleteOrder'
 import { assertSafeToSeed } from './guard'
 import { emptyFieldData, mergeSeeded } from './resetGlobals'
 import { richText } from './richText'
@@ -75,11 +75,7 @@ export async function wipe(payload: Payload): Promise<void> {
   // manuscript submission's call and its file are NOT NULL columns, so Postgres refuses to delete a
   // book, call or manuscript that one still names. Records that point at others go first.
   const everything = payload.config.collections.map((collection) => collection.slug).filter((slug) => slug !== 'payload-migrations')
-  for (const slug of deleteOrder(payload.config.collections, everything)) {
-    const collection = payload.config.collections.find((candidate) => candidate.slug === slug)
-    await payload.db.deleteMany({ collection: slug as CollectionSlug, where: {} })
-    if (collection?.versions) await payload.db.deleteVersions({ collection: slug as CollectionSlug, where: {} })
-  }
+  await deleteInOrder(payload, everything)
   for (const dir of uploadDirs) fs.rmSync(dir, { recursive: true, force: true })
 }
 

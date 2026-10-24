@@ -5,7 +5,7 @@ import { expect } from 'vitest'
 
 import type { StaffRole } from '@/access'
 import type { Media, User, Writer } from '@/payload-types'
-import { deleteOrder } from '@/seed/deleteOrder'
+import { deleteInOrder } from '@/seed/deleteOrder'
 
 const testPhoto = path.resolve('public/images/unsplash/unsplash-1543002588-bfa74002ed7e.jpg')
 
@@ -70,11 +70,7 @@ export async function expectFieldError(promise: Promise<unknown>, fieldPath: str
  * is a dependency order (see deleteOrder), so a record that points at another goes first.
  */
 export async function resetCollections(payload: Payload, slugs: CollectionSlug[]): Promise<void> {
-  for (const slug of deleteOrder(payload.config.collections, slugs)) {
-    const collection = payload.config.collections.find((candidate) => candidate.slug === slug)
-    await payload.db.deleteMany({ collection: slug as CollectionSlug, where: {} })
-    if (collection?.versions) await payload.db.deleteVersions({ collection: slug as CollectionSlug, where: {} })
-  }
+  await deleteInOrder(payload, slugs)
 }
 
 /** A login token for an account made by createStaff, for REST requests. */

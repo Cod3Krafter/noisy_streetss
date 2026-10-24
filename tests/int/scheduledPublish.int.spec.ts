@@ -90,7 +90,7 @@ describe('deleting a staff account with publishes waiting', () => {
     expect(error).toBeInstanceOf(Error)
     const message = (error as Error).message
     expect(message).toMatch(/has 7 scheduled publishes waiting/)
-    expect(message).toMatch(/Cancel them from the article's Schedule Publish, or ask another staff member to schedule them again/)
+    expect(message).toMatch(/Cancel them from each article's Schedule Publish, or ask another staff member to schedule them again/)
     expect(message).toContain('"Queued piece 5"')
     expect(message).not.toContain('"Queued piece 6"')
     expect(message).toMatch(/, and 2 more\./)

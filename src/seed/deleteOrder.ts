@@ -1,3 +1,5 @@
+import type { CollectionSlug, Payload } from 'payload'
+
 type FieldNode = {
   type?: string
   relationTo?: string | string[]
@@ -69,4 +71,13 @@ export function deleteOrder(collections: CollectionNode[], slugs: string[]): str
     ordered.push(next)
   }
   return ordered
+}
+
+/** Empties the given collections (and what points at them) in deleteOrder, with their version history. */
+export async function deleteInOrder(payload: Payload, slugs: string[]): Promise<void> {
+  for (const slug of deleteOrder(payload.config.collections, slugs)) {
+    const collection = payload.config.collections.find((candidate) => candidate.slug === slug)
+    await payload.db.deleteMany({ collection: slug as CollectionSlug, where: {} })
+    if (collection?.versions) await payload.db.deleteVersions({ collection: slug as CollectionSlug, where: {} })
+  }
 }

@@ -37,4 +37,28 @@ describe('deleteOrder', () => {
   it('refuses an unknown collection', () => {
     expect(() => deleteOrder(collections, ['nope'])).toThrow(/unknown collection/)
   })
+
+  it('orders a chain deeper than one step', () => {
+    const chain = [
+      collection('books', field('writers'), field('media', 'upload')),
+      collection('writers', field('media', 'upload')),
+      collection('media'),
+      collection('popup-campaigns', field('books')),
+    ]
+    const result = deleteOrder(chain, ['media'])
+    expect(result).toHaveLength(4)
+    expect(result.indexOf('popup-campaigns')).toBeLessThan(result.indexOf('books'))
+    expect(result.indexOf('books')).toBeLessThan(result.indexOf('writers'))
+    expect(result.indexOf('writers')).toBeLessThan(result.indexOf('media'))
+  })
+
+  it('copes with a collection that points at itself', () => {
+    const result = deleteOrder([collection('articles', field('articles'), field('media', 'upload')), collection('media')], ['media'])
+    expect(result).toEqual(['articles', 'media'])
+  })
+
+  it('ends, returning both, when two collections point at each other', () => {
+    const result = deleteOrder([collection('a', field('b')), collection('b', field('a'))], ['a'])
+    expect([...result].sort()).toEqual(['a', 'b'])
+  })
 })
