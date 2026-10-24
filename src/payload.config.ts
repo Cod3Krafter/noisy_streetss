@@ -41,6 +41,7 @@ import { pageRecords } from './globals/pageRecords'
 import { ShopSettings } from './globals/ShopSettings'
 import { SiteSettings } from './globals/SiteSettings'
 import { guardDeletes } from './hooks/deleteGuard'
+import { withScheduledPublishAlerts } from './jobs/scheduledPublishAlerts'
 import { productionSettingProblems } from './rules/productionSettings'
 import { REFUSAL } from './refusal'
 import { seo } from './seo'
@@ -109,4 +110,4 @@ export default buildConfig({
   }),
   sharp,
   plugins: [...storagePlugins(), hideStorageFieldsFromLists, seo],
-})
+}).then(withScheduledPublishAlerts)
