@@ -129,6 +129,16 @@ describe('slugs', () => {
     expect(after.totalDocs).toBe(before.totalDocs)
   })
 
+  it('saves two untitled drafts with no web address instead of failing on the unique index', async () => {
+    await resetCollections(payload, ['writers'])
+    const first = await payload.create({ collection: 'writers', data: { name: '', slug: '' }, draft: true })
+    const second = await payload.create({ collection: 'writers', data: { name: '', slug: '' }, draft: true })
+    expect(first.slug).toBeFalsy()
+    expect(second.slug).toBeFalsy()
+    expect(second.id).not.toBe(first.id)
+    await resetCollections(payload, ['writers'])
+  })
+
   it('keeps the slug when only another field is updated', async () => {
     const created = await payload.create({
       collection: 'categories',
