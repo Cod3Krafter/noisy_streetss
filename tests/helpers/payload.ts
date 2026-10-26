@@ -19,10 +19,18 @@ export const STAFF_PASSWORD = 'test-password-123'
 
 let staffCount = 0
 
-/** Creates a staff account with a unique address. */
+/**
+ * Creates a staff account with a unique address and the role asked for. The first account ever
+ * created is forced to admin, so on an empty users table a placeholder admin is made first;
+ * otherwise a requested editor would quietly be an admin and the test would check nothing.
+ */
 export async function createStaff(payload: Payload, role: StaffRole): Promise<User> {
+  if (role !== 'admin') {
+    const { totalDocs } = await payload.count({ collection: 'users' })
+    if (totalDocs === 0) await createStaff(payload, 'admin')
+  }
   staffCount += 1
-  return payload.create({
+  const user = await payload.create({
     collection: 'users',
     data: {
       email: `${role}-${Date.now()}-${staffCount}@noisystreetss.test`,
@@ -31,6 +39,10 @@ export async function createStaff(payload: Payload, role: StaffRole): Promise<Us
       role,
     },
   })
+  if (user.role !== role) {
+    throw new Error(`createStaff asked for a "${role}" but the account came back as "${user.role}".`)
+  }
+  return user
 }
 
 /** An uploaded test image (the 1200 px prototype photo). */
@@ -83,10 +95,15 @@ export async function tokenFor(payload: Payload, user: User): Promise<string> {
 /**
  * Sends a request through Payload's REST API: the same code that answers /api in the app,
  * so access rules, endpoints and error responses are all the real ones. `path` is relative
- * to /api, for example `/books/12`. Without a token the request comes from a visitor.
+ * to /api, for example `/books/12`. Without a token the request comes from a visitor. `headers`
+ * adds any other header, such as the `Authorization: Bearer` that Vercel Cron sends.
  */
-export function rest(method: string, path: string, { body, token }: { body?: unknown; token?: string } = {}): Promise<Response> {
-  const headers = new Headers()
+export function rest(
+  method: string,
+  path: string,
+  { body, token, headers: extra }: { body?: unknown; token?: string; headers?: Record<string, string> } = {},
+): Promise<Response> {
+  const headers = new Headers(extra)
   if (body !== undefined) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `JWT ${token}`)
   return handleEndpoints({
