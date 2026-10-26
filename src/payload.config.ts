@@ -46,6 +46,7 @@ import { withScheduledPublishAlerts } from './jobs/scheduledPublishAlerts'
 import { productionSettingProblems } from './rules/productionSettings'
 import { REFUSAL } from './refusal'
 import { seo } from './seo'
+import { isLocalDatabase } from './seed/guard'
 import { hideStorageFieldsFromLists, storagePlugins } from './storage'
 
 const filename = fileURLToPath(import.meta.url)
@@ -108,6 +109,11 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URI || '',
     },
     migrationDir: path.resolve(dirname, 'migrations'),
+    // Outside production the adapter would otherwise push the code's schema straight into whatever
+    // DATABASE_URI names, and record a "dev" row that makes `payload migrate` refuse to run later.
+    // So the push only happens on a local database; any other database (Supabase) changes only
+    // through migrations.
+    push: isLocalDatabase(process.env.DATABASE_URI),
   }),
   sharp,
   plugins: [...storagePlugins(), hideStorageFieldsFromLists, seo],

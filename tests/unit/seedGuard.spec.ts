@@ -1,7 +1,7 @@
 import type { Field } from 'payload'
 import { describe, expect, it } from 'vitest'
 
-import { assertSafeToSeed } from '@/seed/guard'
+import { assertSafeToSeed, isLocalDatabase } from '@/seed/guard'
 import { emptyFieldData, mergeSeeded } from '@/seed/resetGlobals'
 
 describe('assertSafeToSeed', () => {
@@ -47,6 +47,34 @@ describe('assertSafeToSeed', () => {
   it('refuses a missing or broken connection string', () => {
     expect(() => assertSafeToSeed({})).toThrow(/DATABASE_URI/)
     expect(() => assertSafeToSeed({ DATABASE_URI: 'not a url' })).toThrow(/DATABASE_URI/)
+  })
+})
+
+describe('isLocalDatabase', () => {
+  it('is true for the local development and test databases', () => {
+    expect(isLocalDatabase('postgresql://postgres:postgres@localhost:5432/noisy_streetss')).toBe(true)
+    expect(isLocalDatabase('postgresql://postgres:postgres@127.0.0.1:5432/noisy_streetss')).toBe(true)
+    expect(isLocalDatabase('postgresql://postgres:postgres@127.0.0.1:5432/noisy_streetss_test')).toBe(true)
+  })
+
+  it('is false for a Supabase-style host', () => {
+    expect(isLocalDatabase('postgresql://user:pass@db.abcdefgh.supabase.co:5432/postgres')).toBe(false)
+    expect(isLocalDatabase('postgresql://user:pass@aws-0-eu-west-1.pooler.supabase.com:6543/noisy_streetss')).toBe(false)
+  })
+
+  it('is false when the query overrides the host', () => {
+    expect(isLocalDatabase('postgresql://u:p@localhost/noisy_streetss?host=remote.example')).toBe(false)
+    expect(isLocalDatabase('postgresql://u:p@localhost/noisy_streetss?hostaddr=10.0.0.5')).toBe(false)
+  })
+
+  it('is false for another database name', () => {
+    expect(isLocalDatabase('postgresql://u:p@localhost:5432/postgres')).toBe(false)
+  })
+
+  it('is false for a missing or malformed address', () => {
+    expect(isLocalDatabase(undefined)).toBe(false)
+    expect(isLocalDatabase('')).toBe(false)
+    expect(isLocalDatabase('not a url')).toBe(false)
   })
 })
 

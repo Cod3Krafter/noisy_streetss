@@ -22,6 +22,12 @@ beforeAll(async () => {
 
 const lockData = () => ({ document: { relationTo: 'writers', value: documentId }, user: { relationTo: 'users', value: staff.id } }) as never
 
+describe('automatic schema push', () => {
+  it('is on for the local test database', () => {
+    expect((payload.db as unknown as { push?: boolean }).push).toBe(true)
+  })
+})
+
 describe("Payload's edit locks", () => {
   it('refuse a member for every operation', async () => {
     const lock = await payload.create({ collection: 'payload-locked-documents', data: lockData(), overrideAccess: true })
