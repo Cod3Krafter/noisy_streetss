@@ -30,6 +30,15 @@ export function isLocalDatabase(uri: string | undefined): boolean {
   return localDatabaseProblem(uri) === null
 }
 
+/**
+ * The warning for a development run whose database is not recognised as local (so the schema is not
+ * pushed automatically), or null. It never includes the connection string, which may hold a password.
+ */
+export function schemaPushOffWarning(env: Record<string, string | undefined>): string | null {
+  if (env.NODE_ENV === 'production' || isLocalDatabase(env.DATABASE_URI)) return null
+  return 'The database in DATABASE_URI is not recognised as a local one, so the schema will not be updated automatically. Run the migrations instead (npm run migrate).'
+}
+
 /** The seed empties the database first, so it only ever runs against a local, non-production one. */
 export function assertSafeToSeed(env: Record<string, string | undefined>): void {
   if (env.NODE_ENV === 'production') throw new Error('The seed never runs in production.')

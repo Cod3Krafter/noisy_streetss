@@ -46,7 +46,7 @@ import { withScheduledPublishAlerts } from './jobs/scheduledPublishAlerts'
 import { productionSettingProblems } from './rules/productionSettings'
 import { REFUSAL } from './refusal'
 import { seo } from './seo'
-import { isLocalDatabase } from './seed/guard'
+import { isLocalDatabase, schemaPushOffWarning } from './seed/guard'
 import { hideStorageFieldsFromLists, storagePlugins } from './storage'
 
 const filename = fileURLToPath(import.meta.url)
@@ -85,6 +85,8 @@ export default buildConfig({
         : [{ cron: '* * * * *', queue: 'default', limit: 10 }],
   },
   onInit: (payload) => {
+    const pushWarning = schemaPushOffWarning(process.env)
+    if (pushWarning) payload.logger.warn(pushWarning)
     if (process.env.NODE_ENV !== 'production') return
     for (const problem of productionSettingProblems(process.env)) {
       // A bare name means the setting is blank; anything longer says what is wrong with it.

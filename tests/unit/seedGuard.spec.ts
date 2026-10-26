@@ -1,7 +1,7 @@
 import type { Field } from 'payload'
 import { describe, expect, it } from 'vitest'
 
-import { assertSafeToSeed, isLocalDatabase } from '@/seed/guard'
+import { assertSafeToSeed, isLocalDatabase, schemaPushOffWarning } from '@/seed/guard'
 import { emptyFieldData, mergeSeeded } from '@/seed/resetGlobals'
 
 describe('assertSafeToSeed', () => {
@@ -75,6 +75,20 @@ describe('isLocalDatabase', () => {
     expect(isLocalDatabase(undefined)).toBe(false)
     expect(isLocalDatabase('')).toBe(false)
     expect(isLocalDatabase('not a url')).toBe(false)
+  })
+})
+
+describe('schemaPushOffWarning', () => {
+  it('warns in development for a database that is not local, without naming the address', () => {
+    const uri = 'postgresql://user:s3cret@db.abcdefgh.supabase.co:5432/postgres'
+    const warning = schemaPushOffWarning({ NODE_ENV: 'development', DATABASE_URI: uri })
+    expect(warning).toMatch(/not recognised as a local one/)
+    expect(warning).not.toMatch(/s3cret|supabase/)
+  })
+
+  it('is silent for a local database and in production', () => {
+    expect(schemaPushOffWarning({ DATABASE_URI: 'postgresql://u:p@localhost:5432/noisy_streetss' })).toBeNull()
+    expect(schemaPushOffWarning({ NODE_ENV: 'production', DATABASE_URI: 'postgresql://u:p@db.x.supabase.co/postgres' })).toBeNull()
   })
 })
 

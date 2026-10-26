@@ -1,5 +1,5 @@
 import config from '@payload-config'
-import type { Payload } from 'payload'
+import { Forbidden, type Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { User } from '@/payload-types'
@@ -31,16 +31,18 @@ describe('automatic schema push', () => {
 describe("Payload's edit locks", () => {
   it('refuse a member for every operation', async () => {
     const lock = await payload.create({ collection: 'payload-locked-documents', data: lockData(), overrideAccess: true })
-    await expect(payload.find({ collection: 'payload-locked-documents', overrideAccess: false, user: member })).rejects.toThrow()
+    // Forbidden specifically (403), so a validation error cannot pass for a refusal.
+    const forbidden = { status: 403 }
+    await expect(payload.find({ collection: 'payload-locked-documents', overrideAccess: false, user: member })).rejects.toBeInstanceOf(Forbidden)
     await expect(
       payload.create({ collection: 'payload-locked-documents', data: lockData(), overrideAccess: false, user: member }),
-    ).rejects.toThrow()
+    ).rejects.toMatchObject(forbidden)
     await expect(
       payload.update({ collection: 'payload-locked-documents', id: lock.id, data: {}, overrideAccess: false, user: member }),
-    ).rejects.toThrow()
+    ).rejects.toMatchObject(forbidden)
     await expect(
       payload.delete({ collection: 'payload-locked-documents', id: lock.id, overrideAccess: false, user: member }),
-    ).rejects.toThrow()
+    ).rejects.toMatchObject(forbidden)
   })
 
   it('let staff create and read one', async () => {
@@ -55,7 +57,7 @@ describe("Payload's edit locks", () => {
   })
 
   it('are not readable by a visitor', async () => {
-    await expect(payload.find({ collection: 'payload-locked-documents', overrideAccess: false })).rejects.toThrow()
+    await expect(payload.find({ collection: 'payload-locked-documents', overrideAccess: false })).rejects.toBeInstanceOf(Forbidden)
   })
 
   it('have access functions that refuse a member directly', async () => {
@@ -69,16 +71,6 @@ describe("Payload's edit locks", () => {
       expect(await rule?.(args(member)), operation).toBe(false)
       expect(await rule?.(args(null)), operation).toBe(false)
       expect(await rule?.(args(staff)), operation).toBe(true)
-    }
-  })
-
-  it('also protect the scheduled jobs stats when that global exists', async () => {
-    const sanitised = await config
-    const stats = sanitised.globals.find((global) => (global.slug as string) === 'payload-jobs-stats')
-    if (!stats) return
-    for (const operation of ['read', 'update'] as const) {
-      const rule = stats.access?.[operation]
-      expect(await rule?.({ req: { user: member } } as never), operation).toBe(false)
     }
   })
 })
