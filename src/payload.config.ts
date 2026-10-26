@@ -6,6 +6,7 @@ import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
 import { isStaffUser } from './access'
+import { withStaffOnlyInternals } from './access/internalCollections'
 import { hasCronSecret } from './access/jobs'
 import { Announcements } from './collections/Announcements'
 import { Articles } from './collections/Articles'
@@ -110,4 +111,4 @@ export default buildConfig({
   }),
   sharp,
   plugins: [...storagePlugins(), hideStorageFieldsFromLists, seo],
-}).then(withScheduledPublishAlerts)
+}).then((config) => withStaffOnlyInternals(withScheduledPublishAlerts(config)))
