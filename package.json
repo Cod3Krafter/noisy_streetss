@@ -12,6 +12,8 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "lint": "eslint",
     "test": "cross-env NODE_OPTIONS=--no-deprecation vitest run",
+    "test:unit": "cross-env NODE_OPTIONS=--no-deprecation vitest run --project unit",
+    "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --project integration",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "seed": "cross-env NODE_OPTIONS=--no-deprecation payload run src/seed/run.ts",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
