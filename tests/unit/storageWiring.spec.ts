@@ -17,7 +17,7 @@ const OFF = Object.fromEntries(Object.keys(SETTINGS).map((name) => [name, ''])) 
 
 const saved = new Map<string, string | undefined>()
 
-function useSettings(values: Record<string, string>): void {
+function setSettings(values: Record<string, string>): void {
   for (const [name, value] of Object.entries(values)) process.env[name] = value
 }
 
@@ -34,7 +34,7 @@ afterEach(() => {
 
 /** Runs the real storage plugins over the real upload lists. Nothing connects to a bucket. */
 async function withStorage(settings: Record<string, string>): Promise<{ media: CollectionConfig; manuscripts: CollectionConfig }> {
-  useSettings(settings)
+  setSettings(settings)
   let config = { collections: [Media, Manuscripts] } as Config
   for (const plugin of storagePlugins() as Plugin[]) config = await plugin(config)
   const find = (slug: string) => {
