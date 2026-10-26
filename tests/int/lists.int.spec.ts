@@ -78,11 +78,36 @@ describe('book popup campaigns', () => {
     )
   })
 
-  it('allows a disabled overlapping campaign, and one that starts as the other ends', async () => {
+  it('allows a disabled overlapping campaign', async () => {
+    await payload.create({ collection: 'popup-campaigns', data: campaign('November launch', 1, 10) })
     const disabled = await payload.create({ collection: 'popup-campaigns', data: campaign('Draft idea', 5, 15, false) })
     expect(disabled.enabled).toBe(false)
-    const later = await payload.create({ collection: 'popup-campaigns', data: campaign('December', 10, 20) })
-    expect(later.headline).toBe('December')
+  })
+
+  it('allows campaigns that only touch at an edge, and refuses one a second inside', async () => {
+    // Fixed moments, so the edges are exactly equal. The real save runs the real overlap check.
+    const fixed = (headline: string, startsAt: string, endsAt: string) => ({ book: book.id, headline, startsAt, endsAt, enabled: true })
+    const start = '2031-03-10T09:00:00.000Z'
+    const end = '2031-03-20T09:00:00.000Z'
+    await payload.create({ collection: 'popup-campaigns', data: fixed('Edge A', start, end) })
+
+    // Ends exactly as A starts, and starts exactly as A ends: both allowed.
+    const before = await payload.create({ collection: 'popup-campaigns', data: fixed('Edge before', '2031-03-01T09:00:00.000Z', start) })
+    const after = await payload.create({ collection: 'popup-campaigns', data: fixed('Edge after', end, '2031-03-30T09:00:00.000Z') })
+    expect(before.headline).toBe('Edge before')
+    expect(after.headline).toBe('Edge after')
+
+    // One second inside at either edge: refused, naming a campaign it overlaps.
+    await expectFieldError(
+      payload.create({ collection: 'popup-campaigns', data: fixed('Starts early', '2031-03-20T08:59:59.000Z', '2031-03-21T09:00:00.000Z') }),
+      'startsAt',
+      /Edge/,
+    )
+    await expectFieldError(
+      payload.create({ collection: 'popup-campaigns', data: fixed('Ends late', '2031-03-09T09:00:00.000Z', '2031-03-10T09:00:01.000Z') }),
+      'startsAt',
+      /Edge/,
+    )
   })
 
   it('lets a campaign be edited without clashing with itself', async () => {
