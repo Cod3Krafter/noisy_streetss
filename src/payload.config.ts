@@ -6,6 +6,7 @@ import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
 import { isStaffUser } from './access'
+import { withStaffOnlyInternals } from './access/internalCollections'
 import { hasCronSecret } from './access/jobs'
 import { Announcements } from './collections/Announcements'
 import { Articles } from './collections/Articles'
@@ -45,6 +46,7 @@ import { withScheduledPublishAlerts } from './jobs/scheduledPublishAlerts'
 import { productionSettingProblems } from './rules/productionSettings'
 import { REFUSAL } from './refusal'
 import { seo } from './seo'
+import { isLocalDatabase, schemaPushOffWarning } from './seed/guard'
 import { hideStorageFieldsFromLists, storagePlugins } from './storage'
 
 const filename = fileURLToPath(import.meta.url)
@@ -83,6 +85,8 @@ export default buildConfig({
         : [{ cron: '* * * * *', queue: 'default', limit: 10 }],
   },
   onInit: (payload) => {
+    const pushWarning = schemaPushOffWarning(process.env)
+    if (pushWarning) payload.logger.warn(pushWarning)
     if (process.env.NODE_ENV !== 'production') return
     for (const problem of productionSettingProblems(process.env)) {
       // A bare name means the setting is blank; anything longer says what is wrong with it.
@@ -107,7 +111,12 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URI || '',
     },
     migrationDir: path.resolve(dirname, 'migrations'),
+    // Outside production the adapter would otherwise push the code's schema straight into whatever
+    // DATABASE_URI names, and record a "dev" row that makes `payload migrate` refuse to run later.
+    // So the push only happens on a local database; any other database (Supabase) changes only
+    // through migrations.
+    push: isLocalDatabase(process.env.DATABASE_URI),
   }),
   sharp,
   plugins: [...storagePlugins(), hideStorageFieldsFromLists, seo],
-}).then(withScheduledPublishAlerts)
+}).then((config) => withStaffOnlyInternals(withScheduledPublishAlerts(config)))

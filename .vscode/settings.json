@@ -1,0 +1,13 @@
+{
+  "terminal.integrated.profiles.windows": {
+    "PowerShell (Node from .nvmrc)": {
+      "source": "PowerShell",
+      "args": [
+        "-NoExit",
+        "-Command",
+        "fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression; fnm use --silent-if-unchanged"
+      ]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell (Node from .nvmrc)"
+}
