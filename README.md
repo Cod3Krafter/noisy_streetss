@@ -4,7 +4,7 @@ Next.js 16 with Payload CMS 3 inside it. The admin is at `/admin`.
 
 ## Local set-up
 
-You need Node 24 (`fnm use` reads `.nvmrc`) and Docker.
+You need Node 24 (`fnm use` reads `.nvmrc`) and Docker. VS Code terminals in this project switch to Node 24 through fnm automatically; in any other terminal, run `fnm use` first. `npm install` refuses a Node version outside `engines`.
 
 ```bash
 fnm use
