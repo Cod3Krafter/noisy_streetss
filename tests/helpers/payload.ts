@@ -95,10 +95,15 @@ export async function tokenFor(payload: Payload, user: User): Promise<string> {
 /**
  * Sends a request through Payload's REST API: the same code that answers /api in the app,
  * so access rules, endpoints and error responses are all the real ones. `path` is relative
- * to /api, for example `/books/12`. Without a token the request comes from a visitor.
+ * to /api, for example `/books/12`. Without a token the request comes from a visitor. `headers`
+ * adds any other header, such as the `Authorization: Bearer` that Vercel Cron sends.
  */
-export function rest(method: string, path: string, { body, token }: { body?: unknown; token?: string } = {}): Promise<Response> {
-  const headers = new Headers()
+export function rest(
+  method: string,
+  path: string,
+  { body, token, headers: extra }: { body?: unknown; token?: string; headers?: Record<string, string> } = {},
+): Promise<Response> {
+  const headers = new Headers(extra)
   if (body !== undefined) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `JWT ${token}`)
   return handleEndpoints({
