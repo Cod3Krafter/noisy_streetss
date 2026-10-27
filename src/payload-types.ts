@@ -837,6 +837,16 @@ export interface Merch {
   priceNGN: number;
   weightGrams: number;
   type: 'stationery' | 'apparel' | 'other';
+  /**
+   * Sizes or other choices, such as S, M and L. Leave empty for a one-size item. Each option has its own In stock box.
+   */
+  options?:
+    | {
+        name: string;
+        inStock?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
   inStock?: boolean | null;
   meta?: {
     title?: string | null;
@@ -1719,6 +1729,13 @@ export interface MerchSelect<T extends boolean = true> {
   priceNGN?: T;
   weightGrams?: T;
   type?: T;
+  options?:
+    | T
+    | {
+        name?: T;
+        inStock?: T;
+        id?: T;
+      };
   inStock?: T;
   meta?:
     | T

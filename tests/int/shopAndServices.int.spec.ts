@@ -34,6 +34,25 @@ describe('merch', () => {
     await expectFieldError(payload.create({ collection: 'merch', data: tote({ images: [] }) }), 'images', /required/i)
     await expectFieldError(payload.create({ collection: 'merch', data: tote({ priceNGN: 99.5 }) }), 'priceNGN', /whole number/)
   })
+
+  it('keeps sizes, each with its own In stock box', async () => {
+    const item = await payload.create({
+      collection: 'merch',
+      data: tote({ title: 'Sized Tee', options: [{ name: 'S' }, { name: 'M', inStock: false }] }),
+    })
+    expect(item.options?.map((option) => [option.name, option.inStock])).toEqual([
+      ['S', true],
+      ['M', false],
+    ])
+  })
+
+  it('refuses two sizes with the same name', async () => {
+    await expectFieldError(
+      payload.create({ collection: 'merch', data: tote({ title: 'Twin Tee', options: [{ name: 'M' }, { name: ' m ' }] }) }),
+      'options',
+      /different name/,
+    )
+  })
 })
 
 describe('studio services', () => {

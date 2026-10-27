@@ -235,6 +235,20 @@ export const MERCH = [
   { title: 'The Shomolu Hardbound Sketchbook', images: ['bookStack'] as PhotoKey[], description: 'Handbound in Lagos. 160 pages of heavy drawing paper with a lay-flat spine.', priceNGN: 10000, inStock: true, weightGrams: 450, type: 'stationery' as const },
   { title: 'Noisy Streetss Pocket Notebook', images: ['openBooks'] as PhotoKey[], description: 'A slim lined notebook for the commute.', priceNGN: 4000, inStock: true, weightGrams: 120, type: 'stationery' as const },
   { title: 'Reader’s Cap', images: ['tote'] as PhotoKey[], description: 'A soft cotton cap. Back soon.', priceNGN: 7000, inStock: false, weightGrams: 150, type: 'apparel' as const },
+  {
+    title: 'Noisy Streetss T-shirt',
+    images: ['tote'] as PhotoKey[],
+    description: 'Soft cotton, printed in Lagos.',
+    priceNGN: 15000,
+    inStock: true,
+    weightGrams: 250,
+    type: 'apparel' as const,
+    options: [
+      { name: 'S', inStock: true },
+      { name: 'M', inStock: true },
+      { name: 'L', inStock: false },
+    ],
+  },
 ]
 
 export const STUDIO_SERVICES = [
