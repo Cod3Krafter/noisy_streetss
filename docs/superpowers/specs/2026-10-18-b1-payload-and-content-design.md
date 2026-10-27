@@ -3,7 +3,7 @@
 - **Date:** 18 October 2026
 - **Status:** Approved 21 October 2026. Updated the same day with the client's hosting and payment decisions, and with corrections from checking Payload 3.90.2's source
 - **Scope source:** the accepted proposal, `refs/NoisyStreetss_Redesign_Breakdown_Updated.pdf`
-- **Part of:** the backend build, split into B1 (this spec), B2 (members and shop) and B3 (membership and studio). Each part gets its own spec, plan and build. The frontend comes after the backend.
+- **Part of:** the backend build, split into B1 (this spec), B2 (shop) and B3 (members, membership and studio). Members moved from B2 to B3 on 27 October 2026 (B2 spec, `2026-10-27-b2-shop-design.md`). Each part gets its own spec, plan and build. The frontend comes after the backend.
 
 ## 1. Purpose
 
@@ -23,8 +23,8 @@ B1 turns the current prototype into a Next.js app with Payload CMS inside it. B1
 
 | Item | Where it goes |
 |---|---|
-| Member accounts, orders, Paystack payments, Terminal Africa shipping, member discount, unpaid-order expiry. The customer pays the Paystack fee as a checkout line, and the fee is never refunded (client, 21 Oct) | B2 |
-| Paystack subscriptions, studio bookings and their approval, Book Club registrations. A studio booking is charged in full when requested and refunded without the fee if rejected (client, 21 Oct) | B3 |
+| Orders (guest checkout), Paystack payments, Terminal Africa shipping, unpaid-order expiry. The customer pays the Paystack fee, and the fee is never refunded (client, 21 Oct) | B2 |
+| Member accounts and the member discount (moved from B2 on 27 Oct), Paystack subscriptions, studio bookings and their approval, Book Club registrations. A studio booking is charged in full when requested and refunded without the fee if rejected (client, 21 Oct) | B3 |
 | All public pages and their layouts | Frontend phase, after the backend |
 | WordPress content migration | Deferred. Still owed under the proposal. The live site is not used as a source until the developer says so |
 | Setting up the production accounts and services | Near launch. Hosting is chosen (section 3), and B1 makes the code ready for it (sections 5.5 to 5.8) |
@@ -256,7 +256,7 @@ In B1 each record has `heading`\*, `intro` (rich text), an optional `heroImage`,
 | Global | Fields | Who can edit |
 |---|---|---|
 | Site settings (`site-settings`) | contactEmail\*, phone, address, socialLinks (array: platform\*, url\*), footerText, newsletterText, defaultShareImage (media), formAlertEmail\* | Admins and editors |
-| Shop settings (`shop-settings`) | pickupAddress (name, phone, line1, city, state, country), flatDeliveryPrices (array: areaName\*, priceNGN\*), memberDiscountPercent (default 20), unpaidOrderExpiryMinutes (default 30), orderAlertEmail | Admins only. B2 reads these |
+| Shop settings (`shop-settings`) | pickupAddress (name, phone, line1, city, state, country), flatDeliveryPrices (array: areaName\*, priceNGN\*), memberDiscountPercent (default 20), unpaidOrderExpiryMinutes (default 30), orderAlertEmail | Admins only. B2 reads these, matches flat prices by state and adds a parcel box (B2 spec 5.3) |
 
 ### 6.6 Files
 
@@ -285,7 +285,7 @@ Rules:
 - A manuscript submission is rejected unless its call is open at the moment of submitting.
 - Manuscript submissions are created by the site's own server code, which stores the file and the submission together. Visitors never post to that list directly, and one file can only belong to one submission. (Added 22 October 2026, after review: a direct post could otherwise point at another visitor's file.)
 - Each new entry sends an alert email to the site's `formAlertEmail`. The email names the form and links to the entry in the admin.
-- Every form carries a hidden honeypot field (left empty by people, filled in by spam bots). A bot that fills it in gets the normal success response, but nothing is saved and no alert is sent (changed 23 October 2026; it used to get a 400 error, which tells a bot to try again). The four public forms do this through their own `POST /api/<form>` endpoint. Server code that saves entries directly, such as the manuscript form in B2, must check the field itself with `isSpam` and answer the same way; the collection still refuses to store such an entry as a backstop. Stronger spam protection and rate limits are decided with the frontend forms.
+- Every form carries a hidden honeypot field (left empty by people, filled in by spam bots). A bot that fills it in gets the normal success response, but nothing is saved and no alert is sent (changed 23 October 2026; it used to get a 400 error, which tells a bot to try again). The four public forms do this through their own `POST /api/<form>` endpoint. Server code that saves entries directly, such as the manuscript form (built with the frontend forms, moved from B2 on 27 October 2026), must check the field itself with `isSpam` and answer the same way; the collection still refuses to store such an entry as a backstop. Stronger spam protection and rate limits are decided with the frontend forms.
 
 ## 7. Staff accounts and access
 
@@ -293,8 +293,8 @@ Rules:
 
 - Staff log in through `users` (email, password, `name`\*, `role`\* Admin or Editor, default Editor). Payload loads the logged-in account on every request, so access checks read the role from it directly. (An earlier draft said the role would be read from the login token to save a database lookup. Payload 3.90.2 reloads the account either way, so that option buys nothing.)
 - `admin.user` is `users`, so only staff accounts can open `/admin`.
-- The member collection arrives in B2 as a separate login collection, and members get no admin access. Payload checks a login collection's own admin rule before it checks `admin.user`, so the member collection must set its admin rule to deny.
-- Payload's own edit locks (the hidden `payload-locked-documents` list, and the `payload-jobs-stats` record) are staff-only (added 26 October 2026). Payload gives them open access for any logged-in account and offers no option to change it, so the rule is set on the finished config after `buildConfig` (`withStaffOnlyInternals`). Without it, a member account (B2) could list what staff are editing or forge a lock. The admin's own locking only ever runs as staff, so it is unaffected.
+- The member collection arrives in B3 (moved from B2 on 27 October 2026) as a separate login collection, and members get no admin access. Payload checks a login collection's own admin rule before it checks `admin.user`, so the member collection must set its admin rule to deny.
+- Payload's own edit locks (the hidden `payload-locked-documents` list, and the `payload-jobs-stats` record) are staff-only (added 26 October 2026). Payload gives them open access for any logged-in account and offers no option to change it, so the rule is set on the finished config after `buildConfig` (`withStaffOnlyInternals`). Without it, a member account (B3) could list what staff are editing or forge a lock. The admin's own locking only ever runs as staff, so it is unaffected.
 - The first admin account in development comes from the seed. In production, Payload's first-user screen creates it.
 
 ### 7.2 Who can do what in B1
