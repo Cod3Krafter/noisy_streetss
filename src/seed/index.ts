@@ -23,6 +23,8 @@ import {
   TAGS,
   WRITERS,
 } from './data'
+import { SHOP_SERVER } from '@/shop/context'
+
 import { deleteInOrder } from './deleteOrder'
 import { assertSafeToSeed } from './guard'
 import { emptyFieldData, mergeSeeded } from './resetGlobals'
@@ -330,10 +332,66 @@ export async function seed(payload: Payload): Promise<void> {
     },
   })
 
+  const merchItems = []
   for (const m of MERCH) {
+    merchItems.push(
+      await payload.create({
+        collection: 'merch',
+        data: { ...m, images: m.images.map((key) => photos[key]), _status: 'published' },
+      }),
+    )
+  }
+
+  // Dummy orders at the stages staff meet first: one to pack, one finished, one never paid.
+  const sandbars = await payload.findByID({ collection: 'books', id: books.sandbars, depth: 0 })
+  const paperback = sandbars.formats?.[0]
+  const shirt = merchItems.find((item) => item.title === 'Noisy Streetss T-shirt')
+  const lines = [
+    {
+      product: { relationTo: 'books' as const, value: sandbars.id },
+      optionId: paperback?.id ?? null,
+      optionName: 'Paperback',
+      title: sandbars.title,
+      unitPriceNGN: 12500,
+      quantity: 2,
+      weightGrams: 420,
+    },
+    {
+      product: { relationTo: 'merch' as const, value: shirt?.id as number },
+      optionId: shirt?.options?.[1]?.id ?? null,
+      optionName: 'M',
+      title: 'Noisy Streetss T-shirt',
+      unitPriceNGN: 15000,
+      quantity: 1,
+      weightGrams: 250,
+    },
+  ]
+  const dummyOrders = [
+    { status: 'paid' as const, name: 'Dummy Customer One', city: 'Ikeja', state: 'lagos' as const, postcode: '100271', paidAt: fromNow(-3 * HOUR) },
+    { status: 'delivered' as const, name: 'Dummy Customer Two', city: 'Wuse', state: 'fct' as const, postcode: '900288', paidAt: fromNow(-5 * DAY) },
+    { status: 'expired' as const, name: 'Dummy Customer Three', city: 'Ibadan', state: 'oyo' as const, postcode: '', paidAt: null },
+  ]
+  for (const [index, order] of dummyOrders.entries()) {
     await payload.create({
-      collection: 'merch',
-      data: { ...m, images: m.images.map((key) => photos[key]), _status: 'published' },
+      collection: 'orders',
+      context: { [SHOP_SERVER]: true },
+      data: {
+        status: order.status,
+        customerName: order.name,
+        customerEmail: `customer${index + 1}@example.com`,
+        customerPhone: `+23480000001${index}0`,
+        address: { line1: 'Dummy street', city: order.city, state: order.state, postcode: order.postcode },
+        items: lines,
+        delivery: { method: 'courier', carrierName: 'GIG Logistics', carrierSlug: 'gig', estimate: '2 to 3 days', priceNGN: 3200 },
+        itemsNGN: 40000,
+        deliveryNGN: 3200,
+        totalNGN: 43200,
+        paystackFeeNGN: order.paidAt ? 748 : null,
+        chargedNGN: order.paidAt ? 43948 : null,
+        payment: { reference: `seed-order-${index + 1}`, channel: order.paidAt ? 'card' : null, paidAt: order.paidAt },
+        expiresAt: fromNow(order.paidAt ? -3 * HOUR : -2 * DAY),
+        history: [{ at: fromNow(-6 * DAY), to: order.status, by: 'Seed' }],
+      },
     })
   }
   for (const s of STUDIO_SERVICES) {

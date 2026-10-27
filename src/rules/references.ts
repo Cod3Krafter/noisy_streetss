@@ -104,10 +104,14 @@ export function richTextRefs(value: unknown): Ref[] {
   return refs
 }
 
+/** A field marked `custom: { deleteGuard: 'skip' }` never stops a delete (an order line's product). */
+const skippedByGuard = (field: FlattenedField) => (field.custom as { deleteGuard?: unknown } | undefined)?.deleteGuard === 'skip'
+
 /** Relationship and upload fields, at any depth, that point at `target`: their query path and label. */
 function referenceFields(fields: FlattenedField[], target: string, pathPrefix = '', labelPrefix = '') {
   const found: { path: string; label: string }[] = []
   for (const field of fields) {
+    if (skippedByGuard(field)) continue
     const path = pathPrefix + field.name
     const label = labelPrefix + labelOf(field)
     if ((field.type === 'relationship' || field.type === 'upload') && field.relationTo === target) {
@@ -131,6 +135,7 @@ function refsInData(fields: FlattenedField[], data: unknown, withFields: boolean
   if (!data || typeof data !== 'object') return out
   const record = data as Record<string, unknown>
   for (const field of fields) {
+    if (skippedByGuard(field)) continue
     const value = record[field.name]
     const label = labelPrefix + labelOf(field)
     if (field.type === 'richText') {

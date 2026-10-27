@@ -81,6 +81,7 @@ export interface Config {
     careers: Career;
     announcements: Announcement;
     'popup-campaigns': PopupCampaign;
+    orders: Order;
     merch: Merch;
     'studio-services': StudioService;
     'membership-plans': MembershipPlan;
@@ -122,6 +123,7 @@ export interface Config {
     careers: CareersSelect<false> | CareersSelect<true>;
     announcements: AnnouncementsSelect<false> | AnnouncementsSelect<true>;
     'popup-campaigns': PopupCampaignsSelect<false> | PopupCampaignsSelect<true>;
+    orders: OrdersSelect<false> | OrdersSelect<true>;
     merch: MerchSelect<false> | MerchSelect<true>;
     'studio-services': StudioServicesSelect<false> | StudioServicesSelect<true>;
     'membership-plans': MembershipPlansSelect<false> | MembershipPlansSelect<true>;
@@ -822,6 +824,173 @@ export interface PopupCampaign {
   createdAt: string;
 }
 /**
+ * Orders are made by checkout. Paid orders are waiting to be packed and booked.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "orders".
+ */
+export interface Order {
+  id: number;
+  orderNumber?: string | null;
+  /**
+   * Changes on its own as the order is paid and delivered. Set it by hand only when an update has gone missing.
+   */
+  status:
+    'awaiting-payment' | 'expired' | 'paid' | 'courier-booked' | 'in-transit' | 'delivered' | 'returned' | 'refunded';
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  /**
+   * The phone and address can be corrected while the order is Paid and no courier is booked.
+   */
+  address?: {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?:
+      | (
+          | 'abia'
+          | 'adamawa'
+          | 'akwa-ibom'
+          | 'anambra'
+          | 'bauchi'
+          | 'bayelsa'
+          | 'benue'
+          | 'borno'
+          | 'cross-river'
+          | 'delta'
+          | 'ebonyi'
+          | 'edo'
+          | 'ekiti'
+          | 'enugu'
+          | 'fct'
+          | 'gombe'
+          | 'imo'
+          | 'jigawa'
+          | 'kaduna'
+          | 'kano'
+          | 'katsina'
+          | 'kebbi'
+          | 'kogi'
+          | 'kwara'
+          | 'lagos'
+          | 'nasarawa'
+          | 'niger'
+          | 'ogun'
+          | 'ondo'
+          | 'osun'
+          | 'oyo'
+          | 'plateau'
+          | 'rivers'
+          | 'sokoto'
+          | 'taraba'
+          | 'yobe'
+          | 'zamfara'
+        )
+      | null;
+    /**
+     * Needed to book a courier.
+     */
+    postcode?: string | null;
+    country?: string | null;
+  };
+  items?:
+    | {
+        product?:
+          | ({
+              relationTo: 'books';
+              value: number | Book;
+            } | null)
+          | ({
+              relationTo: 'merch';
+              value: number | Merch;
+            } | null);
+        title?: string | null;
+        optionName?: string | null;
+        optionId?: string | null;
+        unitPriceNGN?: number | null;
+        quantity?: number | null;
+        weightGrams?: number | null;
+        id?: string | null;
+      }[]
+    | null;
+  delivery?: {
+    method?: ('courier' | 'flat') | null;
+    carrierName?: string | null;
+    carrierSlug?: string | null;
+    estimate?: string | null;
+    priceNGN?: number | null;
+    flatArea?: string | null;
+  };
+  itemsNGN?: number | null;
+  deliveryNGN?: number | null;
+  totalNGN?: number | null;
+  paystackFeeNGN?: number | null;
+  chargedNGN?: number | null;
+  payment?: {
+    reference?: string | null;
+    channel?: string | null;
+    paidAt?: string | null;
+    paidLate?: boolean | null;
+    problem?: string | null;
+    lastCheckedAt?: string | null;
+  };
+  shipment?: {
+    carrierName?: string | null;
+    trackingNumber?: string | null;
+    trackingUrl?: string | null;
+    labelUrl?: string | null;
+    courierCostNGN?: number | null;
+    bookedAt?: string | null;
+    bookedBy?: string | null;
+    terminalShipmentId?: string | null;
+    bookingStartedAt?: string | null;
+  };
+  expiresAt?: string | null;
+  detailsRemovedAt?: string | null;
+  /**
+   * Only staff see this.
+   */
+  staffNotes?: string | null;
+  /**
+   * Every status change, and who or what made it.
+   */
+  history?:
+    | {
+        at: string;
+        from?:
+          | (
+              | 'awaiting-payment'
+              | 'expired'
+              | 'paid'
+              | 'courier-booked'
+              | 'in-transit'
+              | 'delivered'
+              | 'returned'
+              | 'refunded'
+            )
+          | null;
+        to?:
+          | (
+              | 'awaiting-payment'
+              | 'expired'
+              | 'paid'
+              | 'courier-booked'
+              | 'in-transit'
+              | 'delivered'
+              | 'returned'
+              | 'refunded'
+            )
+          | null;
+        by: string;
+        note?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "merch".
  */
@@ -1324,6 +1493,10 @@ export interface PayloadLockedDocument {
         value: number | PopupCampaign;
       } | null)
     | ({
+        relationTo: 'orders';
+        value: number | Order;
+      } | null)
+    | ({
         relationTo: 'merch';
         value: number | Merch;
       } | null)
@@ -1714,6 +1887,92 @@ export interface PopupCampaignsSelect<T extends boolean = true> {
   startsAt?: T;
   endsAt?: T;
   enabled?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "orders_select".
+ */
+export interface OrdersSelect<T extends boolean = true> {
+  orderNumber?: T;
+  status?: T;
+  customerName?: T;
+  customerEmail?: T;
+  customerPhone?: T;
+  address?:
+    | T
+    | {
+        line1?: T;
+        line2?: T;
+        city?: T;
+        state?: T;
+        postcode?: T;
+        country?: T;
+      };
+  items?:
+    | T
+    | {
+        product?: T;
+        title?: T;
+        optionName?: T;
+        optionId?: T;
+        unitPriceNGN?: T;
+        quantity?: T;
+        weightGrams?: T;
+        id?: T;
+      };
+  delivery?:
+    | T
+    | {
+        method?: T;
+        carrierName?: T;
+        carrierSlug?: T;
+        estimate?: T;
+        priceNGN?: T;
+        flatArea?: T;
+      };
+  itemsNGN?: T;
+  deliveryNGN?: T;
+  totalNGN?: T;
+  paystackFeeNGN?: T;
+  chargedNGN?: T;
+  payment?:
+    | T
+    | {
+        reference?: T;
+        channel?: T;
+        paidAt?: T;
+        paidLate?: T;
+        problem?: T;
+        lastCheckedAt?: T;
+      };
+  shipment?:
+    | T
+    | {
+        carrierName?: T;
+        trackingNumber?: T;
+        trackingUrl?: T;
+        labelUrl?: T;
+        courierCostNGN?: T;
+        bookedAt?: T;
+        bookedBy?: T;
+        terminalShipmentId?: T;
+        bookingStartedAt?: T;
+      };
+  expiresAt?: T;
+  detailsRemovedAt?: T;
+  staffNotes?: T;
+  history?:
+    | T
+    | {
+        at?: T;
+        from?: T;
+        to?: T;
+        by?: T;
+        note?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
