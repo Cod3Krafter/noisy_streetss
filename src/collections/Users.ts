@@ -1,6 +1,6 @@
 import { type CollectionBeforeChangeHook, type CollectionBeforeDeleteHook, type CollectionBeforeOperationHook, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
 
-import { adminOnlyInAdmin, adminOrSelf, isAdmin, isAdminField, isStaffUser } from '@/access'
+import { adminOnlyInAdmin, adminOrSelf, isAdmin, isAdminField, isAnyStaffUser } from '@/access'
 import { pendingPublishesBy } from '@/jobs/scheduledPublishAlerts'
 import { Refusal } from '@/refusal'
 import { rejectField } from '@/rules/validation'
@@ -99,7 +99,7 @@ export const Users: CollectionConfig = {
     hidden: adminOnlyInAdmin,
   },
   access: {
-    admin: ({ req }) => isStaffUser(req.user),
+    admin: ({ req }) => isAnyStaffUser(req.user),
     create: isAdmin,
     read: adminOrSelf,
     update: adminOrSelf,
@@ -120,11 +120,12 @@ export const Users: CollectionConfig = {
       options: [
         { label: 'Admin', value: 'admin' },
         { label: 'Editor', value: 'editor' },
+        { label: 'Shop staff', value: 'shop' },
       ],
       access: { update: isAdminField },
       admin: {
         position: 'sidebar',
-        description: 'Admins can also manage staff accounts and shop settings.',
+        description: 'Admins can also manage staff accounts and shop settings. Shop staff only see orders and the Stock page.',
       },
     },
   ],

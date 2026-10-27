@@ -1118,9 +1118,9 @@ export interface User {
   id: number;
   name: string;
   /**
-   * Admins can also manage staff accounts and shop settings.
+   * Admins can also manage staff accounts and shop settings. Shop staff only see orders and the Stock page.
    */
-  role: 'admin' | 'editor';
+  role: 'admin' | 'editor' | 'shop';
   updatedAt: string;
   createdAt: string;
   email: string;
