@@ -48,6 +48,7 @@ import { withScheduledPublishAlerts } from './jobs/scheduledPublishAlerts'
 import { productionSettingProblems } from './rules/productionSettings'
 import { REFUSAL } from './refusal'
 import { shopEndpoints } from './shop/endpoints'
+import { sendShopEmailTask } from './shop/jobs'
 import { seo } from './seo'
 import { isLocalDatabase, schemaPushOffWarning } from './seed/guard'
 import { hideStorageFieldsFromLists, storagePlugins } from './storage'
@@ -73,6 +74,7 @@ export default buildConfig({
   globals: hideContentFromShopStaff([...pageRecords, SiteSettings, ShopSettings]),
   endpoints: shopEndpoints,
   jobs: {
+    tasks: [sendShopEmailTask],
     access: {
       run: hasCronSecret,
       // No REST route reaches these today; this covers future server code that calls with overrideAccess: false.
