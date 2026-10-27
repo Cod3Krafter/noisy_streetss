@@ -425,12 +425,22 @@ export async function seed(payload: Payload): Promise<void> {
     formAlertEmail: 'inbox@noisystreetss.test',
   })
   await write('shop-settings', {
-    pickupAddress: { name: 'Dummy Dispatch', phone: '+234 800 000 0001', line1: 'Dummy street', city: 'Lagos', state: 'Lagos', country: 'Nigeria' },
+    pickupAddress: {
+      name: 'Dummy Dispatch',
+      phone: '+234 800 000 0001',
+      line1: 'Dummy street',
+      city: 'Ikeja',
+      state: 'lagos',
+      postcode: '100271',
+      country: 'Nigeria',
+    },
     flatDeliveryPrices: [
-      { areaName: 'Lagos Mainland', priceNGN: 2500 },
-      { areaName: 'Lagos Island', priceNGN: 3000 },
-      { areaName: 'Rest of Nigeria', priceNGN: 5000 },
+      { areaName: 'Lagos', states: ['lagos'], priceNGN: 2500 },
+      { areaName: 'South West', states: ['ogun', 'oyo', 'osun', 'ondo', 'ekiti'], priceNGN: 4000 },
     ],
+    elsewherePriceNGN: 5000,
+    terminalPackagingId: 'PA-PT95DUJGH8FRKSO0',
+    boxWeightGrams: 100,
     memberDiscountPercent: 20,
     unpaidOrderExpiryMinutes: 30,
     orderAlertEmail: 'orders@noisystreetss.test',

@@ -2886,19 +2886,111 @@ export interface ShopSetting {
     phone?: string | null;
     line1?: string | null;
     city?: string | null;
-    state?: string | null;
+    state?:
+      | (
+          | 'abia'
+          | 'adamawa'
+          | 'akwa-ibom'
+          | 'anambra'
+          | 'bauchi'
+          | 'bayelsa'
+          | 'benue'
+          | 'borno'
+          | 'cross-river'
+          | 'delta'
+          | 'ebonyi'
+          | 'edo'
+          | 'ekiti'
+          | 'enugu'
+          | 'fct'
+          | 'gombe'
+          | 'imo'
+          | 'jigawa'
+          | 'kaduna'
+          | 'kano'
+          | 'katsina'
+          | 'kebbi'
+          | 'kogi'
+          | 'kwara'
+          | 'lagos'
+          | 'nasarawa'
+          | 'niger'
+          | 'ogun'
+          | 'ondo'
+          | 'osun'
+          | 'oyo'
+          | 'plateau'
+          | 'rivers'
+          | 'sokoto'
+          | 'taraba'
+          | 'yobe'
+          | 'zamfara'
+        )
+      | null;
+    /**
+     * Couriers need it to collect.
+     */
+    postcode?: string | null;
     country?: string | null;
   };
   /**
-   * Used when live courier prices are unavailable.
+   * Used when live courier prices are unavailable. Each area lists the states it covers.
    */
   flatDeliveryPrices?:
     | {
         areaName: string;
+        states: (
+          | 'abia'
+          | 'adamawa'
+          | 'akwa-ibom'
+          | 'anambra'
+          | 'bauchi'
+          | 'bayelsa'
+          | 'benue'
+          | 'borno'
+          | 'cross-river'
+          | 'delta'
+          | 'ebonyi'
+          | 'edo'
+          | 'ekiti'
+          | 'enugu'
+          | 'fct'
+          | 'gombe'
+          | 'imo'
+          | 'jigawa'
+          | 'kaduna'
+          | 'kano'
+          | 'katsina'
+          | 'kebbi'
+          | 'kogi'
+          | 'kwara'
+          | 'lagos'
+          | 'nasarawa'
+          | 'niger'
+          | 'ogun'
+          | 'ondo'
+          | 'osun'
+          | 'oyo'
+          | 'plateau'
+          | 'rivers'
+          | 'sokoto'
+          | 'taraba'
+          | 'yobe'
+          | 'zamfara'
+        )[];
         priceNGN: number;
         id?: string | null;
       }[]
     | null;
+  /**
+   * The flat price for any state not listed in an area.
+   */
+  elsewherePriceNGN: number;
+  /**
+   * Starts as Terminal's own 20 x 20 x 10 cm box.
+   */
+  terminalPackagingId?: string | null;
+  boxWeightGrams?: number | null;
   memberDiscountPercent?: number | null;
   unpaidOrderExpiryMinutes?: number | null;
   orderAlertEmail?: string | null;
@@ -3322,15 +3414,20 @@ export interface ShopSettingsSelect<T extends boolean = true> {
         line1?: T;
         city?: T;
         state?: T;
+        postcode?: T;
         country?: T;
       };
   flatDeliveryPrices?:
     | T
     | {
         areaName?: T;
+        states?: T;
         priceNGN?: T;
         id?: T;
       };
+  elsewherePriceNGN?: T;
+  terminalPackagingId?: T;
+  boxWeightGrams?: T;
   memberDiscountPercent?: T;
   unpaidOrderExpiryMinutes?: T;
   orderAlertEmail?: T;
