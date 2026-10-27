@@ -145,13 +145,13 @@ Everything the customer saw at checkout is copied onto the order, so a later cha
 |---|---|
 | `orderNumber` | `NS-` followed by the record id plus 1000 (the first order is NS-1001). Unique. The title in the admin and in emails |
 | `status` | One of the eight statuses in 7.3 |
-| `customer` | `name`, `email`, `phone` (stored as `+234...`) |
+| `customerName`, `customerEmail`, `customerPhone` | The customer. The phone is stored as `+234...`. Top-level rather than a group, so the order list can show them as columns |
 | `address` | `line1`, `line2`, `city`, `state` (one of 36 states and FCT), `postcode`, `country` (always Nigeria) |
 | `items` (array) | `product` (a book or merch item), `option` (format or size name), `title`, `unitPriceNGN`, `weightGrams`, `quantity`, all copied at checkout |
 | `delivery` | `method` (courier or flat), `carrierName`, `carrierSlug`, `estimate`, `priceNGN`, `flatArea` (flat price only) |
-| `totals` | `itemsNGN`, `deliveryNGN`, `totalNGN` (items + delivery), `paystackFeeNGN` and `chargedNGN` (both from Paystack once paid) |
-| `payment` | `reference` (random and unguessable, unique), `channel`, `paidAt`, `paidLate`, `lastCheckedAt` (the last time the return page asked Paystack, 6.7) |
-| `shipment` | `terminalShipmentId`, `trackingNumber`, `trackingUrl`, `labelUrl`, `courierCostNGN`, `bookedAt`, `bookedBy`, `bookingStartedAt` (the claim in 7.1) |
+| `itemsNGN`, `deliveryNGN`, `totalNGN`, `paystackFeeNGN`, `chargedNGN` | Items, delivery, and their sum. The fee and the amount charged come from Paystack once paid. Top-level for the same reason |
+| `payment` | `reference` (random and unguessable, unique), `channel`, `paidAt`, `paidLate`, `lastCheckedAt` (the last time the return page asked Paystack, 6.7), `problem` (an amount mismatch, recorded once so staff are alerted once) |
+| `shipment` | `terminalShipmentId`, `carrierName` (the courier actually booked, which staff may change from the customer's pick), `trackingNumber`, `trackingUrl`, `labelUrl`, `courierCostNGN`, `bookedAt`, `bookedBy`, `bookingStartedAt` (the claim in 7.1) |
 | `expiresAt` | 30 minutes after checkout (from Shop settings) |
 | `detailsRemovedAt` | When customer details were removed (6.8) |
 | `staffNotes` | Free text for staff |
@@ -244,7 +244,7 @@ One function, used by the Paystack webhook, the return-page lookup and the expir
 - Paystack must say `success`, in NGN, with `requested_amount` equal to the order total in kobo (pending P1).
 - An order Awaiting payment becomes Paid. An Expired order becomes Paid with `paidLate` ticked. Any other status is left alone, and the call changes nothing.
 - The status change is a single conditional update ("set Paid where the status is still Awaiting or Expired"), run as one database statement through the Postgres adapter's Drizzle instance. Payload's own update with a `where` finds the records first and then updates them, which two callers can both pass. When the webhook and the return page arrive together, only the one that made the change goes on to record `paidAt`, `channel`, `chargedNGN` and `paystackFeeNGN`, add the history entry, and queue the receipt and the staff alert.
-- An amount that doesn't match never marks the order Paid. It sends staff an alert with both figures instead.
+- An amount that doesn't match never marks the order Paid. It records the problem on the order and sends staff an alert with both figures, once.
 
 ### 6.6 Paystack's webhook: `POST /api/paystack/webhook`
 
