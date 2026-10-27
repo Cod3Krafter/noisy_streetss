@@ -52,6 +52,8 @@ B1 turns the current prototype into a Next.js app with Payload CMS inside it. B1
 
 **Rule:** use the set of versions that Payload's latest release was built and tested with, each on the newest patch of its line. Skip anything less than about two weeks old unless it is a security fix. Pin exact versions (no `^` or `~`) and upgrade deliberately, one change at a time.
 
+Since 27 October 2026 the pin rule holds for every package in `package.json`, dependencies and dev dependencies alike, with no `^` or `~` anywhere.
+
 **Recheck on the day the build starts.** Payload's release templates show what each release was tested with: `https://raw.githubusercontent.com/payloadcms/payload/v<version>/templates/website/package.json`. The `main` branch runs ahead of releases and is not a guide.
 
 | Package | Version | Reason |
@@ -61,7 +63,7 @@ B1 turns the current prototype into a Next.js app with Payload CMS inside it. B1
 | `react`, `react-dom` | 19.2.9 | The 19.2 line is the one Payload ships with. 19.2.9 came out alongside fixes for 19.0 and 19.1, which usually signals a security fix |
 | `@types/react`, `@types/react-dom` | Latest 19.2.x | Matches React |
 | `typescript` | 5.9.3 | Last 5.x release. TypeScript 6 and 7 are newer major versions |
-| Node.js | 24 LTS (24.22.x) | Current long-term-support line. Pinned in `.nvmrc` and `package.json` `engines` |
+| Node.js | 24 LTS (24.22.x) | Current long-term-support line. `.nvmrc` holds `24` and `package.json` `engines` says `24.x`. `.npmrc` sets `engine-strict=true`, so `npm install` refuses to run on another Node version. This project's VS Code terminals switch to Node 24 through fnm (`.vscode/settings.json`); in any other terminal, run `fnm use` first |
 | Postgres (Docker image) | `postgres:17.11` | Match the major version Supabase gives new projects. Check it on the day the build starts |
 | Mailpit (Docker image) | `axllent/mailpit:v1.31.6` | Current stable release |
 | `sharp` | 0.35.5 | Image resizing. Upgraded with Next.js on 22 October 2026 (Payload's templates pin 0.35.4) |
@@ -94,11 +96,27 @@ src/
   payload.config.ts
   collections/           one file per collection
   globals/               page records and settings
-  access/                shared access rules (isAdmin, isStaff, publishedOrStaff, ...)
-  fields/                shared fields (slug, seo, ...)
-  hooks/                 shared hooks (form alert emails, popup overlap check, ...)
-  seed/                  dummy content and the seed command
+  access/                shared access rules (isAdmin, isStaff, publishedOrStaff, ...), the job endpoint's
+                         secret check, and the staff-only lock on Payload's internal lists
+  fields/                shared fields (slug, rich text)
+  hooks/                 shared hooks (form alert emails, honeypot, delete guard, file size limit)
+  rules/                 plain functions with no database: dates, validators, production settings checks, ...
+  jobs/                  the scheduled publish failure alert
+  lib/                   small shared helpers
+  migrations/            the committed database migrations
+  seed/                  dummy content, the seed command and its safety guard
+  storage.ts             the S3 storage plugins (one per bucket)
+  email.ts               the Nodemailer adapter and its connection options
+  refusal.ts             the Refusal error for expected refusals
+  seo.ts                 the SEO plugin settings
+tests/
+  unit/                  tests that need no database
+  int/                   integration tests against the test database
+  helpers/               test helpers (createStaff and others)
+  env.ts, globalSetup.ts, setup.ts   test environment and database reset
+docker/postgres-init/    creates the test database the first time the Postgres volume is built
 docker-compose.yml       postgres + mailpit
+vercel.json              the cron call for the job queue
 .env.example
 ```
 
@@ -109,18 +127,35 @@ docker-compose.yml       postgres + mailpit
 - **Postgres** on port 5432, with a named volume so data survives restarts.
 - Both services only listen on this machine (`127.0.0.1`), never the local network.
 - **Mailpit**, receiving mail on port 21025 and showing its inbox at `http://localhost:28025`. Nothing is delivered to real inboxes. (Mailpit's usual ports, 1025 and 8025, fall inside ranges Windows reserves on the development machine.)
+- A second database, `noisy_streetss_test`, created by `docker/postgres-init/01-test-database.sql` the first time the Postgres volume is built. The automated tests use it, so they never touch development content. (On a volume that already exists the script does not run again; create the database by hand or recreate the volume.)
 
-`.env.example` lists `DATABASE_URI`, `PAYLOAD_SECRET`, `NEXT_PUBLIC_SERVER_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` and `CRON_SECRET`. It also lists the file storage settings (`S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_MEDIA`, `S3_BUCKET_MANUSCRIPTS`), left empty locally. A real `.env` is never committed.
+The settings the code reads (a search for `process.env.` in `src/`, `tests/` and the config files), by name:
+
+| Setting | Used for |
+|---|---|
+| `DATABASE_URI` | The database the app connects to (in production, the pooler address) |
+| `PAYLOAD_SECRET` | Signs login tokens. At least 32 characters in production |
+| `NEXT_PUBLIC_SERVER_URL` | The site's own address: Payload's `serverURL`, the only origin allowed to log in, and the links in alert emails. In production exactly `https://host` |
+| `CRON_SECRET` | The key Vercel Cron sends to `/api/payload-jobs/run`. At least 16 characters, or the endpoint refuses every call |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Email sending. Without `SMTP_HOST`, Payload only logs emails (as in the tests). `SMTP_PORT` defaults to 587 |
+| `S3_BUCKET_MEDIA`, `S3_BUCKET_MANUSCRIPTS` | Each switches its own bucket on (5.5) |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | The bucket connection, required as soon as either bucket is named |
+| `MEDIA_DIR`, `MANUSCRIPTS_DIR` | Optional: the local folders for uploads. They default to `media/` and `manuscripts/` in the project. The tests point them at `.test-uploads/` |
+| `TEST_DATABASE_URI` | The test database. Required by the tests, and its name must end in `_test`. The tests copy it into `DATABASE_URI` |
+| `NODE_ENV` | Set by Next.js. Switches on the production checks, secure login cookies, required TLS (Transport Layer Security, encrypted mail) and the start-up checks |
+| `VITEST` | Set by Vitest. Turns off the background job runner (5.7) |
+
+The README and the plan also name `DIRECT_DATABASE_URI`, the direct database connection used for migrations. No code reads it: it is a name for the address, and for migrations it is passed inline as `DATABASE_URI` (5.4). `.env.example` is the template for `.env`. A real `.env` is never committed.
 
 ### 5.4 Database changes
 
-- In development, Payload's automatic schema push keeps the local database in step with the code.
-- Before B1 is finished, a migration file (a script that applies a database change in order) is generated and committed.
-- From then on, every schema change ships as a migration. Production only ever runs migrations, never push.
+- In development, Payload's automatic schema push keeps the local database in step with the code, but only when the database is a local one (`isLocalDatabase` in `src/seed/guard.ts`: host `localhost` or `127.0.0.1`, no host override in the address, database `noisy_streetss` or ending `_test`). Against any other database the push is off and a warning is logged at start-up. This stops a stray `npm run dev` from reshaping a live database and from recording a "dev" row that makes `payload migrate` refuse to run later (updated 27 October 2026).
+- The first migration, `20261022_233859_initial`, is generated and committed in `src/migrations/`. On 27 October 2026, `npm run migrate` applied it cleanly to a fresh local database, and the resulting schema matched the one the code builds, apart from the order of two columns in one of Payload's internal tables (harmless).
+- From then on, every schema change ships as a migration. Production only ever runs migrations, never push, and they are run by hand (section 11).
 
 ### 5.5 Files
 
-- **Images (`media`):** stored on local disk in development. In production they go in Supabase Storage through Payload's S3 storage adapter (`@payloadcms/storage-s3`), because Supabase Storage accepts the S3 protocol. The adapter only switches on when the `S3_*` settings are present, so local development needs no Supabase account. The adapter's own fields are always kept in the schema, so the database and its migrations are the same with storage on or off.
+- **Images (`media`):** stored on local disk in development. In production they go in Supabase Storage through Payload's S3 storage adapter (`@payloadcms/storage-s3`), because Supabase Storage accepts the S3 protocol. Each bucket switches on from its own name: `S3_BUCKET_MEDIA` for images and `S3_BUCKET_MANUSCRIPTS` for manuscripts, so either can be on without the other. Once either is named, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` are required, and the production start-up check logs any that are missing. Local development needs no Supabase account. The adapter's own fields are always kept in the schema, so the database and its migrations are the same with storage on or off.
 - **Manuscripts:** stored in a separate folder outside `public/` in development, and in a private Supabase bucket in production. In both cases files are only served through Payload's access-checked route, so only staff can download them.
 - The adapter's compatibility with Supabase Storage is confirmed with a test upload once the client's Supabase project exists.
 
@@ -132,8 +167,9 @@ docker-compose.yml       postgres + mailpit
 ### 5.7 Job queue
 
 - Payload's job queue is switched on in B1 because scheduled publishing needs it.
-- In development it runs inside the app (`autoRun`).
+- In development it runs inside the app (`autoRun`, every minute). Under the tests nothing runs in the background: Vitest sets `VITEST`, which turns `autoRun` off, and a test that needs a job calls `payload.jobs.run()` itself.
 - In production a Vercel Cron Job calls `/api/payload-jobs/run` every minute, which Vercel Pro allows. The call carries `CRON_SECRET`, and the endpoint rejects any call without it.
+- A scheduled publish that fails emails the form alert address (6.1), and a staff account with scheduled publishes waiting can't be deleted.
 - B2 adds the unpaid-order expiry task to the same queue.
 
 ### 5.8 Database connection in production
@@ -148,7 +184,7 @@ docker-compose.yml       postgres + mailpit
 
 - **Drafts and version history:** books, writers, articles, podcast episodes, submission calls, awards, events, careers, Book Club sessions, merch, studio services and basic pages. Editors can save without publishing and restore earlier versions.
 - **Scheduled publishing:** articles only. Article drafts are validated like a publish (`drafts.validate`, decided 23 October 2026), so an article can only be saved once every required field is filled in, and a scheduled publish can't fail on a missing field. Deleting a staff account that still has scheduled publishes waiting is refused, naming the articles, so the job never loses the account it runs as. Any scheduled publish that still fails (for example its web address was taken in the meantime) emails the form alert address, naming the article, linking to it and giving the reason; the failure is still recorded in the jobs list. Other lists still save incomplete drafts.
-- **Web address (slug):** created from the title, editable, and unique within its collection. Applies to every type with its own page. A small slug field of the project's own is used, because Payload's built-in one is marked experimental in 3.90.2.
+- **Web address (slug):** created from the title, editable, and unique within its collection. Applies to every type with its own page, and also to categories, tags, podcast shows, submission calls and studio services, which the site map gives no page of their own: their addresses are for filters and links (for example a category filter on the blog, or a link to one call). A small slug field of the project's own is used, because Payload's built-in one is marked experimental in 3.90.2.
 - **SEO fields** (meta title, meta description, sharing image), from Payload's SEO plugin. Applies to books, writers, articles, podcast episodes, awards, merch, basic pages and every page record.
 - **Visibility:** visitors only ever receive published records. Staff can read drafts.
 - **Deleting a record still in use** (added 23 October 2026): a delete is refused, with a plain message naming each record or page that still uses it and the field it's in, when the record is still referenced by a relationship or image field in any list (in the published version or the latest draft), by rich text anywhere (placed images, relationship blocks and internal links), or by a page record or setting. In a bulk delete only the records still in use are refused; the rest are deleted. A record's references to itself don't count. Known limit: references between records deleted together in one bulk delete still count. If one article links to another and both are selected, the linked one is refused (its message names the article that was just deleted) and deleting it again works. Two records that point at each other are both refused; delete one at a time once one of the references is removed.
@@ -258,6 +294,7 @@ Rules:
 - Staff log in through `users` (email, password, `name`\*, `role`\* Admin or Editor, default Editor). Payload loads the logged-in account on every request, so access checks read the role from it directly. (An earlier draft said the role would be read from the login token to save a database lookup. Payload 3.90.2 reloads the account either way, so that option buys nothing.)
 - `admin.user` is `users`, so only staff accounts can open `/admin`.
 - The member collection arrives in B2 as a separate login collection, and members get no admin access. Payload checks a login collection's own admin rule before it checks `admin.user`, so the member collection must set its admin rule to deny.
+- Payload's own edit locks (the hidden `payload-locked-documents` list, and the `payload-jobs-stats` record) are staff-only (added 23 October 2026). Payload gives them open access for any logged-in account and offers no option to change it, so the rule is set on the finished config after `buildConfig` (`withStaffOnlyInternals`). Without it, a member account (B2) could list what staff are editing or forge a lock. The admin's own locking only ever runs as staff, so it is unaffected.
 - The first admin account in development comes from the seed. In production, Payload's first-user screen creates it.
 
 ### 7.2 Who can do what in B1
@@ -291,7 +328,9 @@ The groups are listed in the order the admin menu shows them. Payload orders gro
 ## 8. Dummy content (seed)
 
 - `npm run seed` wipes the local database and fills it through Payload's Local API, so it can be rerun for a clean start.
-- It refuses to run when `NODE_ENV` is `production` or when `DATABASE_URI` points anywhere other than `localhost` or `127.0.0.1`.
+- It refuses to run (`assertSafeToSeed` in `src/seed/guard.ts`) unless all of these hold: `NODE_ENV` is not `production`; the host in `DATABASE_URI` is `localhost` or `127.0.0.1`; the address has no `host` or `hostaddr` override in its query; the database is named `noisy_streetss` or ends in `_test`; and neither `S3_BUCKET_MEDIA` nor `S3_BUCKET_MANUSCRIPTS` is set (the seed only works with local file storage). The check runs at the start of the command and again inside `wipe()`, so no other caller can empty a database without passing it.
+- Reseeding fully resets the page records and settings: each is first emptied field by field from the config, then filled, so a field added later never keeps an old value.
+- The seed only empties the project's own `media/` and `manuscripts/` folders, or folders inside `.test-uploads/`.
 - It starts from the prototype's `src/data/` and the photos in `public/images/unsplash/`, then fills the gaps.
 
 | Content | Records | Cases included on purpose |
@@ -308,13 +347,24 @@ The groups are listed in the order the admin menu shows them. Payload orders gro
 | Merch, studio services, membership plans | 4, 4, 3 | From the prototype |
 | Announcements, popup campaigns | 2, 1 | One announcement expired |
 | Press mentions, partners | 4 each | |
-| Form entries | 2 per form | One manuscript submission with a sample PDF |
+| Form entries | 2 per form | The two manuscript submissions each have their own sample PDF, and belong to the open call |
 | Page records, basic pages, settings | All | Legal pages read "Placeholder: replace with the client's policy" |
 | Staff accounts | `admin@noisystreetss.test`, `editor@noisystreetss.test` | Development passwords only. `.test` addresses can never receive real mail |
 
 ## 9. Testing and verification
 
-### Automated (Vitest, against the local Docker database)
+### Automated (Vitest)
+
+Vitest runs two projects (`vitest.config.mts`). **Unit tests** (`tests/unit/`) need no database or Docker. **Integration tests** (`tests/int/`) run against the separate `noisy_streetss_test` database in Docker, which is emptied once before they start, one file at a time. Both share that one database, so two test runs must never overlap.
+
+| Command | Runs |
+|---|---|
+| `npm run test:unit` | Unit tests only. No Docker needed |
+| `npm run test:int` | Integration tests only (resets the test database first) |
+| `npm test` | Both projects (resets the test database first) |
+| `npm run test:shuffle` | Integration tests with the files in random order, to catch tests that depend on another file having run first |
+
+At the end of B1 (27 October 2026) the suite has 310 tests in 39 files, 125 of them unit tests in 18 files, all passing.
 
 - **Access:** a visitor can't read drafts, manuscripts or form entries, and can create a contact message. An editor can't read Shop settings or other staff accounts. An admin can do everything.
 - **Rules:**
@@ -350,10 +400,43 @@ The groups are listed in the order the admin menu shows them. Payload orders gro
 |---|---|
 | Email sending service | Resend, unless the client's current site uses a service that can be reused. Only settings change, so B1 is unaffected |
 | Supabase Storage with Payload's S3 adapter | Confirmed with a test upload once the client's Supabase project exists. Local development doesn't depend on it |
-| Vercel's 4.5 MB request limit | Vercel refuses request bodies over 4.5 MB, so manuscripts up to the 10 MB limit, and large photos, can't be uploaded through the site's own server there. Before launch, uploads go straight to the bucket (the adapter's client uploads, with the bucket allowing uploads from the site's address), and the size check moves to the stored file |
+| Vercel's 4.5 MB request limit | Moved to section 11 (Set up), because it is work to do before launch rather than an open question |
+| Rate limits on the public forms | Not yet decided. See section 11 (Decide) |
 | Page records grow during frontend design | Expected under fixed layouts. Each addition ships as a migration |
 | WordPress migration deferred | Collections are designed so migrated articles, categories, tags and images fit later without changes |
 | Payload 3.91.x | Upgrade once it meets the version rule, as its own small change |
 | Editors can edit Site settings | Assumed so they can update contact details and social links. Admin-only is a one-line change |
 | Form field lists in 6.7 | Proposed in this spec and not yet confirmed by the client. Easy to adjust before or after the frontend forms exist |
 | Membership plan perks | The client still has to confirm which perks are real (raised 11 Oct). The fields don't depend on the answer |
+
+## 11. Production hardening
+
+Everything to do or decide before and just after the first production deploy. Tick each item off as it is done. Nothing here changes the B1 code unless it says so.
+
+### Decide
+
+- [ ] **Rate limits on the public forms.** `POST /api/contact-messages`, `/api/partnership-enquiries`, `/api/bookstore-applications` and `/api/advisory-enquiries` are live from the first deploy, whether or not any page shows the form. Each real entry sends an alert email, and the sending quota (Resend's free tier, about 100 a day) is shared with password resets and B2's order emails. Anyone can post to these addresses, so a script could use up the quota and block password resets. Options: a per-IP limit (a cap on requests from one address), a daily cap on alert emails, both before the first deploy; or deploy with public create switched off (`create: nobody`) until the frontend forms exist. **Not yet decided** (developer, 27 October 2026).
+
+### Set up
+
+- [ ] **Uploads over 4.5 MB.** Vercel refuses request bodies over 4.5 MB, so manuscripts (up to 10 MB) and large photos can't be uploaded through the site's own server there. Use uploads straight to the bucket (the S3 adapter's client uploads, with the bucket's CORS (cross-origin) rules allowing the site's address), move the size check to the stored file, and show upload progress to staff and visitors.
+- [ ] **Migrations are run by hand.** Nothing runs them on deploy. Run `npm run migrate` with the live address passed inline for that one command, never put in `.env` (see 5.4 and the README), over Supabase's direct connection or session pooler, and check that SSL (encrypted database connections) works at the test deploy. Before the first run, prove the migrations build an empty database: done locally on 27 October 2026 for `20261022_233859_initial`; redo it after any new migration.
+- [ ] **Database connection pool.** On Vercel, set `max`, `idleTimeoutMillis` and `connectionTimeoutMillis` on the adapter's pool. node-postgres defaults to 10 connections and waits forever for one. Also consider `attachDatabasePool` from `@vercel/functions` on Fluid compute (Vercel's reuse of function instances).
+- [ ] **Region.** The Vercel function region must match the Supabase region, because the delete guard makes several database reads in a row and each pays the distance.
+- [ ] **Settings in Vercel.** `CRON_SECRET` of at least 16 characters and `PAYLOAD_SECRET` of at least 32. `NEXT_PUBLIC_SERVER_URL` exactly `https://host` in lowercase, with no path, trailing slash or port (start-up logs any problem). Crons only run on production deployments.
+- [ ] **Preview deployments.** Admin login is refused on Vercel preview URLs, because the site address is the only allowed origin. Test the admin on production or a staging domain set as that address.
+- [ ] **Buckets.** The manuscripts bucket must be private; check that a direct bucket URL is refused. Consider a random per-file key prefix so file names can't be guessed. Consider a public media bucket so images don't each cost a function call.
+- [ ] **Backups.** Supabase's database backups don't include Storage files. Decide how images and manuscripts are backed up.
+- [ ] **Dependency audit.** Run `npm audit --omit=dev`. At the end of B1 it reported 35 findings, all transitive (pulled in by Payload), none directly in this project's own dependencies.
+- [ ] **GitHub canary workflow.** GitHub disabled it for inactivity. Re-enable it: `gh workflow enable canary --repo Cod3Krafter/noisy_streetss`.
+
+### Check after the first deploy
+
+- [ ] Create the first admin straight away, through Payload's first-user screen, so nobody else can.
+- [ ] Fill in Site settings, including the form alert address. Without it, no alert emails go out.
+- [ ] Vercel's cron log shows 200s for `/api/payload-jobs/run`.
+- [ ] Schedule a test article a few minutes ahead and watch it publish.
+
+### Later
+
+- [ ] Measure delete times on Vercel after the WordPress import, since the delete guard reads several lists.
