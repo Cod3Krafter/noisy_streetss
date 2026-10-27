@@ -149,8 +149,8 @@ The README and the plan also name `DIRECT_DATABASE_URI`, the direct database con
 
 ### 5.4 Database changes
 
-- In development, Payload's automatic schema push keeps the local database in step with the code, but only when the database is a local one (`isLocalDatabase` in `src/seed/guard.ts`: host `localhost` or `127.0.0.1`, no host override in the address, database `noisy_streetss` or ending `_test`). Against any other database the push is off and a warning is logged at start-up. This stops a stray `npm run dev` from reshaping a live database and from recording a "dev" row that makes `payload migrate` refuse to run later (updated 27 October 2026).
-- The first migration, `20261022_233859_initial`, is generated and committed in `src/migrations/`. On 27 October 2026, `npm run migrate` applied it cleanly to a fresh local database, and the resulting schema matched the one the code builds, apart from the order of two columns in one of Payload's internal tables (harmless).
+- In development, Payload's automatic schema push keeps the local database in step with the code, but only when the database is a local one (`isLocalDatabase` in `src/seed/guard.ts`: host `localhost` or `127.0.0.1`, no host override in the address, database `noisy_streetss` or ending `_test`). Against any other database the push is off and a warning is logged at start-up. This stops a stray `npm run dev` from reshaping a live database and from recording a "dev" row that makes `payload migrate` refuse to run later (updated 26 October 2026).
+- The first migration, `20261022_233859_initial`, is generated and committed in `src/migrations/`. On 27 October 2026, `npm run migrate` applied it cleanly to a fresh local database, and the resulting schema matched the one the code builds, apart from the column order in one of Payload's internal tables (harmless).
 - From then on, every schema change ships as a migration. Production only ever runs migrations, never push, and they are run by hand (section 11).
 
 ### 5.5 Files
@@ -175,8 +175,8 @@ The README and the plan also name `DIRECT_DATABASE_URI`, the direct database con
 ### 5.8 Database connection in production
 
 - On Vercel, many requests can run at once, and each can open a database connection. The site therefore connects through Supabase's connection pooler, a service that shares a few database connections between many requests, not straight to the database.
-- Migrations run over the direct connection.
-- B1 only records both connection strings in `.env.example`. The exact pooler mode Payload needs is checked when production is set up.
+- Migrations run over the direct connection or the session pooler, not the transaction pooler.
+- The site connects through the pooler; migrations take the connection string inline (see 5.4). The exact pooler mode Payload needs is checked when production is set up.
 
 ## 6. Content model
 
@@ -294,7 +294,7 @@ Rules:
 - Staff log in through `users` (email, password, `name`\*, `role`\* Admin or Editor, default Editor). Payload loads the logged-in account on every request, so access checks read the role from it directly. (An earlier draft said the role would be read from the login token to save a database lookup. Payload 3.90.2 reloads the account either way, so that option buys nothing.)
 - `admin.user` is `users`, so only staff accounts can open `/admin`.
 - The member collection arrives in B2 as a separate login collection, and members get no admin access. Payload checks a login collection's own admin rule before it checks `admin.user`, so the member collection must set its admin rule to deny.
-- Payload's own edit locks (the hidden `payload-locked-documents` list, and the `payload-jobs-stats` record) are staff-only (added 23 October 2026). Payload gives them open access for any logged-in account and offers no option to change it, so the rule is set on the finished config after `buildConfig` (`withStaffOnlyInternals`). Without it, a member account (B2) could list what staff are editing or forge a lock. The admin's own locking only ever runs as staff, so it is unaffected.
+- Payload's own edit locks (the hidden `payload-locked-documents` list, and the `payload-jobs-stats` record) are staff-only (added 26 October 2026). Payload gives them open access for any logged-in account and offers no option to change it, so the rule is set on the finished config after `buildConfig` (`withStaffOnlyInternals`). Without it, a member account (B2) could list what staff are editing or forge a lock. The admin's own locking only ever runs as staff, so it is unaffected.
 - The first admin account in development comes from the seed. In production, Payload's first-user screen creates it.
 
 ### 7.2 Who can do what in B1
@@ -355,7 +355,7 @@ The groups are listed in the order the admin menu shows them. Payload orders gro
 
 ### Automated (Vitest)
 
-Vitest runs two projects (`vitest.config.mts`). **Unit tests** (`tests/unit/`) need no database or Docker. **Integration tests** (`tests/int/`) run against the separate `noisy_streetss_test` database in Docker, which is emptied once before they start, one file at a time. Both share that one database, so two test runs must never overlap.
+Vitest runs two projects (`vitest.config.mts`). **Unit tests** (`tests/unit/`) need no database or Docker. **Integration tests** (`tests/int/`) run against the separate `noisy_streetss_test` database in Docker, which is emptied once before they start. The files run one at a time and share that database, so two test runs must never overlap.
 
 | Command | Runs |
 |---|---|
@@ -415,15 +415,15 @@ Everything to do or decide before and just after the first production deploy. Ti
 
 ### Decide
 
-- [ ] **Rate limits on the public forms.** `POST /api/contact-messages`, `/api/partnership-enquiries`, `/api/bookstore-applications` and `/api/advisory-enquiries` are live from the first deploy, whether or not any page shows the form. Each real entry sends an alert email, and the sending quota (Resend's free tier, about 100 a day) is shared with password resets and B2's order emails. Anyone can post to these addresses, so a script could use up the quota and block password resets. Options: a per-IP limit (a cap on requests from one address), a daily cap on alert emails, both before the first deploy; or deploy with public create switched off (`create: nobody`) until the frontend forms exist. **Not yet decided** (developer, 27 October 2026).
+- [ ] **Rate limits on the public forms.** `POST /api/contact-messages`, `/api/partnership-enquiries`, `/api/bookstore-applications` and `/api/advisory-enquiries` are live from the first deploy, whether or not any page shows the form. Each real entry sends an alert email, and the sending quota (Resend's free tier, about 100 a day) is shared with password resets and B2's order emails. Anyone can post to these addresses, so a script could use up the quota and block password resets. Options: a per-IP limit (a cap on requests from one address), a daily cap on alert emails, both before the first deploy; or deploy with public create switched off (`create: nobody`) until the frontend forms exist. **Not yet decided** (developer, 26 October 2026).
 
 ### Set up
 
 - [ ] **Uploads over 4.5 MB.** Vercel refuses request bodies over 4.5 MB, so manuscripts (up to 10 MB) and large photos can't be uploaded through the site's own server there. Use uploads straight to the bucket (the S3 adapter's client uploads, with the bucket's CORS (cross-origin) rules allowing the site's address), move the size check to the stored file, and show upload progress to staff and visitors.
-- [ ] **Migrations are run by hand.** Nothing runs them on deploy. Run `npm run migrate` with the live address passed inline for that one command, never put in `.env` (see 5.4 and the README), over Supabase's direct connection or session pooler, and check that SSL (encrypted database connections) works at the test deploy. Before the first run, prove the migrations build an empty database: done locally on 27 October 2026 for `20261022_233859_initial`; redo it after any new migration.
+- [ ] **Migrations are run by hand.** Nothing runs them on deploy. Run `npm run migrate` with the live address passed inline for that one command, never put in `.env` (see 5.4 and the README), over Supabase's direct connection, or the session pooler, never the transaction pooler, and check that SSL (encrypted database connections) works at the test deploy. Before the first run, prove the migrations build an empty database: done locally on 27 October 2026 for `20261022_233859_initial`; redo it after any new migration.
 - [ ] **Database connection pool.** On Vercel, set `max`, `idleTimeoutMillis` and `connectionTimeoutMillis` on the adapter's pool. node-postgres defaults to 10 connections and waits forever for one. Also consider `attachDatabasePool` from `@vercel/functions` on Fluid compute (Vercel's reuse of function instances).
 - [ ] **Region.** The Vercel function region must match the Supabase region, because the delete guard makes several database reads in a row and each pays the distance.
-- [ ] **Settings in Vercel.** `CRON_SECRET` of at least 16 characters and `PAYLOAD_SECRET` of at least 32. `NEXT_PUBLIC_SERVER_URL` exactly `https://host` in lowercase, with no path, trailing slash or port (start-up logs any problem). Crons only run on production deployments.
+- [ ] **Settings in Vercel.** `CRON_SECRET` of at least 16 characters and `PAYLOAD_SECRET` of at least 32. `NEXT_PUBLIC_SERVER_URL` exactly `https://host` in lowercase, with no path, trailing slash or `:443`. Production start-up logs any of these that is missing or unusable: `PAYLOAD_SECRET`, `SMTP_HOST`, `SMTP_FROM`, `NEXT_PUBLIC_SERVER_URL`, `CRON_SECRET`, both bucket names, and (with a bucket named) the four `S3_*` connection settings. Crons only run on production deployments.
 - [ ] **Preview deployments.** Admin login is refused on Vercel preview URLs, because the site address is the only allowed origin. Test the admin on production or a staging domain set as that address.
 - [ ] **Buckets.** The manuscripts bucket must be private; check that a direct bucket URL is refused. Consider a random per-file key prefix so file names can't be guessed. Consider a public media bucket so images don't each cost a function call.
 - [ ] **Backups.** Supabase's database backups don't include Storage files. Decide how images and manuscripts are backed up.
