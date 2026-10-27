@@ -5,6 +5,7 @@ import { withStaffOnlyInternals } from '@/access/internalCollections'
 
 const member = { id: 1, collection: 'members' }
 const editor = { id: 2, collection: 'users', role: 'editor' }
+const shop = { id: 3, collection: 'users', role: 'shop' }
 const asArgs = (user: unknown) => ({ req: { user } }) as never
 
 // A cut-down config: only the parts the function reads. Payload's defaults let any logged-in account in.
@@ -31,6 +32,7 @@ describe('withStaffOnlyInternals', () => {
       expect(await rule?.(asArgs(member)), operation).toBe(false)
       expect(await rule?.(asArgs(null)), operation).toBe(false)
       expect(await rule?.(asArgs(editor)), operation).toBe(true)
+      expect(await rule?.(asArgs(shop)), operation).toBe(true)
     }
   })
 
@@ -41,6 +43,7 @@ describe('withStaffOnlyInternals', () => {
       const rule = locks?.access?.[operation]
       expect(await rule?.(asArgs(member)), operation).toBe(false)
       expect(await rule?.(asArgs(editor)), operation).toBe(true)
+      expect(await rule?.(asArgs(shop)), operation).toBe(true)
     }
   })
 

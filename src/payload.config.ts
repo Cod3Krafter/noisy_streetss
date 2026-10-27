@@ -6,6 +6,7 @@ import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
 import { isStaffUser } from './access'
+import { hideContentFromShopStaff } from './access/hideContent'
 import { withStaffOnlyInternals } from './access/internalCollections'
 import { hasCronSecret } from './access/jobs'
 import { Announcements } from './collections/Announcements'
@@ -66,8 +67,8 @@ export default buildConfig({
   // this order, then the groups that only hold page records and settings (globals) after them.
   // It follows spec 7.3. Nothing relies on it for deleting: the test helper and the seed's wipe use
   // src/seed/deleteOrder.ts, which works out what points at what from the fields.
-  collections: guardDeletes([Books, Writers, SubmissionCalls, Awards, Articles, Categories, Tags, PodcastShows, PodcastEpisodes, Events, BookClubSessions, Careers, Announcements, PopupCampaigns, Merch, StudioServices, MembershipPlans, PressMentions, Partners, Pages, Manuscripts, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions, Media, Users]),
-  globals: [...pageRecords, SiteSettings, ShopSettings],
+  collections: guardDeletes(hideContentFromShopStaff([Books, Writers, SubmissionCalls, Awards, Articles, Categories, Tags, PodcastShows, PodcastEpisodes, Events, BookClubSessions, Careers, Announcements, PopupCampaigns, Merch, StudioServices, MembershipPlans, PressMentions, Partners, Pages, Manuscripts, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions, Media, Users])),
+  globals: hideContentFromShopStaff([...pageRecords, SiteSettings, ShopSettings]),
   jobs: {
     access: {
       run: hasCronSecret,

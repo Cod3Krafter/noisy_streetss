@@ -25,7 +25,7 @@ beforeAll(async () => {
 describe('the seed', () => {
   it('produces the agreed counts', async () => {
     const expected: Array<[CollectionSlug, number]> = [
-      ['users', 2],
+      ['users', 3],
       ['media', 18],
       ['categories', 4],
       ['books', 6],

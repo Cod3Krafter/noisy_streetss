@@ -27,6 +27,7 @@ export type PhotoKey = keyof typeof PHOTOS
 export const STAFF = [
   { email: 'admin@noisystreetss.test', password: 'admin-dev-password', name: 'Dev Admin', role: 'admin' as const },
   { email: 'editor@noisystreetss.test', password: 'editor-dev-password', name: 'Dev Editor', role: 'editor' as const },
+  { email: 'shop@noisystreetss.test', password: 'shop-dev-password', name: 'Dev Shop Staff', role: 'shop' as const },
 ]
 
 export const CATEGORIES = [

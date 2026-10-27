@@ -1,6 +1,6 @@
 import type { SanitizedConfig } from 'payload'
 
-import { isStaff } from '.'
+import { isAnyStaff } from '.'
 
 /**
  * Payload keeps who is editing what in a hidden `payload-locked-documents` collection, and job
@@ -11,15 +11,16 @@ import { isStaff } from '.'
  * Payload offers no option to set this, and it adds both while sanitising the config, so it is done
  * here on the finished config (the same way `withScheduledPublishAlerts` wraps the publish task).
  * The admin's own locking is unaffected: it only ever runs as a staff account.
+ * All three staff roles are let in: shop staff need the locks to open an order in the admin.
  */
 export function withStaffOnlyInternals(config: SanitizedConfig): SanitizedConfig {
   const locks = config.collections.find((collection) => collection.slug === 'payload-locked-documents')
   if (locks) {
-    locks.access = { ...locks.access, read: isStaff, create: isStaff, update: isStaff, delete: isStaff }
+    locks.access = { ...locks.access, read: isAnyStaff, create: isAnyStaff, update: isAnyStaff, delete: isAnyStaff }
   }
   const stats = config.globals.find((global) => (global.slug as string) === 'payload-jobs-stats')
   if (stats) {
-    stats.access = { ...stats.access, read: isStaff, update: isStaff }
+    stats.access = { ...stats.access, read: isAnyStaff, update: isAnyStaff }
   }
   return config
 }
