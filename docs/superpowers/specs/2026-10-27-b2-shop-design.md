@@ -1,7 +1,7 @@
 # B2: Shop (design spec)
 
 - **Date:** 27 October 2026
-- **Status:** Design approved section by section on 27 October 2026. Written up the same day, waiting for review. Some facts wait on sandbox checks (section 3)
+- **Status:** Design approved section by section on 27 October 2026. Written up and reviewed the same day, with the review's Payload findings folded in (4.1, 4.4, 5.5, 6.5, 9). Some facts wait on sandbox checks (section 3)
 - **Scope source:** the accepted proposal, `refs/NoisyStreetss_Redesign_Breakdown_Updated.pdf`, and the shop decisions of 17, 21 and 27 October 2026
 - **Part of:** the backend build: B1 (Payload and content, done), B2 (this spec, the shop) and B3 (members, membership and studio). Each part gets its own spec, plan and build. The frontend comes after the backend.
 - **Builds on:** `docs/superpowers/specs/2026-10-18-b1-payload-and-content-design.md` ("the B1 spec")
@@ -87,6 +87,7 @@ When every check is settled, this section is cut down to the facts found, and th
 - A new `isShopUser` means admin or shop staff. It guards orders, the Stock page and their endpoints.
 - A new `isAnyStaffUser` means any of the three roles. It covers opening `/admin` (the `users` collection's admin rule), reading and updating one's own account (`adminOrSelf`), and Payload's edit locks and job stats (`withStaffOnlyInternals`). Without the edit locks, shop staff could not open an order in the admin.
 - The plan lists every B1 use of `isStaffUser` and decides each one. Anything not listed in this section stays admin and editor.
+- **Hiding content from shop staff.** Payload shows a list in the admin menu and dashboard to anyone allowed to read it, and visitors may read published content. Shop staff would therefore see every content list, read-only. Every content collection, Images, the page records and Site settings get an `admin.hidden` rule ("hidden unless content staff"), applied once over the whole config in the same way `guardDeletes` is. A shop staff member's menu holds Orders, the Stock page and their own account, nothing else.
 
 ### 4.2 Who can do what (adds to the B1 spec's 7.2)
 
@@ -126,7 +127,12 @@ Desktop                                      Mobile (staff packing on a phone)
  menu fixed, list scrolls                      menu folds into Payload's menu button
 ```
 
-- Books and merch use drafts. Flipping stock from their edit screens would either change nothing on the live site or publish an editor's unfinished draft. A switch on the Stock page calls `POST /api/shop/stock` (`collection`, `id`, `option` id when there is one, `inStock`). The server changes the live, published record straight away, and if a newer draft is waiting it sets the same value in the draft too. The editor's draft stays unpublished and can't undo the switch when it's published later. How this is done in Payload is proven by a test before the page is built.
+- Books and merch use drafts. Flipping stock from their edit screens would either change nothing on the live site or publish an editor's unfinished draft. A switch on the Stock page calls `POST /api/shop/stock` (`collection`, `id`, `option` id when there is one, `inStock`). The server changes the live, published record straight away, and if a newer draft is waiting it sets the same value in the draft too. The editor's draft stays unpublished and can't undo the switch when it's published later.
+- **How, in Payload 3.90.2** (checked in its source, 27 October 2026). Saving a draft never touches the main record, which always holds the published version. But publishing by id builds on the newest version, draft included, so a plain "publish with the new stock value" would publish the editor's draft. The switch therefore works in two steps, in one transaction:
+  1. Read the published record, change the one In stock value, and publish that whole record. Every field is sent, so nothing from the draft is merged in.
+  2. If a draft was newer than the published version, save that draft again (as a draft) with the same In stock value. It becomes the newest version again, so the editor finds their work where they left it.
+  
+  Both steps go through Payload's normal update, so hooks, validation and version history all apply. A test proves both before the page is built.
 - Shop staff never open the book or merch edit screens.
 
 ## 5. Data
@@ -144,12 +150,12 @@ Everything the customer saw at checkout is copied onto the order, so a later cha
 | `items` (array) | `product` (a book or merch item), `option` (format or size name), `title`, `unitPriceNGN`, `weightGrams`, `quantity`, all copied at checkout |
 | `delivery` | `method` (courier or flat), `carrierName`, `carrierSlug`, `estimate`, `priceNGN`, `flatArea` (flat price only) |
 | `totals` | `itemsNGN`, `deliveryNGN`, `totalNGN` (items + delivery), `paystackFeeNGN` and `chargedNGN` (both from Paystack once paid) |
-| `payment` | `reference` (random and unguessable, unique), `channel`, `paidAt`, `paidLate` |
+| `payment` | `reference` (random and unguessable, unique), `channel`, `paidAt`, `paidLate`, `lastCheckedAt` (the last time the return page asked Paystack, 6.7) |
 | `shipment` | `terminalShipmentId`, `trackingNumber`, `trackingUrl`, `labelUrl`, `courierCostNGN`, `bookedAt`, `bookedBy`, `bookingStartedAt` (the claim in 7.1) |
 | `expiresAt` | 30 minutes after checkout (from Shop settings) |
 | `detailsRemovedAt` | When customer details were removed (6.8) |
 | `staffNotes` | Free text for staff |
-| `history` (array) | `at`, `from` status, `to` status, `by` (payment, Terminal, the expiry job, or a staff member's name), `note`. Append-only and read-only |
+| `history` (array) | `at`, `from` status, `to` status, `by` (payment, Terminal, the expiry job, or a staff member's name), `note`. Read-only, and a hook refuses any change that edits or removes an existing entry |
 
 - Product prices stay whole naira (B1's rule). An order's money fields allow kobo, because Paystack's fee and Terminal's prices can have kobo. Every sum is worked out in kobo as whole numbers, so nothing drifts through rounding.
 - The customer and address fields are required by the checkout code, not by the collection, so 6.8 can empty them.
@@ -172,7 +178,7 @@ A hidden list of `provider` and `eventId`, unique together, with `receivedAt`. T
 
 ### 5.5 Deleting products
 
-B1's delete guard refuses to delete anything another record points at. Orders are never deleted, so counting order lines would lock every product ever sold forever. Order lines don't count: a book or merch item that was ordered can still be deleted, the line's product link empties, and its copied title, option and price stay.
+B1's delete guard refuses to delete anything another record points at. Orders are never deleted, so counting order lines would lock every product ever sold forever. Order lines don't count: a book or merch item that was ordered can still be deleted, the line's product link empties, and its copied title, option and price stay. The guard today only follows links to a single collection, so a books-or-merch link already slips past it, but only by accident. The order line's link is marked explicitly for the guard to skip, and a test proves the line keeps its copy when the product goes.
 
 ## 6. Checkout and payment
 
@@ -226,7 +232,7 @@ Each quote carries a stamp: an HMAC (a tamper-proof signature made with a secret
 - **Prices** come from the database. Items total + the stamped delivery price = the order total. A single pricing function does this, with a place for B3's member discount on books.
 - **Honeypot:** as in B1, a bot that fills the hidden field gets a normal-looking answer with a made-up reference. Nothing is saved, and Paystack is never called.
 - The order is created as Awaiting payment, with a random reference, and Paystack is asked to start the payment: the email, the total in kobo, the reference, the return address `<site>/checkout/complete` and the order id in its metadata. The order is only kept if Paystack accepts. Otherwise the customer is told to try again.
-- The expiry job is queued for `expiresAt` (6.7).
+- Once the order is saved for good, the expiry job is queued for `expiresAt` (6.7).
 - **Gives:** Paystack's payment link and the reference.
 - Expected "no"s (sold out, stamp lapsed, a bad phone number) use B1's `Refusal`, so the customer gets a readable message and never a server error.
 
@@ -237,7 +243,7 @@ One function, used by the Paystack webhook, the return-page lookup and the expir
 - It verifies the payment with Paystack itself. It doesn't trust what it was handed.
 - Paystack must say `success`, in NGN, with `requested_amount` equal to the order total in kobo (pending P1).
 - An order Awaiting payment becomes Paid. An Expired order becomes Paid with `paidLate` ticked. Any other status is left alone, and the call changes nothing.
-- The status change is a single conditional update ("set Paid where the status is still Awaiting or Expired"). When the webhook and the return page arrive together, only the one that made the change goes on to record `paidAt`, `channel`, `chargedNGN` and `paystackFeeNGN`, add the history entry, and queue the receipt and the staff alert.
+- The status change is a single conditional update ("set Paid where the status is still Awaiting or Expired"), run as one database statement through the Postgres adapter's Drizzle instance. Payload's own update with a `where` finds the records first and then updates them, which two callers can both pass. When the webhook and the return page arrive together, only the one that made the change goes on to record `paidAt`, `channel`, `chargedNGN` and `paystackFeeNGN`, add the history entry, and queue the receipt and the staff alert.
 - An amount that doesn't match never marks the order Paid. It sends staff an alert with both figures instead.
 
 ### 6.6 Paystack's webhook: `POST /api/paystack/webhook`
@@ -249,7 +255,7 @@ One function, used by the Paystack webhook, the return-page lookup and the expir
 
 ### 6.7 The return page and expiry
 
-- **`GET /api/shop/orders/:reference`** backs the page the customer comes back to. If the order is still Awaiting payment, it runs 6.5 first, at most once every 10 seconds per order. It gives the order number, status, `paidLate`, items, totals, the courier and estimate, and the city and state. It gives no street address, phone or email, because the reference sits in a web address that can be shared.
+- **`GET /api/shop/orders/:reference`** backs the page the customer comes back to. If the order is still Awaiting payment, it runs 6.5 first, at most once every 10 seconds per order (`lastCheckedAt`). It gives the order number, status, `paidLate`, items, totals, the courier and estimate, and the city and state. It gives no street address, phone or email, because the reference sits in a web address that can be shared.
 - **Expiry:** checkout queues an `expireOrder` job to run at `expiresAt`. The job asks Paystack once through 6.5. If the order still isn't paid, Awaiting payment becomes Expired. If Paystack can't be reached, the job retries, then expires the order anyway; a payment found later still marks it Paid.
 
 ### 6.8 Removing customer details from dead orders
@@ -281,7 +287,7 @@ Desktop: order screen, panel in the sidebar     Mobile: the panel stacks below t
 - **Opening the panel** calls `GET /api/orders/:id/courier-options`. Terminal doesn't say how long a quote stays bookable, so the panel always fetches today's quotes, bookable ones this time (full addresses, the box id, `persist_data`), together with the wallet balance. The customer's courier is preselected, with the difference from what the customer paid shown ("+₦150 covered"). Noisy Streetss covers any rise. On a flat-price order nothing is preselected.
 - If the address has no postcode (P2), the panel says so and points to the address field.
 - If the chosen price is more than the wallet holds, the button is disabled and the panel says how much to top up in Terminal's dashboard.
-- **Booking** calls `POST /api/orders/:id/book-courier` with the chosen rate. The server claims the order first, with a single conditional update that sets `bookingStartedAt` only while the order is Paid and unclaimed, so a double click or a second staff member can't book twice. It checks the wallet again and books with the carrier's regular collection (`pickup`), from the Shop settings pickup address, with no insurance. On success it saves the shipment id, tracking number and link, label link (when Terminal gives one), the cost and who booked it, moves the order to Courier booked, and queues the customer's tracking email. On failure it releases the claim and shows Terminal's message. A claim left behind by a booking that never finished (a crash or a timeout) lapses after 5 minutes, and the panel then warns staff to check Terminal's dashboard for a booking before trying again.
+- **Booking** calls `POST /api/orders/:id/book-courier` with the chosen rate. The server claims the order first, with a single conditional update (one statement, as in 6.5) that sets `bookingStartedAt` only while the order is Paid and unclaimed, so a double click or a second staff member can't book twice. It checks the wallet again and books with the carrier's regular collection (`pickup`), from the Shop settings pickup address, with no insurance. On success it saves the shipment id, tracking number and link, label link (when Terminal gives one), the cost and who booked it, moves the order to Courier booked, and queues the customer's tracking email. On failure it releases the claim and shows Terminal's message. A claim left behind by a booking that never finished (a crash or a timeout) lapses after 5 minutes, and the panel then warns staff to check Terminal's dashboard for a booking before trying again.
 - Once booked, the panel shows the carrier, tracking number, tracking link and label to print.
 - A booking cancelled in Terminal's dashboard comes back by webhook (7.2), so the admin has no cancel button.
 
@@ -325,7 +331,7 @@ Awaiting payment --30 min--> Expired
 ```
 
 - Webhooks only move an order forward. A late or out-of-order event is written to the history but never drags a Delivered order back to In transit. The one way back is a cancellation, from Courier booked to Paid.
-- Staff can set any status by hand (4.3). The history records who did it.
+- Staff can set any status by hand (4.3). The history records who did it. A status set by hand never sends a customer email.
 
 ## 8. Email
 
@@ -349,7 +355,7 @@ If `orderAlertEmail` is empty, the alert is logged as a warning and not sent. Tw
 | `removeExpiredDetails` | Daily | 6.8 |
 | `sendShopEmail` | Whenever queued | Section 8 |
 
-These join B1's queue (B1 spec 5.7). In production Vercel Cron runs due jobs every minute. Whether the daily task needs Payload's schedule handling called separately is settled in the plan.
+These join B1's queue (B1 spec 5.7). In production Vercel Cron calls `/api/payload-jobs/run` every minute. In Payload 3.90.2 that endpoint also queues scheduled tasks unless told not to (checked in its source, 27 October 2026), so the daily task needs no cron of its own.
 
 ## 10. When things go wrong
 
@@ -378,7 +384,7 @@ Paystack and Terminal each sit behind a small client module with one interface, 
   - every Terminal event, a repeated event, and an out-of-order event
   - the Book courier claim, a short wallet and a failed booking
   - the expiry job and the details-removal job
-  - all three roles against content, orders, the Stock page, Book courier and Shop settings
+  - all three roles against content, orders, the Stock page, Book courier and Shop settings, including content lists hidden from shop staff's menu
   - the Stock page changing the live record while leaving a waiting draft unpublished
   - an ordered product still deletable, with its order line keeping its copy
   - orders refusing every delete
