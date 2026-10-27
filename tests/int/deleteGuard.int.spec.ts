@@ -2,6 +2,7 @@ import type { Payload } from 'payload'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { User, Writer } from '@/payload-types'
+import { skippedByGuard } from '@/rules/references'
 import { richText } from '@/seed/richText'
 import { samplePdf } from '@/seed/samplePdf'
 
@@ -319,13 +320,15 @@ describe('reading only what can hold the record', () => {
 
 describe('what the guard can see', () => {
   // The guard follows relationship and upload fields that point at one list. A field that can
-  // point at several lists would need a different query, so this fails if one is ever added.
+  // point at several lists would need a different query, so this fails if one is ever added
+  // (unless it is marked to be skipped by the guard, as an order line's product is).
   it('finds no relationship or upload field that points at several lists', () => {
     const several: string[] = []
     const walk = (fields: Array<Record<string, unknown>>, where: string) => {
       for (const field of fields) {
         const path = `${where}.${String(field.name)}`
-        if ((field.type === 'relationship' || field.type === 'upload') && Array.isArray(field.relationTo)) several.push(path)
+        const skipped = skippedByGuard(field as never)
+        if (!skipped && (field.type === 'relationship' || field.type === 'upload') && Array.isArray(field.relationTo)) several.push(path)
         if (Array.isArray(field.flattenedFields)) walk(field.flattenedFields as Array<Record<string, unknown>>, path)
         if (Array.isArray(field.blocks)) {
           for (const block of field.blocks as Array<{ flattenedFields: Array<Record<string, unknown>> }>) walk(block.flattenedFields, path)

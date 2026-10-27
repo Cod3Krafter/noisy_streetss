@@ -18,6 +18,7 @@ import { Careers } from './collections/Careers'
 import { Categories } from './collections/Categories'
 import { Events } from './collections/Events'
 import { Merch } from './collections/Merch'
+import { Orders } from './collections/Orders'
 import { MembershipPlans } from './collections/MembershipPlans'
 import { StudioServices } from './collections/StudioServices'
 import { Manuscripts } from './collections/Manuscripts'
@@ -67,7 +68,7 @@ export default buildConfig({
   // this order, then the groups that only hold page records and settings (globals) after them.
   // It follows spec 7.3. Nothing relies on it for deleting: the test helper and the seed's wipe use
   // src/seed/deleteOrder.ts, which works out what points at what from the fields.
-  collections: guardDeletes(hideContentFromShopStaff([Books, Writers, SubmissionCalls, Awards, Articles, Categories, Tags, PodcastShows, PodcastEpisodes, Events, BookClubSessions, Careers, Announcements, PopupCampaigns, Merch, StudioServices, MembershipPlans, PressMentions, Partners, Pages, Manuscripts, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions, Media, Users])),
+  collections: guardDeletes(hideContentFromShopStaff([Books, Writers, SubmissionCalls, Awards, Articles, Categories, Tags, PodcastShows, PodcastEpisodes, Events, BookClubSessions, Careers, Announcements, PopupCampaigns, Orders, Merch, StudioServices, MembershipPlans, PressMentions, Partners, Pages, Manuscripts, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions, Media, Users])),
   globals: hideContentFromShopStaff([...pageRecords, SiteSettings, ShopSettings]),
   jobs: {
     access: {

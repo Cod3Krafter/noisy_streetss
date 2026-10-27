@@ -39,6 +39,7 @@ describe('the seed', () => {
       ['careers', 2],
       ['book-club-sessions', 2],
       ['merch', 5],
+      ['orders', 3],
       ['studio-services', 4],
       ['membership-plans', 3],
       ['pages', 5],
