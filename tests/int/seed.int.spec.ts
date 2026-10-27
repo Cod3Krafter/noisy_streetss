@@ -38,7 +38,7 @@ describe('the seed', () => {
       ['events', 3],
       ['careers', 2],
       ['book-club-sessions', 2],
-      ['merch', 4],
+      ['merch', 5],
       ['studio-services', 4],
       ['membership-plans', 3],
       ['pages', 5],
@@ -64,6 +64,8 @@ describe('the seed', () => {
     expect(books.some((book) => !book.sellInShop)).toBe(true)
     expect(books.filter((book) => book.newRelease).length).toBeGreaterThan(0)
     expect(books.filter((book) => book.editorsChoice).length).toBeGreaterThan(0)
+    const merch = (await payload.find({ collection: 'merch', limit: 0, pagination: false })).docs
+    expect(merch.some((item) => (item.options ?? []).some((option) => option.inStock === false))).toBe(true)
 
     expect(await count('writers', { showOnWritersPage: { equals: false } })).toBe(1)
     expect(await count('articles', { _status: { equals: 'draft' } })).toBe(2)
