@@ -25,4 +25,9 @@ export function applyTestEnvironment(): void {
   // Never upload test files to real storage, even once .env has bucket names.
   process.env.S3_BUCKET_MEDIA = ''
   process.env.S3_BUCKET_MANUSCRIPTS = ''
+  // Never the real payment or courier services, whatever .env holds. Tests install fake clients.
+  process.env.PAYSTACK_SECRET_KEY = 'sk_test_fake_key_for_the_tests_only'
+  process.env.TERMINAL_SECRET_KEY = 'terminal_fake_key_for_the_tests_only'
+  process.env.TERMINAL_BASE_URL = 'https://terminal.invalid/v1'
+  process.env.QUOTE_STAMP_SECRET = 'quote-stamp-secret-for-the-tests-only-0123456789'
 }
