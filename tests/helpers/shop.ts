@@ -1,7 +1,9 @@
 import type { Payload } from 'payload'
 
-import type { Order } from '@/payload-types'
+import type { Book, Media, Merch, Order } from '@/payload-types'
 import { SHOP_SERVER } from '@/shop/context'
+
+import { createImage, createWriter } from './payload'
 
 /** Shop settings every shop test can rely on. `overrides` replaces top-level fields. */
 export async function setShopSettings(payload: Payload, overrides: Record<string, unknown> = {}): Promise<void> {
@@ -52,5 +54,56 @@ export async function createOrder(payload: Payload, overrides: Record<string, un
       history: [{ at: new Date().toISOString(), to: 'awaiting-payment', by: 'Checkout' }],
       ...overrides,
     } as never,
+  })
+}
+
+let shopImage: Media | undefined
+let productCount = 0
+
+type FormatInput = { formatName: string; priceNGN: number; inStock?: boolean; weightGrams: number }
+
+/** A book for sale. Pass `publish: false` for one that has never been published. */
+export async function createShopBook(
+  payload: Payload,
+  { formats, sellInShop = true, publish = true }: { formats?: FormatInput[]; sellInShop?: boolean; publish?: boolean } = {},
+): Promise<Book> {
+  productCount += 1
+  shopImage ??= await createImage(payload)
+  const writer = await createWriter(payload)
+  return payload.create({
+    collection: 'books',
+    draft: !publish,
+    data: {
+      title: `Shop Book ${productCount}`,
+      cover: shopImage.id,
+      writers: [writer.id],
+      category: 'fiction',
+      summary: 'A book for the shop tests.',
+      formats: formats ?? [{ formatName: 'Paperback', priceNGN: 10000, inStock: true, weightGrams: 400 }],
+      sellInShop,
+      _status: publish ? 'published' : 'draft',
+    },
+  })
+}
+
+/** A merch item, one-size unless `options` are given. */
+export async function createShopMerch(
+  payload: Payload,
+  { inStock = true, options }: { inStock?: boolean; options?: { name: string; inStock?: boolean }[] } = {},
+): Promise<Merch> {
+  productCount += 1
+  shopImage ??= await createImage(payload)
+  return payload.create({
+    collection: 'merch',
+    data: {
+      title: `Shop Merch ${productCount}`,
+      images: [shopImage.id],
+      priceNGN: 15000,
+      weightGrams: 250,
+      type: 'apparel',
+      inStock,
+      options,
+      _status: 'published',
+    },
   })
 }
