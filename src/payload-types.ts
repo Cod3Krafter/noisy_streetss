@@ -203,6 +203,7 @@ export interface Config {
   user: User;
   jobs: {
     tasks: {
+      sendShopEmail: TaskSendShopEmail;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -1389,7 +1390,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'schedulePublish';
+        taskSlug: 'inline' | 'sendShopEmail' | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -1422,7 +1423,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'schedulePublish') | null;
+  taskSlug?: ('inline' | 'sendShopEmail' | 'schedulePublish') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -3703,6 +3704,26 @@ export interface CollectionsWidget {
     [k: string]: unknown;
   };
   width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSendShopEmail".
+ */
+export interface TaskSendShopEmail {
+  input: {
+    kind:
+      | 'receipt'
+      | 'tracking'
+      | 'staff-paid'
+      | 'staff-mismatch'
+      | 'staff-returned'
+      | 'staff-pickup-failed'
+      | 'staff-charge-failed'
+      | 'staff-weight-claim';
+    orderId: number;
+    details?: string | null;
+  };
+  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
