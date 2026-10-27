@@ -1,11 +1,56 @@
 import { createHmac } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
+import { setShopClients, shopClients } from '@/shop/clients'
 import { createPaystackClient, PaystackError } from '@/shop/paystack'
 import { signatureMatches } from '@/shop/signatures'
-import { createTerminalClient, TerminalError } from '@/shop/terminal'
+import { createTerminalClient, TerminalError, TerminalOutcomeUnknown } from '@/shop/terminal'
 
-type Call = { url: string; method: string; headers: Headers; body: unknown }
+/** A fetch that fails the way Node does, with the Authorization value quoted in the message. */
+const leakyFetch = (secret: string, name = 'TypeError') =>
+  (async () => {
+    const error = new Error(`Invalid value "Bearer ${secret}" for header "Authorization"`)
+    error.name = name
+    throw error
+  }) as unknown as typeof fetch
+
+describe('keys and the real services', () => {
+  const secret = 'sk_live_SECRETVALUE'
+
+  it('never copies a failed fetch message (which can quote the key) into an error', async () => {
+    await expect(createPaystackClient(secret, leakyFetch(secret)).verify('x')).rejects.toThrow('Paystack could not be reached (TypeError).')
+    await expect(createPaystackClient(secret, leakyFetch(secret)).verify('x')).rejects.not.toThrow(/SECRETVALUE/)
+    await expect(createTerminalClient(secret, 'https://t.test/v1', leakyFetch(secret, 'TimeoutError')).walletBalance()).rejects.toThrow(
+      'Terminal could not be reached (TimeoutError).',
+    )
+  })
+
+  it('refuses a key with a line break or space, naming only the variable', () => {
+    const before = process.env.PAYSTACK_SECRET_KEY
+    setShopClients(null)
+    try {
+      process.env.PAYSTACK_SECRET_KEY = 'sk_live_SECRET\nVALUE'
+      // VITEST is set, so the guard would fire first; lift it for this check only.
+      const vitest = process.env.VITEST
+      delete process.env.VITEST
+      try {
+        expect(() => shopClients()).toThrow('PAYSTACK_SECRET_KEY has characters a key cannot contain, such as a line break. Paste it again.')
+        expect(() => shopClients()).not.toThrow(/sk_live/)
+      } finally {
+        process.env.VITEST = vitest
+      }
+    } finally {
+      process.env.PAYSTACK_SECRET_KEY = before
+    }
+  })
+
+  it('throws when a test reaches the real clients without fakes', () => {
+    setShopClients(null)
+    expect(() => shopClients()).toThrow('A test reached the real shop clients. Install fakes with useFakeShopClients().')
+  })
+})
+
+type Call = { url: string; method: string; headers: Headers; body: unknown; signal: AbortSignal | null | undefined }
 
 /** A stand-in for fetch that records each call and answers with `reply`. */
 function fakeFetch(reply: (call: Call) => { status?: number; body: unknown }) {
@@ -15,6 +60,7 @@ function fakeFetch(reply: (call: Call) => { status?: number; body: unknown }) {
       url: String(url),
       method: init?.method ?? 'GET',
       headers: new Headers(init?.headers),
+      signal: init?.signal,
       body: init?.body ? JSON.parse(String(init.body)) : undefined,
     }
     calls.push(call)
@@ -67,6 +113,13 @@ describe('the Paystack client', () => {
       channel: 'card',
       paidAt: '2026-10-27T10:25:06.000Z',
     })
+  })
+
+  it('refuses a reply with no payment link and sends a timeout signal', async () => {
+    const { calls, fetchImpl } = fakeFetch(() => ({ body: { status: true, data: {} } }))
+    const client = createPaystackClient('sk', fetchImpl)
+    await expect(client.initialize({ email: 'a@b.co', amountKobo: 1, reference: 'r', callbackUrl: 'https://x.test', metadata: {} })).rejects.toThrow(PaystackError)
+    expect(calls[0].signal).toBeInstanceOf(AbortSignal)
   })
 
   it('turns a refusal or an outage into a PaystackError', async () => {
@@ -148,9 +201,48 @@ describe('the Terminal client', () => {
 
   it("passes on Terminal's own refusal message", async () => {
     const { fetchImpl } = fakeFetch(() => ({ status: 400, body: { status: false, message: 'Insufficient wallet balance' } }))
-    await expect(createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).book('RT-1')).rejects.toThrow(
-      new TerminalError('Terminal said: Insufficient wallet balance'),
-    )
+    const refused = createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).book('RT-1')
+    await expect(refused).rejects.toBeInstanceOf(TerminalError)
+    await expect(refused).rejects.toThrow('Terminal said: Insufficient wallet balance')
+    await expect(refused).rejects.not.toBeInstanceOf(TerminalOutcomeUnknown)
+  })
+
+  it('flags a booking as unconfirmed when no answer comes or no shipment ID is given', async () => {
+    const down = createTerminalClient('tk', 'https://sandbox.test/v1', leakyFetch('tk', 'TimeoutError')).book('RT-1')
+    await expect(down).rejects.toBeInstanceOf(TerminalOutcomeUnknown)
+    await expect(down).rejects.toThrow('Terminal did not confirm the booking (TimeoutError). It may have gone through.')
+    const { fetchImpl } = fakeFetch(() => ({ body: { status: true, data: {} } }))
+    await expect(createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).book('RT-1')).rejects.toBeInstanceOf(TerminalOutcomeUnknown)
+  })
+
+  it('refuses amounts that are not numbers for a rate or the wallet, and skips such rates in quotes', async () => {
+    const odd = fakeFetch(({ url }) => ({ body: { status: true, data: url.includes('wallet') ? {} : { ...rate, amount: 'abc' } } }))
+    const client = createTerminalClient('tk', 'https://sandbox.test/v1', odd.fetchImpl)
+    await expect(client.getRate('RT-1')).rejects.toThrow('Terminal sent an amount that is not a number.')
+    await expect(client.walletBalance()).rejects.toThrow('Terminal sent an amount that is not a number.')
+    const quotes = fakeFetch(() => ({ body: { status: true, data: [{ ...rate, amount: 'abc' }, { ...rate, amount: undefined }, rate] } }))
+    const rates = await createTerminalClient('tk', 'https://sandbox.test/v1', quotes.fetchImpl).quotes({
+      bookable: false,
+      pickup: { city: 'a', state: 'lagos' },
+      delivery: { city: 'b', state: 'lagos' },
+      parcel,
+    })
+    expect(rates).toHaveLength(1)
+    expect(quotes.calls[0].signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('refuses a quotes reply that is not a list', async () => {
+    const { fetchImpl } = fakeFetch(() => ({ body: { status: true, data: { rates: [] } } }))
+    await expect(
+      createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).quotes({ bookable: false, pickup: { city: 'a', state: 'lagos' }, delivery: { city: 'b', state: 'lagos' }, parcel }),
+    ).rejects.toThrow('Terminal sent quotes in an unexpected shape.')
+  })
+
+  it('falls back to "Customer" for a blank name', async () => {
+    const { calls, fetchImpl } = fakeFetch(() => ({ body: { status: true, data: [rate] } }))
+    const blank = { name: '   ', email: 'a@b.co', phone: '1', line1: 'x', city: 'Ikeja', state: 'lagos', postcode: '1' }
+    await createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).quotes({ bookable: true, pickup: blank, delivery: blank, parcel })
+    expect(calls[0].body).toMatchObject({ delivery_address: { first_name: 'Customer', last_name: 'Customer' } })
   })
 })
 

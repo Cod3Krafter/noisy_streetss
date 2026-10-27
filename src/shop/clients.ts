@@ -13,12 +13,15 @@ export function setShopClients(clients: ShopClients | null): void {
 function setting(name: string): string {
   const value = process.env[name]?.trim()
   if (!value) throw new Error(`${name} is not set.`)
+  // A line break or space inside a key breaks the header, and the error would quote the key.
+  if (!/^[\x21-\x7e]+$/.test(value)) throw new Error(`${name} has characters a key cannot contain, such as a line break. Paste it again.`)
   return value
 }
 
 /** The Paystack and Terminal clients, built from the settings each time so a changed key takes effect. */
 export function shopClients(): ShopClients {
   if (replacement) return replacement
+  if (process.env.VITEST) throw new Error('A test reached the real shop clients. Install fakes with useFakeShopClients().')
   return {
     paystack: createPaystackClient(setting('PAYSTACK_SECRET_KEY')),
     terminal: createTerminalClient(setting('TERMINAL_SECRET_KEY'), process.env.TERMINAL_BASE_URL?.trim() || TERMINAL_SANDBOX),

@@ -41,7 +41,8 @@ export function createPaystackClient(secretKey: string, fetchImpl: typeof fetch 
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
     } catch (error) {
-      throw new PaystackError(`Paystack could not be reached (${error instanceof Error ? error.message : String(error)}).`)
+      // Only the error's name: its message can quote the Authorization header, and so the key.
+      throw new PaystackError(`Paystack could not be reached (${error instanceof Error ? error.name : 'Error'}).`)
     }
     const json = (await response.json().catch(() => null)) as { status?: boolean; message?: string; data?: unknown } | null
     if (!response.ok || !json?.status) throw new PaystackError(`Paystack refused ${path}: ${json?.message ?? response.status}.`)

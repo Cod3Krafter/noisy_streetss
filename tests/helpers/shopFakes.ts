@@ -67,13 +67,13 @@ export class FakeTerminal implements TerminalClient {
   async quotes(input: QuoteRequest) {
     this.quoteCalls.push(input)
     if (this.failQuotes) throw new TerminalError('Terminal could not be reached (fake).')
-    return this.rates
+    return this.rates.map((rate) => ({ ...rate }))
   }
 
   async getRate(rateId: string) {
     const rate = this.rates.find((candidate) => candidate.rateId === rateId)
     if (!rate) throw new TerminalError('Terminal said: Rate not found')
-    return rate
+    return { ...rate }
   }
 
   async walletBalance() {

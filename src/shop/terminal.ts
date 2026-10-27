@@ -12,7 +12,15 @@ export class TerminalError extends Error {
   }
 }
 
-export type TerminalPlace = { city: string; state: string }
+/** A booking request that got no answer (or an answer without a shipment ID): the parcel may be booked. */
+export class TerminalOutcomeUnknown extends TerminalError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TerminalOutcomeUnknown'
+  }
+}
+
+export type TerminalPlace ={ city: string; state: string }
 export type TerminalContact = TerminalPlace & {
   name: string
   email: string
@@ -40,7 +48,7 @@ export interface TerminalClient {
 const place = (where: TerminalPlace) => ({ city: where.city, state: terminalStateName(where.state), country: 'NG' })
 
 function contact(person: TerminalContact) {
-  const [first = 'Customer', ...rest] = person.name.trim().split(/\s+/)
+  const [first = 'Customer', ...rest] = person.name.split(/\s+/).filter(Boolean)
   return {
     ...place(person),
     first_name: first,
@@ -67,6 +75,19 @@ const parcelJson = (parcel: TerminalParcel) => ({
   })),
 })
 
+/** A naira amount as a finite number, or null when it is missing or not numeric. */
+function nairaAmount(value: unknown): number | null {
+  const number = typeof value === 'string' && value.trim() ? Number(value) : value
+  return typeof number === 'number' && Number.isFinite(number) ? number : null
+}
+
+function amountKoboOf(value: unknown): number {
+  const naira = nairaAmount(value)
+  if (naira === null) throw new TerminalError('Terminal sent an amount that is not a number.')
+  // Pending checks P5 and P6: Terminal's amounts are assumed to be naira.
+  return toKobo(naira)
+}
+
 function rateFrom(raw: Record<string, unknown>): TerminalRate {
   const carrierName = String(raw.carrier_name ?? 'Courier')
   return {
@@ -74,15 +95,14 @@ function rateFrom(raw: Record<string, unknown>): TerminalRate {
     carrierName,
     carrierSlug: String(raw.carrier_slug ?? carrierName.toLowerCase().replace(/[^a-z0-9]+/g, '-')),
     estimate: String(raw.delivery_eta ?? raw.delivery_time ?? ''),
-    // Pending checks P5 and P6: Terminal's amounts are assumed to be naira.
-    amountKobo: toKobo(Number(raw.amount ?? 0)),
+    amountKobo: amountKoboOf(raw.amount),
   }
 }
 
 const text = (value: unknown) => (typeof value === 'string' && value ? value : null)
 
 export function createTerminalClient(secretKey: string, baseUrl: string, fetchImpl: typeof fetch = fetch): TerminalClient {
-  async function call(method: string, path: string, body?: unknown, timeoutMs = TIMEOUT_MS): Promise<unknown> {
+  async function call(method: string, path: string, body?: unknown, timeoutMs = TIMEOUT_MS, unconfirmedIfNoAnswer = false): Promise<unknown> {
     let response: Response
     try {
       response = await fetchImpl(`${baseUrl}${path}`, {
@@ -92,7 +112,10 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
         signal: AbortSignal.timeout(timeoutMs),
       })
     } catch (error) {
-      throw new TerminalError(`Terminal could not be reached (${error instanceof Error ? error.message : String(error)}).`)
+      // Only the error's name: its message can quote the Authorization header, and so the key.
+      const name = error instanceof Error ? error.name : 'Error'
+      if (unconfirmedIfNoAnswer) throw new TerminalOutcomeUnknown(`Terminal did not confirm the booking (${name}). It may have gone through.`)
+      throw new TerminalError(`Terminal could not be reached (${name}).`)
     }
     const json = (await response.json().catch(() => null)) as { status?: boolean; message?: string; data?: unknown } | null
     if (!response.ok || !json || json.status === false) {
@@ -111,7 +134,9 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
         persist_data: input.bookable,
       }
       const data = await call('POST', '/rates/shipment/quotes', body, QUOTE_TIMEOUT_MS)
-      return (Array.isArray(data) ? data : [])
+      if (!Array.isArray(data)) throw new TerminalError('Terminal sent quotes in an unexpected shape.')
+      return data
+        .filter((raw) => raw && typeof raw === 'object' && nairaAmount((raw as Record<string, unknown>).amount) !== null)
         .map((raw) => rateFrom(raw as Record<string, unknown>))
         .filter((rate) => rate.rateId && rate.amountKobo > 0)
     },
@@ -123,14 +148,14 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
     async walletBalance() {
       const data = (await call('GET', '/users/wallet-balance')) as { amount?: unknown } | null
       // Pending check P5: the balance is assumed to be naira.
-      return { amountKobo: toKobo(Number(data?.amount ?? 0)) }
+      return { amountKobo: amountKoboOf(data?.amount) }
     },
 
     async book(rateId) {
-      const data = ((await call('POST', '/shipments/pickup', { rate_id: rateId })) ?? {}) as Record<string, unknown>
+      const data = ((await call('POST', '/shipments/pickup', { rate_id: rateId }, TIMEOUT_MS, true)) ?? {}) as Record<string, unknown>
       const extras = (data.extras ?? {}) as Record<string, unknown>
       const shipmentId = text(data.shipment_id) ?? text(data.id)
-      if (!shipmentId) throw new TerminalError('Terminal booked the parcel but gave no shipment ID.')
+      if (!shipmentId) throw new TerminalOutcomeUnknown('Terminal answered the booking but gave no shipment ID. It may have gone through.')
       return {
         shipmentId,
         trackingNumber: text(extras.tracking_number),
