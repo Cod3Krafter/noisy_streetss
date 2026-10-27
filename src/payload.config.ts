@@ -47,6 +47,7 @@ import { guardDeletes } from './hooks/deleteGuard'
 import { withScheduledPublishAlerts } from './jobs/scheduledPublishAlerts'
 import { productionSettingProblems } from './rules/productionSettings'
 import { REFUSAL } from './refusal'
+import { shopEndpoints } from './shop/endpoints'
 import { seo } from './seo'
 import { isLocalDatabase, schemaPushOffWarning } from './seed/guard'
 import { hideStorageFieldsFromLists, storagePlugins } from './storage'
@@ -70,6 +71,7 @@ export default buildConfig({
   // src/seed/deleteOrder.ts, which works out what points at what from the fields.
   collections: guardDeletes(hideContentFromShopStaff([Books, Writers, SubmissionCalls, Awards, Articles, Categories, Tags, PodcastShows, PodcastEpisodes, Events, BookClubSessions, Careers, Announcements, PopupCampaigns, Orders, Merch, StudioServices, MembershipPlans, PressMentions, Partners, Pages, Manuscripts, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions, Media, Users])),
   globals: hideContentFromShopStaff([...pageRecords, SiteSettings, ShopSettings]),
+  endpoints: shopEndpoints,
   jobs: {
     access: {
       run: hasCronSecret,
