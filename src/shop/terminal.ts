@@ -20,7 +20,7 @@ export class TerminalOutcomeUnknown extends TerminalError {
   }
 }
 
-export type TerminalPlace ={ city: string; state: string }
+export type TerminalPlace = { city: string; state: string }
 export type TerminalContact = TerminalPlace & {
   name: string
   email: string
@@ -102,7 +102,12 @@ function rateFrom(raw: Record<string, unknown>): TerminalRate {
 const text = (value: unknown) => (typeof value === 'string' && value ? value : null)
 
 export function createTerminalClient(secretKey: string, baseUrl: string, fetchImpl: typeof fetch = fetch): TerminalClient {
-  async function call(method: string, path: string, body?: unknown, timeoutMs = TIMEOUT_MS, unconfirmedIfNoAnswer = false): Promise<unknown> {
+  async function call(
+    method: string,
+    path: string,
+    body?: unknown,
+    { timeoutMs = TIMEOUT_MS, unconfirmedIfNoAnswer = false }: { timeoutMs?: number; unconfirmedIfNoAnswer?: boolean } = {},
+  ): Promise<unknown> {
     let response: Response
     try {
       response = await fetchImpl(`${baseUrl}${path}`, {
@@ -113,11 +118,16 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
       })
     } catch (error) {
       // Only the error's name: its message can quote the Authorization header, and so the key.
-      const name = error instanceof Error ? error.name : 'Error'
+      const code = (error as { cause?: { code?: unknown } } | null)?.cause?.code
+      const name = `${error instanceof Error ? error.name : 'Error'}${typeof code === 'string' ? `: ${code}` : ''}`
       if (unconfirmedIfNoAnswer) throw new TerminalOutcomeUnknown(`Terminal did not confirm the booking (${name}). It may have gone through.`)
       throw new TerminalError(`Terminal could not be reached (${name}).`)
     }
     const json = (await response.json().catch(() => null)) as { status?: boolean; message?: string; data?: unknown } | null
+    // A booking that got a server error, or a success whose body never arrived, may still have been made.
+    if (unconfirmedIfNoAnswer && (response.status >= 500 || (response.ok && !json))) {
+      throw new TerminalOutcomeUnknown(`Terminal did not confirm the booking (answered ${response.status}). It may have gone through.`)
+    }
     if (!response.ok || !json || json.status === false) {
       throw new TerminalError(json?.message ? `Terminal said: ${json.message}` : `Terminal answered ${response.status}.`)
     }
@@ -133,7 +143,7 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
         currency: 'NGN',
         persist_data: input.bookable,
       }
-      const data = await call('POST', '/rates/shipment/quotes', body, QUOTE_TIMEOUT_MS)
+      const data = await call('POST', '/rates/shipment/quotes', body, { timeoutMs: QUOTE_TIMEOUT_MS })
       if (!Array.isArray(data)) throw new TerminalError('Terminal sent quotes in an unexpected shape.')
       return data
         .filter((raw) => raw && typeof raw === 'object' && nairaAmount((raw as Record<string, unknown>).amount) !== null)
@@ -152,7 +162,7 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
     },
 
     async book(rateId) {
-      const data = ((await call('POST', '/shipments/pickup', { rate_id: rateId }, TIMEOUT_MS, true)) ?? {}) as Record<string, unknown>
+      const data = ((await call('POST', '/shipments/pickup', { rate_id: rateId }, { unconfirmedIfNoAnswer: true })) ?? {}) as Record<string, unknown>
       const extras = (data.extras ?? {}) as Record<string, unknown>
       const shipmentId = text(data.shipment_id) ?? text(data.id)
       if (!shipmentId) throw new TerminalOutcomeUnknown('Terminal answered the booking but gave no shipment ID. It may have gone through.')

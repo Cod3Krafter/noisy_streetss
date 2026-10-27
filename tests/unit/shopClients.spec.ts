@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { setShopClients, shopClients } from '@/shop/clients'
 import { createPaystackClient, PaystackError } from '@/shop/paystack'
@@ -7,9 +7,9 @@ import { signatureMatches } from '@/shop/signatures'
 import { createTerminalClient, TerminalError, TerminalOutcomeUnknown } from '@/shop/terminal'
 
 /** A fetch that fails the way Node does, with the Authorization value quoted in the message. */
-const leakyFetch = (secret: string, name = 'TypeError') =>
+const leakyFetch = (secret: string, name = 'TypeError', code?: string) =>
   (async () => {
-    const error = new Error(`Invalid value "Bearer ${secret}" for header "Authorization"`)
+    const error = new Error(`Invalid value "Bearer ${secret}" for header "Authorization"`, code ? { cause: { code } } : undefined)
     error.name = name
     throw error
   }) as unknown as typeof fetch
@@ -23,6 +23,15 @@ describe('keys and the real services', () => {
     await expect(createTerminalClient(secret, 'https://t.test/v1', leakyFetch(secret, 'TimeoutError')).walletBalance()).rejects.toThrow(
       'Terminal could not be reached (TimeoutError).',
     )
+  })
+
+  it('adds the cause code to an outage error, still without the key', async () => {
+    const paystack = createPaystackClient(secret, leakyFetch(secret, 'TypeError', 'ENOTFOUND')).verify('x')
+    await expect(paystack).rejects.toThrow('Paystack could not be reached (TypeError: ENOTFOUND).')
+    await expect(paystack).rejects.not.toThrow(/SECRETVALUE/)
+    const terminal = createTerminalClient(secret, 'https://t.test/v1', leakyFetch(secret, 'TypeError', 'ENOTFOUND')).walletBalance()
+    await expect(terminal).rejects.toThrow('Terminal could not be reached (TypeError: ENOTFOUND).')
+    await expect(terminal).rejects.not.toThrow(/SECRETVALUE/)
   })
 
   it('refuses a key with a line break or space, naming only the variable', () => {
@@ -229,6 +238,32 @@ describe('the Terminal client', () => {
     })
     expect(rates).toHaveLength(1)
     expect(quotes.calls[0].signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('flags a booking as unconfirmed on a server error or an unreadable reply, not on a refusal', async () => {
+    const book = (reply: () => Response) =>
+      createTerminalClient('tk', 'https://sandbox.test/v1', (async () => reply()) as unknown as typeof fetch).book('RT-1')
+    await expect(book(() => new Response('Bad Gateway', { status: 502 }))).rejects.toBeInstanceOf(TerminalOutcomeUnknown)
+    await expect(book(() => new Response('<html>', { status: 200 }))).rejects.toBeInstanceOf(TerminalOutcomeUnknown)
+    const refused = book(() => new Response(JSON.stringify({ status: false, message: 'No' }), { status: 400 }))
+    await expect(refused).rejects.toBeInstanceOf(TerminalError)
+    await expect(refused).rejects.not.toBeInstanceOf(TerminalOutcomeUnknown)
+    const falseOk = book(() => new Response(JSON.stringify({ status: false, message: 'No' }), { status: 200 }))
+    await expect(falseOk).rejects.not.toBeInstanceOf(TerminalOutcomeUnknown)
+  })
+
+  it('gives quotes 8 seconds and a booking 15', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout')
+    try {
+      const { fetchImpl } = fakeFetch(() => ({ body: { status: true, data: [] } }))
+      const client = createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl)
+      await client.quotes({ bookable: false, pickup: { city: 'a', state: 'lagos' }, delivery: { city: 'b', state: 'lagos' }, parcel })
+      expect(spy).toHaveBeenLastCalledWith(8000)
+      await client.book('RT-1').catch(() => undefined)
+      expect(spy).toHaveBeenLastCalledWith(15000)
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it('refuses a quotes reply that is not a list', async () => {

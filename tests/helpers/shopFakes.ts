@@ -1,6 +1,6 @@
 import { setShopClients } from '@/shop/clients'
 import { type PaystackClient, PaystackError, type PaystackTransaction } from '@/shop/paystack'
-import { type QuoteRequest, type TerminalBooking, type TerminalClient, TerminalError, type TerminalRate } from '@/shop/terminal'
+import { type QuoteRequest, type TerminalBooking, type TerminalClient, TerminalError, TerminalOutcomeUnknown, type TerminalRate } from '@/shop/terminal'
 
 type InitializeInput = Parameters<PaystackClient['initialize']>[0]
 
@@ -62,6 +62,7 @@ export class FakeTerminal implements TerminalClient {
   walletKobo = 5_000_000
   failQuotes = false
   failBooking = false
+  bookingUnconfirmed = false
   bookingDelayMs = 0
 
   async quotes(input: QuoteRequest) {
@@ -82,6 +83,7 @@ export class FakeTerminal implements TerminalClient {
 
   async book(rateId: string): Promise<TerminalBooking> {
     if (this.bookingDelayMs) await new Promise((resolve) => setTimeout(resolve, this.bookingDelayMs))
+    if (this.bookingUnconfirmed) throw new TerminalOutcomeUnknown('Terminal did not confirm the booking (fake).')
     if (this.failBooking) throw new TerminalError('Terminal said: Booking refused (fake)')
     this.bookings.push(rateId)
     const number = this.bookings.length

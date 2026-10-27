@@ -42,7 +42,9 @@ export function createPaystackClient(secretKey: string, fetchImpl: typeof fetch 
       })
     } catch (error) {
       // Only the error's name: its message can quote the Authorization header, and so the key.
-      throw new PaystackError(`Paystack could not be reached (${error instanceof Error ? error.name : 'Error'}).`)
+      const code = (error as { cause?: { code?: unknown } } | null)?.cause?.code
+      const name = `${error instanceof Error ? error.name : 'Error'}${typeof code === 'string' ? `: ${code}` : ''}`
+      throw new PaystackError(`Paystack could not be reached (${name}).`)
     }
     const json = (await response.json().catch(() => null)) as { status?: boolean; message?: string; data?: unknown } | null
     if (!response.ok || !json?.status) throw new PaystackError(`Paystack refused ${path}: ${json?.message ?? response.status}.`)
