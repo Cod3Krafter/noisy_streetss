@@ -2,6 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { GlobalSlug, Payload } from 'payload'
 
+import { SHOP_SERVER } from '@/shop/context'
+
 import {
   ARTICLES,
   BASIC_PAGES,
@@ -23,8 +25,6 @@ import {
   TAGS,
   WRITERS,
 } from './data'
-import { SHOP_SERVER } from '@/shop/context'
-
 import { deleteInOrder } from './deleteOrder'
 import { assertSafeToSeed } from './guard'
 import { emptyFieldData, mergeSeeded } from './resetGlobals'
@@ -386,8 +386,8 @@ export async function seed(payload: Payload): Promise<void> {
         itemsNGN: 40000,
         deliveryNGN: 3200,
         totalNGN: 43200,
-        paystackFeeNGN: order.paidAt ? 748 : null,
-        chargedNGN: order.paidAt ? 43948 : null,
+        paystackFeeNGN: order.paidAt ? 759.39 : null,
+        chargedNGN: order.paidAt ? 43959.39 : null,
         payment: { reference: `seed-order-${index + 1}`, channel: order.paidAt ? 'card' : null, paidAt: order.paidAt },
         expiresAt: fromNow(order.paidAt ? -3 * HOUR : -2 * DAY),
         history: [{ at: fromNow(-6 * DAY), to: order.status, by: 'Seed' }],

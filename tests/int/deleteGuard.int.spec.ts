@@ -2,6 +2,7 @@ import type { Payload } from 'payload'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { User, Writer } from '@/payload-types'
+import { skippedByGuard } from '@/rules/references'
 import { richText } from '@/seed/richText'
 import { samplePdf } from '@/seed/samplePdf'
 
@@ -326,7 +327,7 @@ describe('what the guard can see', () => {
     const walk = (fields: Array<Record<string, unknown>>, where: string) => {
       for (const field of fields) {
         const path = `${where}.${String(field.name)}`
-        const skipped = (field.custom as { deleteGuard?: unknown } | undefined)?.deleteGuard === 'skip'
+        const skipped = skippedByGuard(field as never)
         if (!skipped && (field.type === 'relationship' || field.type === 'upload') && Array.isArray(field.relationTo)) several.push(path)
         if (Array.isArray(field.flattenedFields)) walk(field.flattenedFields as Array<Record<string, unknown>>, path)
         if (Array.isArray(field.blocks)) {

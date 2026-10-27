@@ -2,6 +2,7 @@ import { Forbidden, type Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { User } from '@/payload-types'
+import { SHOP_SERVER } from '@/shop/context'
 
 import { createImage, createStaff, createWriter, expectFieldError, getTestPayload, rest } from '../helpers/payload'
 import { createOrder } from '../helpers/shop'
@@ -95,7 +96,7 @@ describe('orders', () => {
     await expectFieldError(
       payload.update({ collection: 'orders', id: order.id, data: { history: [] }, overrideAccess: false, user: admin }),
       'history',
-      /only be added to/,
+      /^The history can only be added to, never changed.$/,
     )
     await expectFieldError(
       payload.update({
@@ -106,7 +107,118 @@ describe('orders', () => {
         user: admin,
       }),
       'history',
-      /only be added to/,
+      /^The history can only be added to by the shop itself.$/,
+    )
+  })
+
+  it('keep their date when staff send a different one', async () => {
+    const order = await createOrder(payload, { status: 'paid' })
+    const updated = await payload.update({
+      collection: 'orders',
+      id: order.id,
+      data: { createdAt: '2020-01-01T00:00:00.000Z', staffNotes: 'Backdated?' },
+      overrideAccess: false,
+      user: shop,
+    })
+    expect(updated.createdAt).toBe(order.createdAt)
+    const withStatus = await payload.update({
+      collection: 'orders',
+      id: order.id,
+      data: { createdAt: '2020-01-01T00:00:00.000Z', status: 'refunded' },
+      overrideAccess: false,
+      user: shop,
+    })
+    expect(withStatus.createdAt).toBe(order.createdAt)
+  })
+
+  it('treat an empty text and no text as the same when the address is sent back', async () => {
+    const order = await createOrder(payload, { status: 'delivered', address: { line1: '5 Allen Avenue', city: 'Ikeja', state: 'lagos', postcode: '' } })
+    const updated = await payload.update({
+      collection: 'orders',
+      id: order.id,
+      data: { address: { ...order.address, line2: '', postcode: null }, staffNotes: 'Saved from the form' },
+      overrideAccess: false,
+      user: shop,
+    })
+    expect(updated.staffNotes).toBe('Saved from the form')
+    const again = await payload.update({
+      collection: 'orders',
+      id: order.id,
+      data: { address: { ...order.address, line2: null, postcode: '' }, customerPhone: order.customerPhone, staffNotes: 'Again' },
+      overrideAccess: false,
+      user: shop,
+    })
+    expect(again.staffNotes).toBe('Again')
+  })
+
+  it('tell staff when the order changed while the form was open', async () => {
+    const order = await createOrder(payload)
+    await payload.update({
+      collection: 'orders',
+      id: order.id,
+      data: { history: [...(order.history ?? []), { at: new Date().toISOString(), to: 'paid', by: 'Payment' }] },
+      context: { [SHOP_SERVER]: true },
+    })
+    await expectFieldError(
+      payload.update({ collection: 'orders', id: order.id, data: { history: order.history }, overrideAccess: false, user: shop }),
+      'history',
+      /^This order changed while it was open\. Reload it and try again\.$/,
+    )
+  })
+
+  it('refuse an edit of a history entry in place', async () => {
+    const order = await createOrder(payload)
+    await expectFieldError(
+      payload.update({
+        collection: 'orders',
+        id: order.id,
+        data: { history: (order.history ?? []).map((row) => ({ ...row, by: 'Someone else' })) },
+        overrideAccess: false,
+        user: admin,
+      }),
+      'history',
+      /^The history can only be added to, never changed\.$/,
+    )
+  })
+
+  it('let server code add a history entry, and refuse it editing one', async () => {
+    const order = await createOrder(payload)
+    const added = await payload.update({
+      collection: 'orders',
+      id: order.id,
+      data: { history: [...(order.history ?? []), { at: new Date().toISOString(), from: 'awaiting-payment', to: 'paid', by: 'Payment' }] },
+      context: { [SHOP_SERVER]: true },
+    })
+    expect(added.history).toHaveLength(2)
+    await expectFieldError(
+      payload.update({
+        collection: 'orders',
+        id: order.id,
+        data: { history: (added.history ?? []).map((row) => ({ ...row, by: 'Rewritten' })) },
+        context: { [SHOP_SERVER]: true },
+      }),
+      'history',
+      /^The history can only be added to, never changed\.$/,
+    )
+  })
+
+  it('refuse a phone or address change once a courier is booked, even while Paid', async () => {
+    const order = await createOrder(payload, { status: 'paid', shipment: { terminalShipmentId: 'SH-2' } })
+    await expectFieldError(
+      payload.update({ collection: 'orders', id: order.id, data: { customerPhone: '+2348000000008' }, overrideAccess: false, user: shop }),
+      'customerPhone',
+      /only be changed while the order is Paid/,
+    )
+    await expectFieldError(
+      payload.update({
+        collection: 'orders',
+        id: order.id,
+        data: { address: { ...order.address, line1: '9 Allen Avenue' } },
+        overrideAccess: false,
+        user: shop,
+      }),
+      'address',
+      /only be changed while the order is Paid/,
     )
   })
 

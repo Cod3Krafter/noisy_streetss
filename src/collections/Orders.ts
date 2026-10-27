@@ -14,7 +14,8 @@ const serverOnly = { update: neverByHand }
 const ADDRESS_KEYS = ['line1', 'line2', 'city', 'state', 'postcode'] as const
 type AddressLike = Partial<Record<(typeof ADDRESS_KEYS)[number], string | null>> | null | undefined
 
-const sameAddress = (a: AddressLike, b: AddressLike) => ADDRESS_KEYS.every((key) => (a?.[key] ?? null) === (b?.[key] ?? null))
+// An empty text and no text are the same thing: the admin form sends '' for a field left empty.
+const sameAddress = (a: AddressLike, b: AddressLike) => ADDRESS_KEYS.every((key) => (a?.[key] || null) === (b?.[key] || null))
 
 /**
  * The rules for changes staff make. The history only ever grows, and only server code adds to it:
@@ -26,14 +27,21 @@ const staffChangeRules: CollectionBeforeChangeHook = ({ context, data, operation
   if (operation !== 'update' || !originalDoc) return data
   const before = originalDoc.history as HistoryRow[] | undefined
   if ('history' in data && !keepsHistory(before, data.history)) {
-    rejectField(req, 'orders', 'history', 'The history can only be added to, never changed.')
+    const sent = (data.history ?? []) as HistoryRow[]
+    const stale = !context[SHOP_SERVER] && sent.length > 0 && sent.length < (before ?? []).length && keepsHistory(sent, before)
+    rejectField(
+      req,
+      'orders',
+      'history',
+      stale ? 'This order changed while it was open. Reload it and try again.' : 'The history can only be added to, never changed.',
+    )
   }
   if (context[SHOP_SERVER]) return data
   if ('history' in data && (data.history ?? []).length !== (before ?? []).length) {
     rejectField(req, 'orders', 'history', 'The history can only be added to by the shop itself.')
   }
 
-  const phoneChanged = 'customerPhone' in data && (data.customerPhone ?? null) !== (originalDoc.customerPhone ?? null)
+  const phoneChanged = 'customerPhone' in data && (data.customerPhone || null) !== (originalDoc.customerPhone || null)
   const addressChanged = 'address' in data && !sameAddress(data.address, originalDoc.address)
   const waitingToBook = originalDoc.status === 'paid' && !originalDoc.shipment?.terminalShipmentId
   if ((phoneChanged || addressChanged) && !waitingToBook) {
@@ -49,10 +57,11 @@ const staffChangeRules: CollectionBeforeChangeHook = ({ context, data, operation
     const by = (req.user as { name?: string } | null)?.name ?? 'Staff'
     return {
       ...data,
+      createdAt: originalDoc.createdAt,
       history: appendHistory((data.history as HistoryRow[] | undefined) ?? before, { from: originalDoc.status, to: data.status, by, note: 'Set by hand' }),
     }
   }
-  return data
+  return { ...data, createdAt: originalDoc.createdAt }
 }
 
 /** The order number comes from the id, which only exists once the order is saved. */
@@ -205,7 +214,7 @@ export const Orders: CollectionConfig = {
           type: 'row',
           fields: [
             { name: 'reference', type: 'text', unique: true, index: true },
-            { name: 'channel', type: 'text' },
+            { name: 'channel', label: 'Paid with', type: 'text' },
             { name: 'paidAt', label: 'Paid at', type: 'date', admin: dateTime },
             { name: 'paidLate', label: 'Paid after it expired', type: 'checkbox' },
           ],
@@ -264,10 +273,10 @@ export const Orders: CollectionConfig = {
         {
           type: 'row',
           fields: [
-            { name: 'at', type: 'date', required: true, admin: dateTime },
-            { name: 'from', type: 'select', options: [...ORDER_STATUSES] },
-            { name: 'to', type: 'select', options: [...ORDER_STATUSES] },
-            { name: 'by', type: 'text', required: true },
+            { name: 'at', label: 'When', type: 'date', required: true, admin: dateTime },
+            { name: 'from', label: 'From status', type: 'select', options: [...ORDER_STATUSES] },
+            { name: 'to', label: 'To status', type: 'select', options: [...ORDER_STATUSES] },
+            { name: 'by', label: 'Changed by', type: 'text', required: true },
           ],
         },
         { name: 'note', type: 'text' },

@@ -105,7 +105,7 @@ export function richTextRefs(value: unknown): Ref[] {
 }
 
 /** A field marked `custom: { deleteGuard: 'skip' }` never stops a delete (an order line's product). */
-const skippedByGuard = (field: FlattenedField) => (field.custom as { deleteGuard?: unknown } | undefined)?.deleteGuard === 'skip'
+export const skippedByGuard = (field: FlattenedField) => (field.custom as { deleteGuard?: unknown } | undefined)?.deleteGuard === 'skip'
 
 /** Relationship and upload fields, at any depth, that point at `target`: their query path and label. */
 function referenceFields(fields: FlattenedField[], target: string, pathPrefix = '', labelPrefix = '') {
