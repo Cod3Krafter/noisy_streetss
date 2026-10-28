@@ -107,7 +107,7 @@ When every check is settled, this section is cut down to the facts found, and th
 - **Delete:** nobody, whatever the status.
 - **Read and update:** admins and shop staff.
 - **What staff can change:** the status, by hand, for when a webhook goes missing (each change is written to the order's history with the staff member's name); staff notes; and the customer's phone and address, but only while the order is Paid and no courier is booked, so a phoned-in correction can go out. Every other field is read-only in the admin and refused through the API.
-- **Built, added to the above:** while a booking claim (7.1) still holds the order (started less than 5 minutes ago and not finished), a phone or address change is refused with "A booking is in progress. Wait for it to finish, then change the address.", so a booking never goes out to the old address. A changed phone must pass checkout's rule (6.4) and is stored as `+234...`; a postcode must be six digits or empty. Checkout and the order screen share these rules and their messages.
+- **Built, added to the above:** while a booking claim (7.1) still holds the order (started less than 5 minutes ago and not finished), a phone or address change is refused with "A booking is in progress. Wait for it to finish, then change the address." (or "...change the phone number.", or "...change the phone number and address." when both changed), so a booking goes out to the address it was claimed with, apart from the millisecond window in the known limits of section 10. A changed phone must pass checkout's rule (6.4) and is stored as `+234...`; a postcode must be six digits or empty. Checkout and the order screen share these rules and their messages.
 - Orders sit in the "Shop and services" admin group, with the list showing number, status, customer, total and date, newest first, and a status filter. Paid orders are the packing queue.
 
 ### 4.4 Stock page
@@ -301,10 +301,10 @@ Desktop: order screen, panel in the sidebar     Mobile: the panel stacks below t
   - When Terminal cannot confirm a booking (no answer, a timeout, a 5xx, an unreadable reply, or no shipment id: `TerminalOutcomeUnknown`), the claim is kept rather than released and staff are told to check Terminal's dashboard. The panel shows the held claim and disables Book for up to 5 minutes.
   - A successful booking is recorded under the order's lock (6.5), and the tracking email is queued in the same transaction.
   - When courier booking is not configured (a missing key or a settings failure), the panel says "Courier booking is not set up on this server" rather than blaming Terminal. For an order that is not Paid, the panel's message depends on the status.
-  - After a booking goes through, Book stays busy until the page has reloaded. A 409 answer (the order changed since the prices were fetched, another booking holds it, or a courier is already booked) fetches the panel again by itself and says "The order changed. The prices have been reloaded; pick again."
+  - After a booking goes through, Book stays busy until the page has reloaded. A 409 answer fetches the panel again by itself. Each 409 carries a `reason` in its body (`errors[0].data.reason`), and the panel goes by that, not by the wording. For `stale-prices` (the order changed since the prices were fetched) it says "The order changed. The prices have been reloaded; pick again." For `held` (another booking holds the order) and `already-booked` it shows the server's own message.
   - When Terminal refuses the booking call, the panel shows "Terminal refused the booking." followed by Terminal's own message, and the claim is released. A rate Terminal gives with no ID or no price is refused before booking, as quotes are.
-  - Staff never see raw error codes. When Terminal cannot be reached at all (the network fails or times out: `TerminalUnreachable`), the panel says "Couldn't reach Terminal. Try again in a minute.", whether it was fetching prices or about to book. When Terminal answers but cannot give prices, it says "Terminal couldn't give prices for this order:" followed by Terminal's own message. The error's name and cause code go to the warn log only. Paystack's outage label never reaches a customer either: checkout says "The payment could not be started. Please try again in a moment.", and the return page only logs a failed check.
-  - The claim's age is judged by the database's clock, the same clock that stamps it.
+  - Staff never see raw error codes or HTTP statuses. When Terminal cannot be reached at all (the network fails or times out, or a call that changes nothing, such as quotes, a rate or the wallet, gets a 5xx answer: `TerminalUnreachable`), the panel says "Couldn't reach Terminal. Try again in a minute.", whether it was fetching prices or about to book. When Terminal answers but cannot give prices, it says "Terminal couldn't give prices for this order:" followed by Terminal's own message (used only when it is a non-empty string; anything else counts as no message). A 5xx on the booking call itself is not this case: it stays unconfirmed (`TerminalOutcomeUnknown`). The error's name and cause code go to the warn log only. Paystack's outage label never reaches a customer either: checkout says "The payment could not be started. Please try again in a moment.", and the return page only logs a failed check.
+  - The database's clock judges the claim's age when claiming, the same clock that stamps it. The order screen and the panel's held-claim notice use the app server's clock instead; on managed hosts the two differ by seconds, which only moves the 5-minute edge slightly.
 - Once booked, the panel shows the carrier, tracking number, tracking link and label to print.
 - A booking cancelled in Terminal's dashboard comes back by webhook (7.2), so the admin has no cancel button.
 
@@ -384,11 +384,14 @@ These join B1's queue (B1 spec 5.7). In production Vercel Cron calls `/api/paylo
 | Situation | Result |
 |---|---|
 | Terminal down, slow or empty at checkout | The flat price for the state |
-| Terminal cannot be reached when the panel opens | The panel says "Couldn't reach Terminal. Try again in a minute." Nothing changes |
+| Terminal cannot be reached when the panel opens (or answers 5xx to prices or the wallet) | The panel says "Couldn't reach Terminal. Try again in a minute." Nothing changes |
 | Terminal answers the panel but gives no prices | The panel says "Terminal couldn't give prices for this order:" and Terminal's message. Nothing changes |
 | Terminal cannot be reached before the booking (price or wallet) | "Couldn't reach Terminal. Try again in a minute." The claim is released and nothing changes |
 | Terminal refuses the price or wallet check before the booking | "Couldn't get Terminal's price or wallet:" and Terminal's message. The claim is released and nothing changes |
 | Terminal refuses the booking call | Terminal's message is shown, the claim is released and nothing changes |
+| A 409 on booking: another booking holds the order | The panel shows "This order is held by another booking for up to 5 minutes. Reload the panel to see why." and fetches itself again, showing the held claim |
+| A 409 on booking: a courier is already booked | The panel shows "A courier is already booked for this order." and fetches itself again |
+| A 409 on booking: the order changed since the prices were fetched | "The order changed. The prices have been reloaded; pick again." |
 | Terminal does not confirm the booking | The claim is kept, the order is held for 5 minutes and staff are told to check Terminal's dashboard before booking again |
 | Paystack can't start the payment | No order is kept. The customer is asked to try again |
 | A webhook signature is wrong | Refused (401). Nothing done |
@@ -408,6 +411,7 @@ Known limits of the build:
 - A staff save in the admin that lands at the moment of a webhook can lose that webhook's history entry. Admin saves do not take the row lock; the stale-form check ("This order changed while it was open") catches the common case, a form opened before the webhook arrived.
 - An editor's draft saved in the instant a stock switch re-saves that draft (4.4) is overwritten by the switch's copy.
 - If Terminal books a parcel but recording it fails, staff cannot attach the booking in the admin, and its webhooks arrive as unknown shipments. Cancel the booking in Terminal's dashboard and book again once the claim has lapsed.
+- A staff address save whose check runs in the instant before a booking claim can still commit after the booking has read the order (a window of milliseconds). The booking then goes to the address it read.
 - The B2 migration's `down()` fails once a shop staff account or B2 job rows exist.
 
 ## 11. Testing and verification
