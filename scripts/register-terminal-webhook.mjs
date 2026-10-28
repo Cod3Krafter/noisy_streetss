@@ -4,7 +4,7 @@
 // environment (the sandbox by default); any other address is registered as a live webhook.
 const [url] = process.argv.slice(2)
 const key = process.env.TERMINAL_SECRET_KEY
-const base = process.env.TERMINAL_BASE_URL || 'https://sandbox.terminal.africa/v1'
+const base = process.env.TERMINAL_BASE_URL?.trim() || 'https://sandbox.terminal.africa/v1'
 
 if (!url || !/^https:\/\/\S+\/api\/terminal\/webhook$/.test(url)) {
   console.error('Give the full https address of /api/terminal/webhook.')

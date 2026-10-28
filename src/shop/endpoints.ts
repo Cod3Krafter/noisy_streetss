@@ -10,7 +10,7 @@ import { findOrder, findOrderByReference, serverUpdate } from '@/shop/orders'
 import { deliveryQuotes } from '@/shop/quotes'
 import { receiptView } from '@/shop/receipt'
 import { signatureMatches } from '@/shop/signatures'
-import { applyTerminalEvent, readTerminalEvent } from '@/shop/terminalEvents'
+import { applyTerminalEvent, eventKeyOf, readTerminalEvent } from '@/shop/terminalEvents'
 import { parseStockChange, setStock } from '@/shop/stock'
 
 /** The JSON body of a request, or an empty object. */
@@ -126,8 +126,9 @@ export const shopEndpoints: Endpoint[] = [
         return Response.json({ error: 'The body is not JSON.' }, { status: 400 })
       }
       const { eventId, event } = readTerminalEvent(body)
+      const key = eventKeyOf(eventId, raw)
       // An error here answers 500, and nothing was recorded, so Terminal sends the notice again.
-      const result = await applyTerminalEvent(req, event, eventId)
+      const result = await applyTerminalEvent(req, event, key)
       return Response.json(result === 'repeat' ? { received: true, repeat: true } : { received: true })
     },
   },
