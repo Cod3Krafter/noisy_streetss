@@ -1,7 +1,7 @@
 import type { TaskConfig } from 'payload'
 
 import { SHOP_EMAIL_KINDS, sendShopEmail, type ShopEmailInput } from '@/shop/emails'
-import { EXPIRY_RETRIES, expireOrder } from '@/shop/expiry'
+import { EXPIRY_RETRIES, expireOrder, removeExpiredDetails } from '@/shop/expiry'
 
 export const sendShopEmailTask: TaskConfig<{ input: ShopEmailInput; output: object }> = {
   slug: 'sendShopEmail',
@@ -27,4 +27,13 @@ export const expireOrderTask: TaskConfig<{ input: { orderId: number }; output: o
     await expireOrder(req, input.orderId, job.totalTried ?? 0)
     return { output: {} }
   },
+}
+
+export const removeExpiredDetailsTask: TaskConfig<{ input: object; output: { removed: number } }> = {
+  slug: 'removeExpiredDetails',
+  label: 'Remove customer details from long-expired orders',
+  retries: 1,
+  // Daily at 03:00 server time. Vercel Cron's call to /api/payload-jobs/run also queues scheduled tasks.
+  schedule: [{ cron: '0 0 3 * * *', queue: 'default' }],
+  handler: async ({ req }) => ({ output: { removed: await removeExpiredDetails(req) } }),
 }

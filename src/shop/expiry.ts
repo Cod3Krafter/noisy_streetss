@@ -36,3 +36,48 @@ export async function expireOrder(req: PayloadRequest, orderId: number, triesSoF
     return 'expired'
   })
 }
+
+/** How long an Expired order keeps the customer's details. */
+export const DETAILS_KEPT_DAYS = 30
+
+/**
+ * Empties the name, email, phone and street lines on orders Expired for more than 30 days, keeping
+ * the city, state, items and totals. Nigeria's Data Protection Act 2023 expects personal data to be
+ * kept no longer than its purpose needs, and an unpaid order has none left. Returns how many it cleaned.
+ */
+export async function removeExpiredDetails(req: PayloadRequest, now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - DETAILS_KEPT_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  const { docs } = await req.payload.find({
+    collection: 'orders',
+    where: { and: [{ status: { equals: 'expired' } }, { expiresAt: { less_than: cutoff } }, { detailsRemovedAt: { exists: false } }] },
+    depth: 0,
+    limit: 0,
+    pagination: false,
+    overrideAccess: true,
+    req,
+  })
+  let cleaned = 0
+  // One order at a time: each lock opens and commits its own transaction on this request.
+  for (const candidate of docs) {
+    const done = await withOrderLock(req, candidate.id, async () => {
+      // Re-read under the lock: a long-Expired order can still be paid late by Paystack's webhook.
+      const order = await findOrder(req, candidate.id)
+      if (!order || order.status !== 'expired' || order.detailsRemovedAt) return false
+      if (!order.expiresAt || order.expiresAt >= cutoff) return false
+      await serverUpdate(req, order.id, {
+        customerName: null,
+        customerEmail: null,
+        customerPhone: null,
+        address: { ...order.address, line1: null, line2: null, postcode: null },
+        detailsRemovedAt: now.toISOString(),
+        history: appendHistory(order.history, {
+          by: 'Data clean-up',
+          note: `Customer details removed ${DETAILS_KEPT_DAYS} days after the order expired`,
+        }),
+      })
+      return true
+    })
+    if (done) cleaned += 1
+  }
+  return cleaned
+}

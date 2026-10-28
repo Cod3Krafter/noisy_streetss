@@ -2,7 +2,7 @@ import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setShopClients } from '@/shop/clients'
-import { expireOrder } from '@/shop/expiry'
+import { expireOrder, removeExpiredDetails } from '@/shop/expiry'
 import { serverUpdate } from '@/shop/orders'
 
 import { getTestPayload } from '../helpers/payload'
@@ -92,5 +92,58 @@ describe('expireOrder', () => {
     const job = await payload.jobs.queue({ task: 'expireOrder', input: { orderId: order.id }, waitUntil: new Date(Date.now() - 1000) })
     await payload.jobs.runByID({ id: job.id })
     expect((await payload.findByID({ collection: 'orders', id: order.id })).status).toBe('expired')
+  })
+})
+
+describe('removeExpiredDetails', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const daysAgo = (days: number) => new Date(Date.now() - days * DAY).toISOString()
+
+  it('empties the customer details on orders Expired for more than 30 days, and nothing else', async () => {
+    const old = await createOrder(payload, { status: 'expired', expiresAt: daysAgo(31) })
+    const recent = await createOrder(payload, { status: 'expired', expiresAt: daysAgo(29) })
+    const paid = await createOrder(payload, { status: 'paid', expiresAt: daysAgo(40) })
+
+    expect(await removeExpiredDetails(req)).toBeGreaterThanOrEqual(1)
+    const cleaned = await payload.findByID({ collection: 'orders', id: old.id })
+    expect(cleaned).toMatchObject({ customerName: null, customerEmail: null, customerPhone: null })
+    expect(cleaned.address).toMatchObject({ line1: null, line2: null, postcode: null, city: 'Ikeja', state: 'lagos' })
+    expect(cleaned.totalNGN).toBe(13200)
+    expect(cleaned.detailsRemovedAt).toBeTruthy()
+    expect(cleaned.history?.at(-1)).toMatchObject({ by: 'Data clean-up' })
+
+    for (const kept of [recent, paid]) {
+      expect((await payload.findByID({ collection: 'orders', id: kept.id })).customerName).toBe('Ada Obi')
+    }
+    const again = await removeExpiredDetails(req)
+    expect((await payload.findByID({ collection: 'orders', id: old.id })).history).toHaveLength(cleaned.history?.length ?? 0)
+    expect(again).toBe(0)
+  })
+
+  it('keeps the details of an order that was paid late after it was picked as a candidate', async () => {
+    const order = await createOrder(payload, { status: 'expired', expiresAt: daysAgo(31) })
+    const realFind = payload.find.bind(payload)
+    const find = vi.spyOn(payload, 'find').mockImplementationOnce(async (args) => {
+      const result = await realFind(args)
+      // Paystack's webhook records a late payment after the candidates were listed.
+      const other = await createLocalReq({}, payload)
+      await serverUpdate(other, order.id, { status: 'paid' })
+      return result
+    })
+    try {
+      await removeExpiredDetails(req)
+      expect(find).toHaveBeenCalled()
+    } finally {
+      find.mockRestore()
+    }
+    const stored = await payload.findByID({ collection: 'orders', id: order.id })
+    expect(stored.status).toBe('paid')
+    expect(stored.customerName).toBe('Ada Obi')
+    expect(stored.detailsRemovedAt).toBeFalsy()
+  })
+
+  it('is scheduled to run every day', () => {
+    const task = payload.config.jobs?.tasks?.find((candidate) => candidate.slug === 'removeExpiredDetails')
+    expect(task?.schedule?.[0]?.cron).toBe('0 0 3 * * *')
   })
 })
