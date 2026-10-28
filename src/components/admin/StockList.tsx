@@ -28,7 +28,8 @@ const chip = (inStock: boolean) => ({
 export function StockList({ rows: initial }: { rows: StockRow[] }) {
   const [rows, setRows] = useState(initial)
   const [query, setQuery] = useState('')
-  const [busy, setBusy] = useState<string | null>(null)
+  // The items with a save on its way. Each item's switches stay off until its own save finishes, whatever happens to the others.
+  const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
 
   const groups = useMemo(() => {
@@ -45,7 +46,8 @@ export function StockList({ rows: initial }: { rows: StockRow[] }) {
   }, [rows, query])
 
   async function toggle(row: StockRow) {
-    setBusy(`${row.collection}:${row.id}`)
+    const item = `${row.collection}:${row.id}`
+    setBusy((current) => new Set(current).add(item))
     setError(null)
     const inStock = !row.inStock
     try {
@@ -64,7 +66,11 @@ export function StockList({ rows: initial }: { rows: StockRow[] }) {
     } catch {
       setError('The change was not saved. Try again.')
     } finally {
-      setBusy(null)
+      setBusy((current) => {
+        const next = new Set(current)
+        next.delete(item)
+        return next
+      })
     }
   }
 
@@ -89,7 +95,7 @@ export function StockList({ rows: initial }: { rows: StockRow[] }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {group.rows.map((row) => (
               <label key={row.key} style={chip(row.inStock)}>
-                <input type="checkbox" checked={row.inStock} disabled={busy === group.key} onChange={() => void toggle(row)} />
+                <input type="checkbox" checked={row.inStock} disabled={busy.has(group.key)} onChange={() => void toggle(row)} />
                 <span>{row.optionName ?? 'One size'}</span>
                 {row.inStock ? null : <span style={{ color: 'var(--theme-error-500)' }}>Sold out</span>}
               </label>

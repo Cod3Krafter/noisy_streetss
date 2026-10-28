@@ -1,6 +1,7 @@
 import { Forbidden, type Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
+import { StockNavLink } from '@/components/admin/StockNavLink'
 import type { User } from '@/payload-types'
 
 import { createStaff, createWriter, getTestPayload, rest, tokenFor } from '../helpers/payload'
@@ -70,12 +71,30 @@ describe('a shop staff account', () => {
 })
 
 describe('the admin menu', () => {
-  it('hides content lists and settings from shop staff and shows them to editors', () => {
-    const books = payload.collections.books.config.admin.hidden as Rule
-    const site = payload.config.globals.find((global) => global.slug === 'site-settings')?.admin?.hidden as Rule
-    for (const hidden of [books, site]) {
-      expect(hidden({ user: shop })).toBe(true)
-      expect(hidden({ user: editor })).toBe(false)
-    }
+  /** Every collection and global in the finished config, Payload's own included, with its menu rule. */
+  const everything = () => [...payload.config.collections, ...payload.config.globals].map((entity) => ({ slug: entity.slug as string, hidden: entity.admin?.hidden }))
+  const hiddenFrom = (hidden: unknown, user: User) => (typeof hidden === 'function' ? Boolean((hidden as Rule)({ user })) : Boolean(hidden))
+
+  /** Shown to nobody but admins, or to nobody at all: the shop side's own lists and Payload's internals. */
+  const NOT_FOR_EDITORS = new Set(['orders', 'users', 'shop-settings', 'webhook-events'])
+
+  it('shows shop staff only the Orders list, of every collection and global', () => {
+    // Staff accounts and Shop settings are admin-only by their own rules, so shop staff do not see them either.
+    expect(everything().filter(({ hidden }) => !hiddenFrom(hidden, shop)).map(({ slug }) => slug)).toEqual(['orders'])
+  })
+
+  it('shows editors every content list and setting, and none of the shop side', () => {
+    const shown = everything().filter(({ hidden }) => !hiddenFrom(hidden, editor)).map(({ slug }) => slug)
+    const content = everything()
+      .map(({ slug }) => slug)
+      .filter((slug) => !NOT_FOR_EDITORS.has(slug) && !slug.startsWith('payload-'))
+    expect(content.length).toBeGreaterThan(20)
+    expect(shown).toEqual(content)
+  })
+
+  it('gives shop staff and admins the Stock link, and editors none', () => {
+    expect(StockNavLink({ user: shop } as never)).not.toBeNull()
+    expect(StockNavLink({ user: { ...shop, role: 'admin' } } as never)).not.toBeNull()
+    expect(StockNavLink({ user: editor } as never)).toBeNull()
   })
 })

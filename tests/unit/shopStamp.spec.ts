@@ -37,7 +37,7 @@ describe('quote stamps', () => {
     expect(readQuote(stamp, secret, quote.issuedAt + STAMP_LIFE_MS + 1)).toBeNull()
   })
 
-  it('refuse a stamp too long to be one of ours, before any hashing', () => {
+  it('refuse a stamp longer than any real one, before any hashing', () => {
     const long = signQuote({ ...quote, carrierName: 'x'.repeat(2100) }, secret)
     expect(readQuote(long, secret, quote.issuedAt)).toBeNull()
   })

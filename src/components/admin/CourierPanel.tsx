@@ -25,6 +25,8 @@ export function CourierPanel() {
   const [error, setError] = useState<string | null>(null)
   const [chosen, setChosen] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Kept apart from `error`, which a fresh fetch clears: this one explains the fetch itself.
+  const [notice, setNotice] = useState<string | null>(null)
 
   const [attempt, setAttempt] = useState(0)
 
@@ -55,6 +57,7 @@ export function CourierPanel() {
     if (!chosen) return
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
       const res = await fetch(`/api/orders/${id}/book-courier`, {
         method: 'POST',
@@ -63,15 +66,21 @@ export function CourierPanel() {
         body: JSON.stringify({ rateId: chosen, fingerprint: data?.fingerprint }),
       })
       if (res.ok) {
+        // Book stays busy until the page has reloaded, so it can't be pressed again in between.
         window.location.reload()
         return
       }
-      setError(messageOf(await res.json().catch(() => null)) ?? 'The booking may not have gone through. Reload the panel to check before trying again.')
+      if (res.status === 409) {
+        // The order changed, or another booking holds it: fetch the panel again and say why.
+        setNotice('The order changed. The prices have been reloaded; pick again.')
+        setAttempt((count) => count + 1)
+      } else {
+        setError(messageOf(await res.json().catch(() => null)) ?? 'The booking may not have gone through. Reload the panel to check before trying again.')
+      }
     } catch {
       setError('The booking may not have gone through. Reload the panel to check before trying again.')
-    } finally {
-      setBusy(false)
     }
+    setBusy(false)
   }
 
   if (!id) return null
@@ -82,6 +91,7 @@ export function CourierPanel() {
     <div style={box}>
       <h4 style={{ margin: '0 0 8px' }}>Courier</h4>
       {error ? <p role="alert" style={{ color: 'var(--theme-error-500)' }}>{error}</p> : null}
+      {notice ? <p role="status" style={warning}>{notice}</p> : null}
       {!data && !error ? <p>Loading courier prices.</p> : null}
       {data?.booked ? (
         <div>
@@ -117,7 +127,15 @@ export function CourierPanel() {
             const difference = option.priceKobo - data.paidDeliveryKobo
             return (
               <label key={option.rateId} style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '6px 0', flexWrap: 'wrap' }}>
-                <input type="radio" name="courier" checked={chosen === option.rateId} onChange={() => setChosen(option.rateId)} />
+                <input
+                  type="radio"
+                  name="courier"
+                  checked={chosen === option.rateId}
+                  onChange={() => {
+                    setChosen(option.rateId)
+                    setNotice(null)
+                  }}
+                />
                 <span style={{ fontWeight: 600 }}>{option.carrierName}</span>
                 <span>{naira(option.priceKobo)}</span>
                 {option.estimate ? <span>{option.estimate}</span> : null}
