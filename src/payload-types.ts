@@ -204,6 +204,7 @@ export interface Config {
   jobs: {
     tasks: {
       sendShopEmail: TaskSendShopEmail;
+      expireOrder: TaskExpireOrder;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -1390,7 +1391,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'sendShopEmail' | 'schedulePublish';
+        taskSlug: 'inline' | 'sendShopEmail' | 'expireOrder' | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -1423,7 +1424,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'sendShopEmail' | 'schedulePublish') | null;
+  taskSlug?: ('inline' | 'sendShopEmail' | 'expireOrder' | 'schedulePublish') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -3722,6 +3723,16 @@ export interface TaskSendShopEmail {
       | 'staff-weight-claim';
     orderId: number;
     details?: string | null;
+  };
+  output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskExpireOrder".
+ */
+export interface TaskExpireOrder {
+  input: {
+    orderId: number;
   };
   output?: unknown;
 }

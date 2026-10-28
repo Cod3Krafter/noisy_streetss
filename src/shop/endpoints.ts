@@ -1,6 +1,7 @@
 import { addDataAndFileToRequest, type Endpoint, type PayloadRequest } from 'payload'
 
 import { Refusal } from '@/refusal'
+import { checkout } from '@/shop/checkout'
 import { withOrderLock } from '@/shop/claims'
 import { markPaid, type MarkPaidResult } from '@/shop/markPaid'
 import { findOrder, findOrderByReference, serverUpdate } from '@/shop/orders'
@@ -48,6 +49,11 @@ export const shopEndpoints: Endpoint[] = [
     path: '/shop/quotes',
     method: 'post',
     handler: async (req) => Response.json(await deliveryQuotes(req, await bodyOf(req))),
+  },
+  {
+    path: '/shop/checkout',
+    method: 'post',
+    handler: async (req) => Response.json(await checkout(req, await bodyOf(req)), { status: 201 }),
   },
   {
     path: '/shop/orders/:reference',

@@ -4,6 +4,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 export const STAMP_LIFE_MS = 30 * 60_000
 export const MIN_QUOTE_STAMP_SECRET_LENGTH = 32
 const CLOCK_SLACK_MS = 60_000
+/** A real stamp is a few hundred characters; anything longer is refused before it is hashed. */
+const MAX_STAMP_LENGTH = 2048
 
 export type StampedQuote = {
   method: 'courier' | 'flat'
@@ -36,6 +38,7 @@ export function signQuote(quote: StampedQuote, secret: string): string {
 /** The quote inside a stamp, or null when the stamp was changed, made with another secret, or has lapsed. */
 export function readQuote(stamp: unknown, secret: string, now = Date.now()): StampedQuote | null {
   if (typeof stamp !== 'string') return null
+  if (stamp.length > MAX_STAMP_LENGTH) return null
   const parts = stamp.split('.')
   if (parts.length !== 2 || !parts[0] || !parts[1]) return null
   const [body, signature] = parts
