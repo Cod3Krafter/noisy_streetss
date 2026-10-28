@@ -10,6 +10,7 @@ import { findOrder, findOrderByReference, serverUpdate } from '@/shop/orders'
 import { deliveryQuotes } from '@/shop/quotes'
 import { receiptView } from '@/shop/receipt'
 import { signatureMatches } from '@/shop/signatures'
+import { applyTerminalEvent, readTerminalEvent } from '@/shop/terminalEvents'
 import { parseStockChange, setStock } from '@/shop/stock'
 
 /** The JSON body of a request, or an empty object. */
@@ -108,6 +109,26 @@ export const shopEndpoints: Endpoint[] = [
         if (warning) req.payload.logger.warn(warning(event.data.reference))
       }
       return Response.json({ received: true })
+    },
+  },
+  {
+    path: '/terminal/webhook',
+    method: 'post',
+    handler: async (req) => {
+      const raw = await rawBody(req)
+      if (!signatureMatches(raw, req.headers.get('x-terminal-signature'), process.env.TERMINAL_SECRET_KEY)) {
+        return Response.json({ error: 'The signature does not match.' }, { status: 401 })
+      }
+      let body: unknown
+      try {
+        body = JSON.parse(raw)
+      } catch {
+        return Response.json({ error: 'The body is not JSON.' }, { status: 400 })
+      }
+      const { eventId, event } = readTerminalEvent(body)
+      // An error here answers 500, and nothing was recorded, so Terminal sends the notice again.
+      const result = await applyTerminalEvent(req, event, eventId)
+      return Response.json(result === 'repeat' ? { received: true, repeat: true } : { received: true })
     },
   },
 ]

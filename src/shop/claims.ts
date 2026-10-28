@@ -65,3 +65,19 @@ export async function claimBooking(req: PayloadRequest, id: number): Promise<boo
 export async function releaseBooking(req: PayloadRequest, id: number): Promise<void> {
   await database(req).execute(sql`update "orders" set "shipment_booking_started_at" = null where "id" = ${id}`)
 }
+
+/**
+ * Records a webhook event id in the request's open transaction and says whether it was new. The row
+ * commits or rolls back with the order change it guards, so a failed apply leaves the event unseen
+ * and the provider's retry runs it again. A plain insert that conflicts would abort the Postgres
+ * transaction, so the conflict is absorbed in the statement itself. Call it inside withRowLock.
+ */
+export async function recordEventOnce(req: PayloadRequest, key: string): Promise<boolean> {
+  const db = await transactionDatabase(req)
+  const result = await db.execute(sql`
+    insert into "webhook_events" ("key", "received_at", "updated_at", "created_at")
+    values (${key}, now(), now(), now())
+    on conflict ("key") do nothing
+    returning "id"`)
+  return result.rows.length > 0
+}

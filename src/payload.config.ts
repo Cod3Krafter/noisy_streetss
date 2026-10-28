@@ -38,6 +38,7 @@ import { PressMentions } from './collections/PressMentions'
 import { SubmissionCalls } from './collections/SubmissionCalls'
 import { Tags } from './collections/Tags'
 import { Users } from './collections/Users'
+import { WebhookEvents } from './collections/WebhookEvents'
 import { Writers } from './collections/Writers'
 import { publicDefaultFeatures } from './fields/richText'
 import { pageRecords } from './globals/pageRecords'
@@ -76,7 +77,7 @@ export default buildConfig({
   // this order, then the groups that only hold page records and settings (globals) after them.
   // It follows spec 7.3. Nothing relies on it for deleting: the test helper and the seed's wipe use
   // src/seed/deleteOrder.ts, which works out what points at what from the fields.
-  collections: guardDeletes(hideContentFromShopStaff([Books, Writers, SubmissionCalls, Awards, Articles, Categories, Tags, PodcastShows, PodcastEpisodes, Events, BookClubSessions, Careers, Announcements, PopupCampaigns, Orders, Merch, StudioServices, MembershipPlans, PressMentions, Partners, Pages, Manuscripts, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions, Media, Users])),
+  collections: guardDeletes(hideContentFromShopStaff([Books, Writers, SubmissionCalls, Awards, Articles, Categories, Tags, PodcastShows, PodcastEpisodes, Events, BookClubSessions, Careers, Announcements, PopupCampaigns, Orders, Merch, StudioServices, MembershipPlans, PressMentions, Partners, Pages, Manuscripts, ContactMessages, PartnershipEnquiries, BookstoreApplications, AdvisoryEnquiries, ManuscriptSubmissions, Media, WebhookEvents, Users])),
   globals: hideContentFromShopStaff([...pageRecords, SiteSettings, ShopSettings]),
   endpoints: shopEndpoints,
   jobs: {
