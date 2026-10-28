@@ -18,7 +18,14 @@ const ADDRESS_KEYS = ['line1', 'line2', 'city', 'state', 'postcode'] as const
 type AddressLike = Partial<Record<(typeof ADDRESS_KEYS)[number], string | null>> | null | undefined
 
 // An empty text and no text are the same thing: the admin form sends '' for a field left empty.
-const sameAddress = (a: AddressLike, b: AddressLike) => ADDRESS_KEYS.every((key) => (a?.[key] || null) === (b?.[key] || null))
+const sameValue = (a: AddressLike, b: AddressLike, key: (typeof ADDRESS_KEYS)[number]) => (a?.[key] || null) === (b?.[key] || null)
+const sameAddress = (a: AddressLike, b: AddressLike) => ADDRESS_KEYS.every((key) => sameValue(a, b, key))
+
+/**
+ * The path of the first address field that changed, such as "address.city". A refusal goes there
+ * rather than on the group: the admin shows a field's own message under it, but none on a group.
+ */
+const changedAddressPath = (a: AddressLike, b: AddressLike) => `address.${ADDRESS_KEYS.find((key) => !sameValue(a, b, key)) ?? 'line1'}`
 
 /** A booking claim (7.1) that is still holding the order: started, not finished, and not yet lapsed. */
 function bookingInProgress(shipment: { bookingStartedAt?: string | null; terminalShipmentId?: string | null } | null | undefined): boolean {
@@ -55,16 +62,12 @@ const staffChangeRules: CollectionBeforeChangeHook = ({ context, data, operation
   const phoneChanged = 'customerPhone' in data && (data.customerPhone || null) !== (originalDoc.customerPhone || null)
   const addressChanged = 'address' in data && !sameAddress(data.address, originalDoc.address)
   const waitingToBook = originalDoc.status === 'paid' && !originalDoc.shipment?.terminalShipmentId
+  const refusedAt = phoneChanged ? 'customerPhone' : changedAddressPath(data.address, originalDoc.address)
   if ((phoneChanged || addressChanged) && !waitingToBook) {
-    rejectField(
-      req,
-      'orders',
-      phoneChanged ? 'customerPhone' : 'address',
-      'The phone and address can only be changed while the order is Paid and no courier is booked.',
-    )
+    rejectField(req, 'orders', refusedAt, 'The phone and address can only be changed while the order is Paid and no courier is booked.')
   }
   if ((phoneChanged || addressChanged) && bookingInProgress(originalDoc.shipment)) {
-    rejectField(req, 'orders', phoneChanged ? 'customerPhone' : 'address', 'A booking is in progress. Wait for it to finish, then change the address.')
+    rejectField(req, 'orders', refusedAt, 'A booking is in progress. Wait for it to finish, then change the address.')
   }
 
   const checked: Record<string, unknown> = { ...data, createdAt: originalDoc.createdAt }

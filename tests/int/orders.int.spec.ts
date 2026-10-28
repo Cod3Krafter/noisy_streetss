@@ -209,25 +209,30 @@ describe('orders', () => {
       'customerPhone',
       /only be changed while the order is Paid/,
     )
+    // Shown under the first field that really changed: an empty line 2 sent back for none is not a change.
     await expectFieldError(
       payload.update({
         collection: 'orders',
         id: order.id,
-        data: { address: { ...order.address, line1: '9 Allen Avenue' } },
+        data: { address: { ...order.address, line2: '', city: 'Lekki', postcode: '101245' } },
         overrideAccess: false,
         user: shop,
       }),
-      'address',
-      /only be changed while the order is Paid/,
+      'address.city',
+      /^The phone and address can only be changed while the order is Paid and no courier is booked\.$/,
     )
   })
 
   it('refuse a phone or address change while a booking is in progress, and allow it once the claim has lapsed', async () => {
     const held = await createOrder(payload, { status: 'paid', shipment: { bookingStartedAt: new Date(Date.now() - 60_000).toISOString() } })
-    for (const data of [{ customerPhone: '+2348000000007' }, { address: { ...held.address, line1: '11 Allen Avenue' } }]) {
+    const refusals: [Record<string, unknown>, string][] = [
+      [{ customerPhone: '+2348000000007' }, 'customerPhone'],
+      [{ address: { ...held.address, line2: 'Flat 2' } }, 'address.line2'],
+    ]
+    for (const [data, path] of refusals) {
       await expectFieldError(
         payload.update({ collection: 'orders', id: held.id, data, overrideAccess: false, user: shop }),
-        'customerPhone' in data ? 'customerPhone' : 'address',
+        path,
         /^A booking is in progress\. Wait for it to finish, then change the address\.$/,
       )
     }
