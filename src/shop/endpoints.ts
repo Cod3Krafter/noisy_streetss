@@ -1,5 +1,6 @@
 import { addDataAndFileToRequest, type Endpoint, type PayloadRequest } from 'payload'
 
+import { isShopUser } from '@/access'
 import { Refusal } from '@/refusal'
 import { checkout } from '@/shop/checkout'
 import { withOrderLock } from '@/shop/claims'
@@ -8,6 +9,7 @@ import { findOrder, findOrderByReference, serverUpdate } from '@/shop/orders'
 import { deliveryQuotes } from '@/shop/quotes'
 import { receiptView } from '@/shop/receipt'
 import { signatureMatches } from '@/shop/signatures'
+import { parseStockChange, setStock } from '@/shop/stock'
 
 /** The JSON body of a request, or an empty object. */
 export async function bodyOf(req: PayloadRequest): Promise<Record<string, unknown>> {
@@ -45,6 +47,15 @@ const rawBody = async (req: PayloadRequest) => (typeof req.text === 'function' ?
 
 /** The shop's own endpoints under /api. Expected "no"s are Refusals, which Payload answers with their message. */
 export const shopEndpoints: Endpoint[] = [
+  {
+    path: '/shop/stock',
+    method: 'post',
+    handler: async (req) => {
+      if (!isShopUser(req.user)) throw new Refusal('Only admins and shop staff can change stock here.', 403)
+      await setStock(req, parseStockChange(await bodyOf(req)))
+      return Response.json({ ok: true })
+    },
+  },
   {
     path: '/shop/quotes',
     method: 'post',
