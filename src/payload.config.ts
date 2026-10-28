@@ -65,6 +65,12 @@ export default buildConfig({
     meta: {
       titleSuffix: ' | Noisy Streetss admin',
     },
+    components: {
+      afterNavLinks: ['/components/admin/StockNavLink#StockNavLink'],
+      views: {
+        stock: { Component: '/components/admin/StockView#StockView', path: '/stock' },
+      },
+    },
   },
   // The order here is the order of the admin menu: Payload lists the groups by their first list, in
   // this order, then the groups that only hold page records and settings (globals) after them.
