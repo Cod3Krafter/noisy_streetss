@@ -2,6 +2,7 @@ import { addDataAndFileToRequest, type Endpoint, type PayloadRequest } from 'pay
 
 import { isShopUser } from '@/access'
 import { Refusal } from '@/refusal'
+import { bookCourier, courierOptions } from '@/shop/booking'
 import { checkout } from '@/shop/checkout'
 import { withOrderLock } from '@/shop/claims'
 import { markPaid, type MarkPaidResult } from '@/shop/markPaid'
@@ -107,6 +108,34 @@ export const shopEndpoints: Endpoint[] = [
         if (warning) req.payload.logger.warn(warning(event.data.reference))
       }
       return Response.json({ received: true })
+    },
+  },
+]
+
+function requireShopStaff(req: PayloadRequest): void {
+  if (!isShopUser(req.user)) throw new Refusal('Only admins and shop staff can book couriers.', 403)
+}
+
+/** Mounted on the Orders collection, so they answer at /api/orders/:id/... */
+export const orderEndpoints: Endpoint[] = [
+  {
+    path: '/:id/courier-options',
+    method: 'get',
+    handler: async (req) => {
+      requireShopStaff(req)
+      return Response.json(await courierOptions(req, Number(req.routeParams?.id)))
+    },
+  },
+  {
+    path: '/:id/book-courier',
+    method: 'post',
+    handler: async (req) => {
+      requireShopStaff(req)
+      const { rateId } = await bodyOf(req)
+      if (typeof rateId !== 'string' || !rateId) throw new Refusal('Pick a courier first.')
+      const bookedBy = (req.user as { name?: string } | null)?.name ?? 'Staff'
+      const order = await bookCourier(req, Number(req.routeParams?.id), rateId, bookedBy)
+      return Response.json({ status: order.status, trackingNumber: order.shipment?.trackingNumber ?? null })
     },
   },
 ]
