@@ -20,7 +20,9 @@ const textOf = (value: unknown) => (typeof value === 'string' && value ? value :
 /**
  * The event's id, name and shipment ids, where Terminal's docs put them: shipment and reconciliation
  * events carry data.shipment_id, a transaction carries the id as data.shipment, and a pickup lists
- * data.shipment_ids (possibly several). Only pickup events document an event_id.
+ * data.shipment_ids (possibly several). Only pickup events document an event_id. A top-level `id` is
+ * never used: nothing says it is unique per event, and if it were not, every later event for the
+ * order would look like a repeat and be dropped. Without an event_id the body hash is used instead.
  */
 export function readTerminalEvent(body: unknown): { eventId: string | null; event: TerminalEvent } {
   const raw = objectOf(body)
@@ -32,7 +34,7 @@ export function readTerminalEvent(body: unknown): { eventId: string | null; even
     ...(Array.isArray(data.shipment_ids) ? data.shipment_ids.map(textOf) : []),
   ].filter((id): id is string => id !== null)
   return {
-    eventId: textOf(raw.event_id) ?? textOf(raw.id),
+    eventId: textOf(raw.event_id),
     event: { type: textOf(raw.event) ?? textOf(raw.type) ?? '', shipmentIds: [...new Set(ids)], data },
   }
 }

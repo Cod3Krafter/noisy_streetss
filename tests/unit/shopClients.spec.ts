@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 
-import { setShopClients, shopClients } from '@/shop/clients'
+import { setShopClients, shopClients, webhookKey } from '@/shop/clients'
 import { createPaystackClient, PaystackError } from '@/shop/paystack'
 import { signatureMatches } from '@/shop/signatures'
 import { createTerminalClient, TerminalError, TerminalOutcomeUnknown } from '@/shop/terminal'
@@ -48,6 +48,26 @@ describe('keys and the real services', () => {
       } finally {
         process.env.VITEST = vitest
       }
+    } finally {
+      process.env.PAYSTACK_SECRET_KEY = before
+    }
+  })
+
+  it('reads a webhook key by the same rule, never throwing and logging only the name of one that cannot be used', () => {
+    const before = process.env.PAYSTACK_SECRET_KEY
+    const logger = { error: vi.fn() }
+    try {
+      process.env.PAYSTACK_SECRET_KEY = ' sk_live_SECRETVALUE\n'
+      expect(webhookKey('PAYSTACK_SECRET_KEY', logger)).toBe('sk_live_SECRETVALUE')
+      expect(logger.error).not.toHaveBeenCalled()
+      process.env.PAYSTACK_SECRET_KEY = 'sk_live_SECRET\nVALUE'
+      expect(webhookKey('PAYSTACK_SECRET_KEY', logger)).toBeNull()
+      delete process.env.PAYSTACK_SECRET_KEY
+      expect(webhookKey('PAYSTACK_SECRET_KEY', logger)).toBeNull()
+      expect(logger.error.mock.calls).toEqual([
+        ['PAYSTACK_SECRET_KEY has characters a key cannot contain, such as a line break. Paste it again. Webhooks cannot be checked until it is fixed.'],
+        ['PAYSTACK_SECRET_KEY is not set. Webhooks cannot be checked until it is fixed.'],
+      ])
     } finally {
       process.env.PAYSTACK_SECRET_KEY = before
     }

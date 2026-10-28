@@ -5,6 +5,7 @@ import { Refusal } from '@/refusal'
 import { bookCourier, courierOptions } from '@/shop/booking'
 import { checkout } from '@/shop/checkout'
 import { withOrderLock } from '@/shop/claims'
+import { webhookKey } from '@/shop/clients'
 import { markPaid, type MarkPaidResult } from '@/shop/markPaid'
 import { findOrder, findOrderByReference, serverUpdate } from '@/shop/orders'
 import { deliveryQuotes } from '@/shop/quotes'
@@ -93,7 +94,7 @@ export const shopEndpoints: Endpoint[] = [
     method: 'post',
     handler: async (req) => {
       const raw = await rawBody(req)
-      if (!signatureMatches(raw, req.headers.get('x-paystack-signature'), process.env.PAYSTACK_SECRET_KEY)) {
+      if (!signatureMatches(raw, req.headers.get('x-paystack-signature'), webhookKey('PAYSTACK_SECRET_KEY', req.payload.logger))) {
         return Response.json({ error: 'The signature does not match.' }, { status: 401 })
       }
       let event: { event?: unknown; data?: { reference?: unknown } }
@@ -116,7 +117,7 @@ export const shopEndpoints: Endpoint[] = [
     method: 'post',
     handler: async (req) => {
       const raw = await rawBody(req)
-      if (!signatureMatches(raw, req.headers.get('x-terminal-signature'), process.env.TERMINAL_SECRET_KEY)) {
+      if (!signatureMatches(raw, req.headers.get('x-terminal-signature'), webhookKey('TERMINAL_SECRET_KEY', req.payload.logger))) {
         return Response.json({ error: 'The signature does not match.' }, { status: 401 })
       }
       let body: unknown

@@ -242,6 +242,37 @@ describe("Paystack's webhook", () => {
     expect((await reload(order)).status).toBe('awaiting-payment')
   })
 
+  it('checks the signature with a key saved with a line break after it', async () => {
+    const before = secret()
+    const order = await createOrder(payload)
+    payInFull(order)
+    process.env.PAYSTACK_SECRET_KEY = `${before}\n`
+    try {
+      const event = { event: 'charge.success', data: { reference: reference(order) } }
+      expect((await send(event, hmacSha512Hex(JSON.stringify(event), before))).status).toBe(200)
+    } finally {
+      process.env.PAYSTACK_SECRET_KEY = before
+    }
+    expect((await reload(order)).status).toBe('paid')
+  })
+
+  it('answers 401, and logs only the setting name, when the key cannot be used', async () => {
+    const before = secret()
+    const order = await createOrder(payload)
+    payInFull(order)
+    const error = vi.spyOn(payload.logger, 'error').mockImplementation(() => undefined)
+    process.env.PAYSTACK_SECRET_KEY = 'sk_live_broken key_value'
+    try {
+      const event = { event: 'charge.success', data: { reference: reference(order) } }
+      expect((await send(event, hmacSha512Hex(JSON.stringify(event), process.env.PAYSTACK_SECRET_KEY))).status).toBe(401)
+    } finally {
+      process.env.PAYSTACK_SECRET_KEY = before
+    }
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('PAYSTACK_SECRET_KEY'))
+    expect(JSON.stringify(error.mock.calls)).not.toContain('key_value')
+    expect((await reload(order)).status).toBe('awaiting-payment')
+  })
+
   it('marks the order Paid on a signed charge.success', async () => {
     const order = await createOrder(payload)
     payInFull(order)

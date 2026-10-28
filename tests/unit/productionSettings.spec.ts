@@ -79,6 +79,19 @@ describe('productionSettingProblems', () => {
     ])
   })
 
+  it('reports a Paystack or Terminal key holding a character a key cannot contain', () => {
+    expect(productionSettingProblems({ ...complete, PAYSTACK_SECRET_KEY: 'sk_live_exa\nmple' })).toEqual([
+      'PAYSTACK_SECRET_KEY (has characters a key cannot contain, such as a line break or a space)',
+    ])
+    expect(productionSettingProblems({ ...complete, TERMINAL_SECRET_KEY: 'terminal live' })).toEqual([
+      'TERMINAL_SECRET_KEY (has characters a key cannot contain, such as a line break or a space)',
+    ])
+  })
+
+  it('lets a Paystack or Terminal key have spaces or line breaks around it, as they are trimmed everywhere', () => {
+    expect(productionSettingProblems({ ...complete, PAYSTACK_SECRET_KEY: ' sk_live_example\n', TERMINAL_SECRET_KEY: '\tterminal-live-example \r\n' })).toEqual([])
+  })
+
   it('says what is wrong with a short cron secret', () => {
     expect(productionSettingProblems({ ...complete, CRON_SECRET: 'x'.repeat(15) })).toEqual([
       'CRON_SECRET (shorter than 16 characters)',
