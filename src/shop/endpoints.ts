@@ -112,6 +112,14 @@ export const shopEndpoints: Endpoint[] = [
   },
 ]
 
+/** The order id in the path, or a 404 for anything that cannot be an id, before the database is asked. */
+function orderIdOf(req: PayloadRequest): number {
+  const raw = String(req.routeParams?.id ?? '')
+  const id = Number(raw)
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(id) || id < 1) throw new Refusal('That order no longer exists.', 404)
+  return id
+}
+
 function requireShopStaff(req: PayloadRequest): void {
   if (!isShopUser(req.user)) throw new Refusal('Only admins and shop staff can book couriers.', 403)
 }
@@ -123,7 +131,7 @@ export const orderEndpoints: Endpoint[] = [
     method: 'get',
     handler: async (req) => {
       requireShopStaff(req)
-      return Response.json(await courierOptions(req, Number(req.routeParams?.id)))
+      return Response.json(await courierOptions(req, orderIdOf(req)))
     },
   },
   {
@@ -131,10 +139,12 @@ export const orderEndpoints: Endpoint[] = [
     method: 'post',
     handler: async (req) => {
       requireShopStaff(req)
-      const { rateId } = await bodyOf(req)
+      const orderId = orderIdOf(req)
+      const { rateId, fingerprint } = await bodyOf(req)
       if (typeof rateId !== 'string' || !rateId) throw new Refusal('Pick a courier first.')
+      if (typeof fingerprint !== 'string' || !fingerprint) throw new Refusal('Reload the panel and pick again.')
       const bookedBy = (req.user as { name?: string } | null)?.name ?? 'Staff'
-      const order = await bookCourier(req, Number(req.routeParams?.id), rateId, bookedBy)
+      const order = await bookCourier(req, orderId, rateId, bookedBy, fingerprint)
       return Response.json({ status: order.status, trackingNumber: order.shipment?.trackingNumber ?? null })
     },
   },

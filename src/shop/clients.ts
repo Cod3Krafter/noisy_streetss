@@ -18,12 +18,20 @@ function setting(name: string): string {
   return value
 }
 
-/** The Paystack and Terminal clients, built from the settings each time so a changed key takes effect. */
+/**
+ * The Paystack and Terminal clients, built from the settings each time so a changed key takes
+ * effect. Each is built only when used, so a missing Paystack key breaks nothing in Terminal's
+ * features, and the other way round.
+ */
 export function shopClients(): ShopClients {
   if (replacement) return replacement
   if (process.env.VITEST) throw new Error('A test reached the real shop clients. Install fakes with useFakeShopClients().')
   return {
-    paystack: createPaystackClient(setting('PAYSTACK_SECRET_KEY')),
-    terminal: createTerminalClient(setting('TERMINAL_SECRET_KEY'), process.env.TERMINAL_BASE_URL?.trim() || TERMINAL_SANDBOX),
+    get paystack() {
+      return createPaystackClient(setting('PAYSTACK_SECRET_KEY'))
+    },
+    get terminal() {
+      return createTerminalClient(setting('TERMINAL_SECRET_KEY'), process.env.TERMINAL_BASE_URL?.trim() || TERMINAL_SANDBOX)
+    },
   }
 }

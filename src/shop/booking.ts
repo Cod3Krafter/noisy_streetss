@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import type { PayloadRequest } from 'payload'
 
 import type { Order } from '@/payload-types'
@@ -21,7 +23,11 @@ export type CourierOptions = {
   paidDeliveryKobo: number
   walletKobo: number | null
   missingPostcode: boolean
+  /** A booking started and has neither finished nor lapsed: Book stays off. */
+  claimHeld: boolean
   staleClaim: boolean
+  /** Identifies the order details the prices were fetched for. A booking must send it back unchanged. */
+  fingerprint: string
   options: CourierOption[]
   terminalError: string | null
 }
@@ -62,6 +68,22 @@ function bookableRequest(order: Order, settings: ShopSettingsData): Extract<Quot
   }
 }
 
+/** A short hash of what the quoted prices depend on, so a booking made from stale prices can be refused. */
+export function orderFingerprint(order: Order): string {
+  const address = order.address
+  const details = [
+    order.customerName,
+    order.customerPhone,
+    address?.line1,
+    address?.line2,
+    address?.city,
+    address?.state,
+    address?.postcode,
+    (order.items ?? []).map((item) => [item.title, item.optionName, item.quantity, item.weightGrams]),
+  ]
+  return createHash('sha256').update(JSON.stringify(details)).digest('hex').slice(0, 24)
+}
+
 const reasonOf = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error')
 
 /**
@@ -74,6 +96,7 @@ export async function courierOptions(req: PayloadRequest, orderId: number): Prom
   if (!order) throw new Refusal('That order no longer exists.', 404)
   const shipment = order.shipment
   const startedAt = shipment?.bookingStartedAt
+  const lapsed = Boolean(startedAt) && Date.now() - Date.parse(startedAt as string) > BOOKING_CLAIM_LAPSES_MS
   const customerChoice =
     order.delivery?.method === 'courier' && order.delivery.carrierSlug ? { carrierName: order.delivery.carrierName ?? '', carrierSlug: order.delivery.carrierSlug } : null
   const base: CourierOptions = {
@@ -85,7 +108,9 @@ export async function courierOptions(req: PayloadRequest, orderId: number): Prom
     paidDeliveryKobo: toKobo(order.deliveryNGN ?? 0),
     walletKobo: null,
     missingPostcode: !order.address?.postcode,
-    staleClaim: Boolean(startedAt) && Date.now() - Date.parse(startedAt as string) > BOOKING_CLAIM_LAPSES_MS,
+    claimHeld: Boolean(startedAt) && !lapsed,
+    staleClaim: lapsed,
+    fingerprint: orderFingerprint(order),
     options: [],
     terminalError: null,
   }
@@ -101,8 +126,13 @@ export async function courierOptions(req: PayloadRequest, orderId: number): Prom
       .sort((a, b) => Number(b.isCustomerChoice) - Number(a.isCustomerChoice))
     return { ...base, walletKobo: wallet.amountKobo, options }
   } catch (error) {
-    req.payload.logger.warn({ err: error, msg: `Courier prices for ${order.orderNumber} could not be fetched.` })
-    return { ...base, terminalError: `Couldn't reach Terminal, try again. (${reasonOf(error)})` }
+    if (error instanceof TerminalError) {
+      req.payload.logger.warn({ err: error, msg: `Courier prices for ${order.orderNumber} could not be fetched.` })
+      return { ...base, terminalError: `Couldn't reach Terminal, try again. (${reasonOf(error)})` }
+    }
+    // A missing key, bad settings or a database fault: the details are for the log, not the panel.
+    req.payload.logger.error({ err: error, msg: `Courier prices for ${order.orderNumber} could not be fetched: courier booking is not set up.` })
+    return { ...base, terminalError: 'Courier booking is not set up on this server. The details are in the server log.' }
   }
 }
 
@@ -115,14 +145,17 @@ export async function courierOptions(req: PayloadRequest, orderId: number): Prom
  * The claim and its release run on the connection pool, so neither is ever called inside the row
  * lock below (they would wait on the lock's own caller forever).
  */
-export async function bookCourier(req: PayloadRequest, orderId: number, rateId: string, bookedBy: string): Promise<Order> {
+export async function bookCourier(req: PayloadRequest, orderId: number, rateId: string, bookedBy: string, fingerprint: string): Promise<Order> {
   const order = await findOrder(req, orderId)
   if (!order) throw new Refusal('That order no longer exists.', 404)
   if (order.status !== 'paid') throw new Refusal('Only a Paid order can be booked.')
+  if (order.shipment?.terminalShipmentId) throw new Refusal('A courier is already booked for this order.', 409)
   if (!order.address?.postcode) throw new Refusal("Add the customer's postcode to the address first. Couriers need it.")
-  if (!(await claimBooking(req, order.id))) throw new Refusal('This order is already being booked. Wait a moment, then reload the page.', 409)
+  if (fingerprint !== orderFingerprint(order)) throw new Refusal('The order changed since these prices were fetched. Reload the panel and pick again.', 409)
+  if (!(await claimBooking(req, order.id))) throw new Refusal('This order is held by another booking for up to 5 minutes. Reload the panel to see why.', 409)
 
   let booking: Awaited<ReturnType<ReturnType<typeof shopClients>['terminal']['book']>>
+  let stage: 'preparing' | 'booking' = 'preparing'
   let rate: Awaited<ReturnType<ReturnType<typeof shopClients>['terminal']['getRate']>>
   try {
     const { terminal } = shopClients()
@@ -133,6 +166,7 @@ export async function bookCourier(req: PayloadRequest, orderId: number, rateId: 
         `The Terminal wallet holds ${formatNaira(wallet.amountKobo)} and this booking costs ${formatNaira(rate.amountKobo)}. Top it up by at least ${formatNaira(rate.amountKobo - wallet.amountKobo)} in Terminal's dashboard.`,
       )
     }
+    stage = 'booking'
     booking = await terminal.book(rate.rateId)
   } catch (error) {
     if (error instanceof TerminalOutcomeUnknown) {
@@ -144,7 +178,9 @@ export async function bookCourier(req: PayloadRequest, orderId: number, rateId: 
       )
     }
     await releaseBooking(req, order.id)
-    if (error instanceof TerminalError) throw new Refusal(`Terminal refused the booking: ${error.message}`, 502)
+    if (error instanceof TerminalError) {
+      throw new Refusal(stage === 'booking' ? `Terminal refused the booking: ${error.message}` : `Couldn't get Terminal's price or wallet: ${error.message}`, 502)
+    }
     throw error
   }
 
@@ -152,6 +188,7 @@ export async function bookCourier(req: PayloadRequest, orderId: number, rateId: 
     // Under the order's lock, from a fresh read, so a Terminal webhook arriving now loses no history entry.
     return await withOrderLock(req, order.id, async () => {
       const fresh = (await findOrder(req, order.id)) ?? order
+      if (fresh.status !== 'paid') req.payload.logger.warn(`${order.orderNumber} was ${fresh.status}, not Paid, when its courier booking was recorded.`)
       const updated = await serverUpdate(req, order.id, {
         status: 'courier-booked',
         shipment: {
@@ -166,13 +203,16 @@ export async function bookCourier(req: PayloadRequest, orderId: number, rateId: 
           bookedBy,
           bookingStartedAt: null,
         },
-        history: appendHistory(fresh.history, { from: 'paid', to: 'courier-booked', by: bookedBy, note: `Booked with ${rate.carrierName} for ${formatNaira(rate.amountKobo)}` }),
+        history: appendHistory(fresh.history, { from: fresh.status, to: 'courier-booked', by: bookedBy, note: `Booked with ${rate.carrierName} for ${formatNaira(rate.amountKobo)}` }),
       })
       await queueShopEmail(req, { kind: 'tracking', orderId: order.id })
       return updated
     })
   } catch (error) {
     req.payload.logger.error({ err: error, msg: `${order.orderNumber} was booked with Terminal but the booking could not be recorded. Check Terminal's dashboard.` })
-    throw error
+    throw new Refusal(
+      "Terminal booked the parcel but the order could not be updated. Check Terminal's dashboard for this order before doing anything else; the order stays held for 5 minutes.",
+      502,
+    )
   }
 }

@@ -59,6 +59,8 @@ export class FakeTerminal implements TerminalClient {
   ]
   quoteCalls: QuoteRequest[] = []
   bookings: string[] = []
+  /** Per rate ID: the price getRate answers with, when it should differ from the quote. */
+  bookPriceKobo: Record<string, number> = {}
   walletKobo = 5_000_000
   failQuotes = false
   failBooking = false
@@ -74,7 +76,8 @@ export class FakeTerminal implements TerminalClient {
   async getRate(rateId: string) {
     const rate = this.rates.find((candidate) => candidate.rateId === rateId)
     if (!rate) throw new TerminalError('Terminal said: Rate not found')
-    return { ...rate }
+    // The price Terminal gives when booking can differ from the earlier quote.
+    return { ...rate, amountKobo: this.bookPriceKobo[rateId] ?? rate.amountKobo }
   }
 
   async walletBalance() {

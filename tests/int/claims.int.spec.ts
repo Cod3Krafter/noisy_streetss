@@ -103,6 +103,11 @@ describe('claimBooking and releaseBooking', () => {
     expect(await claimBooking(req, order.id)).toBe(true)
   })
 
+  it('never claims an order that already has a courier booked', async () => {
+    const order = await createOrder(payload, { status: 'paid', shipment: { terminalShipmentId: 'SH-OLD' } })
+    expect(await claimBooking(req, order.id)).toBe(false)
+  })
+
   it('never claims an order that is not Paid', async () => {
     for (const status of ['awaiting-payment', 'expired', 'courier-booked']) {
       const order = await createOrder(payload, { status })

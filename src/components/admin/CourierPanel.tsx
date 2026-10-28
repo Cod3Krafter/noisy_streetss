@@ -11,9 +11,16 @@ const messageOf = (json: unknown) => (json as { errors?: { message?: string }[] 
 const box = { border: '1px solid var(--theme-elevation-150)', borderRadius: 4, padding: 16, marginBottom: 24 }
 const warning = { background: 'var(--theme-warning-100)', padding: 8, borderRadius: 4, margin: '8px 0' }
 
+/** What the panel says for an order that cannot be booked, by status. */
+function unavailable(status: string): string {
+  if (status === 'awaiting-payment') return 'Booking opens once the order is Paid.'
+  if (status === 'refunded' || status === 'expired') return 'This order will not be booked.'
+  return 'This order is past booking.'
+}
+
 /** The Book courier panel in an order's sidebar. */
 export function CourierPanel() {
-  const { id } = useDocumentInfo()
+  const { id, lastUpdateTime } = useDocumentInfo()
   const [data, setData] = useState<CourierOptions | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [chosen, setChosen] = useState<string | null>(null)
@@ -21,7 +28,7 @@ export function CourierPanel() {
 
   const [attempt, setAttempt] = useState(0)
 
-  // Opening the panel (and Try again) asks for today's prices. State is set only once the answer arrives.
+  // Opening the panel, saving the order (the address may have changed) and Try again ask for today's prices. State is set only once the answer arrives.
   useEffect(() => {
     if (!id) return
     let stale = false
@@ -42,24 +49,29 @@ export function CourierPanel() {
     return () => {
       stale = true
     }
-  }, [id, attempt])
+  }, [id, attempt, lastUpdateTime])
 
   async function book() {
     if (!chosen) return
     setBusy(true)
     setError(null)
-    const res = await fetch(`/api/orders/${id}/book-courier`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rateId: chosen }),
-    })
-    if (res.ok) {
-      window.location.reload()
-      return
+    try {
+      const res = await fetch(`/api/orders/${id}/book-courier`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rateId: chosen, fingerprint: data?.fingerprint }),
+      })
+      if (res.ok) {
+        window.location.reload()
+        return
+      }
+      setError(messageOf(await res.json().catch(() => null)) ?? 'The booking may not have gone through. Reload the panel to check before trying again.')
+    } catch {
+      setError('The booking may not have gone through. Reload the panel to check before trying again.')
+    } finally {
+      setBusy(false)
     }
-    setError(messageOf(await res.json().catch(() => null)) ?? 'The booking did not go through. Try again.')
-    setBusy(false)
   }
 
   if (!id) return null
@@ -79,11 +91,14 @@ export function CourierPanel() {
           {data.booked.labelUrl ? <p><a href={data.booked.labelUrl} target="_blank" rel="noreferrer">Print the label</a></p> : null}
         </div>
       ) : null}
-      {data && !data.booked && data.status !== 'paid' ? <p>Booking opens once the order is Paid.</p> : null}
+      {data && !data.booked && data.status !== 'paid' ? <p>{unavailable(data.status)}</p> : null}
       {data && data.status === 'paid' && !data.booked ? (
         <div>
           {data.staleClaim ? (
             <p style={warning}>A booking started more than 5 minutes ago never finished. Check Terminal&apos;s dashboard for this order before booking again.</p>
+          ) : null}
+          {data.claimHeld ? (
+            <p style={warning}>A booking for this order is in progress or was not confirmed. Wait a few minutes, then reload.</p>
           ) : null}
           {data.missingPostcode ? <p style={warning}>Add the customer&apos;s postcode to the address and save. Couriers need it.</p> : null}
           {data.customerChoice ? (
@@ -112,7 +127,7 @@ export function CourierPanel() {
           })}
           {short > 0 ? <p style={warning}>The wallet is {naira(short)} short. Top it up in Terminal&apos;s dashboard.</p> : null}
           {data.options.length > 0 ? (
-            <Button buttonStyle="primary" disabled={!chosen || busy || short > 0 || data.missingPostcode} onClick={() => void book()}>
+            <Button buttonStyle="primary" disabled={!chosen || busy || short > 0 || data.missingPostcode || data.claimHeld} onClick={() => void book()}>
               {busy ? 'Booking' : 'Book courier'}
             </Button>
           ) : null}
