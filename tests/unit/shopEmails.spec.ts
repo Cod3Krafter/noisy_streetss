@@ -53,6 +53,31 @@ describe('shop emails', () => {
     expect(email.text).toContain('https://track.test/TRK1')
   })
 
+  it('leave the delivery line out of a receipt with no address', () => {
+    for (const address of [null, { line1: null, city: null, state: null }]) {
+      const email = buildShopEmail({ ...order, address } as Order, { kind: 'receipt', orderId: 42 }, contact)
+      expect(email.text).not.toContain('Delivering to')
+      expect(email.html).not.toContain('Delivering to')
+    }
+  })
+
+  it('make the tracking link a link in the HTML, escaped, and keep the text part as it was', () => {
+    const tracked = { ...order, shipment: { ...order.shipment, trackingUrl: 'https://track.test/T?a=1&b=2' } } as Order
+    const email = buildShopEmail(tracked, { kind: 'tracking', orderId: 42 }, contact)
+    expect(email.html).toContain('<p>Follow it here: <a href="https://track.test/T?a=1&amp;b=2">https://track.test/T?a=1&amp;b=2</a></p>')
+    expect(email.text).toContain('Follow it here: https://track.test/T?a=1&b=2')
+  })
+
+  it('link only to a web address, never another kind of link', () => {
+    for (const trackingUrl of ['javascript:alert(1)', 'data:text/html,hi', 'not a link']) {
+      const odd = { ...order, shipment: { ...order.shipment, trackingUrl } } as Order
+      const email = buildShopEmail(odd, { kind: 'tracking', orderId: 42 }, contact)
+      expect(email.html).not.toContain('<a ')
+      expect(email.html).toContain(`<p>Follow it here: ${trackingUrl}</p>`)
+      expect(email.text).toContain(`Follow it here: ${trackingUrl}`)
+    }
+  })
+
   it('alert staff, with a link to the order and any details', () => {
     const late = { ...order, payment: { ...order.payment, paidLate: true } } as Order
     const paid = buildShopEmail(late, { kind: 'staff-paid', orderId: 42 }, contact)

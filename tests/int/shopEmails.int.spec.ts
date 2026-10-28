@@ -43,10 +43,14 @@ describe('shop emails', () => {
 
     sent.mockClear()
     await setShopSettings(payload, { orderAlertEmail: null })
-    const warned = vi.spyOn(payload.logger, 'warn')
-    await queueAndRun({ kind: 'staff-paid', orderId: order.id })
-    expect(sent).not.toHaveBeenCalled()
-    expect(warned).toHaveBeenCalledWith(expect.stringContaining('was not sent'))
-    await setShopSettings(payload)
+    try {
+      const warned = vi.spyOn(payload.logger, 'warn')
+      await queueAndRun({ kind: 'staff-paid', orderId: order.id })
+      expect(sent).not.toHaveBeenCalled()
+      expect(warned).toHaveBeenCalledWith(expect.stringContaining('was not sent'))
+    } finally {
+      // Put the alert address back even when an assertion fails, so later tests have it.
+      await setShopSettings(payload)
+    }
   })
 })

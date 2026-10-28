@@ -60,3 +60,8 @@ export function stateLabel(value: string): string {
 export function terminalStateName(value: string): string {
   return stateLabel(value)
 }
+
+/** A Nigerian postcode: six digits. Checkout and the order screen both allow it to be left empty. */
+export const isNigerianPostcode = (value: string) => /^\d{6}$/.test(value)
+
+export const NIGERIAN_POSTCODE_PROBLEM = 'A Nigerian postcode has six digits. Leave it empty if you are not sure.'

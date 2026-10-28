@@ -1,10 +1,10 @@
 import { createHmac } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 
-import { setShopClients, shopClients } from '@/shop/clients'
+import { setShopClients, shopClients, webhookKey } from '@/shop/clients'
 import { createPaystackClient, PaystackError } from '@/shop/paystack'
 import { signatureMatches } from '@/shop/signatures'
-import { createTerminalClient, TerminalError, TerminalOutcomeUnknown } from '@/shop/terminal'
+import { createTerminalClient, TerminalError, TerminalOutcomeUnknown, TerminalUnreachable } from '@/shop/terminal'
 
 /** A fetch that fails the way Node does, with the Authorization value quoted in the message. */
 const leakyFetch = (secret: string, name = 'TypeError', code?: string) =>
@@ -48,6 +48,26 @@ describe('keys and the real services', () => {
       } finally {
         process.env.VITEST = vitest
       }
+    } finally {
+      process.env.PAYSTACK_SECRET_KEY = before
+    }
+  })
+
+  it('reads a webhook key by the same rule, never throwing and logging only the name of one that cannot be used', () => {
+    const before = process.env.PAYSTACK_SECRET_KEY
+    const logger = { error: vi.fn() }
+    try {
+      process.env.PAYSTACK_SECRET_KEY = ' sk_live_SECRETVALUE\n'
+      expect(webhookKey('PAYSTACK_SECRET_KEY', logger)).toBe('sk_live_SECRETVALUE')
+      expect(logger.error).not.toHaveBeenCalled()
+      process.env.PAYSTACK_SECRET_KEY = 'sk_live_SECRET\nVALUE'
+      expect(webhookKey('PAYSTACK_SECRET_KEY', logger)).toBeNull()
+      delete process.env.PAYSTACK_SECRET_KEY
+      expect(webhookKey('PAYSTACK_SECRET_KEY', logger)).toBeNull()
+      expect(logger.error.mock.calls).toEqual([
+        ['PAYSTACK_SECRET_KEY has characters a key cannot contain, such as a line break. Paste it again. Webhooks cannot be checked until it is fixed.'],
+        ['PAYSTACK_SECRET_KEY is not set. Webhooks cannot be checked until it is fixed.'],
+      ])
     } finally {
       process.env.PAYSTACK_SECRET_KEY = before
     }
@@ -230,11 +250,40 @@ describe('the Terminal client', () => {
     expect(calls[2]).toMatchObject({ url: 'https://sandbox.test/v1/shipments/pickup', method: 'POST', body: { rate_id: 'RT-1' } })
   })
 
+  it('marks a request that never reached Terminal as unreachable, and nothing else', async () => {
+    const down = createTerminalClient('tk', 'https://sandbox.test/v1', leakyFetch('tk', 'TypeError', 'ENOTFOUND')).walletBalance()
+    await expect(down).rejects.toBeInstanceOf(TerminalUnreachable)
+    await expect(down).rejects.toThrow('Terminal could not be reached (TypeError: ENOTFOUND).')
+    const { fetchImpl } = fakeFetch(() => ({ status: 400, body: { status: false, message: 'Delivery address could not be verified' } }))
+    const refused = createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).quotes({ bookable: false, pickup: { city: 'a', state: 'lagos' }, delivery: { city: 'b', state: 'lagos' }, parcel })
+    await expect(refused).rejects.toBeInstanceOf(TerminalError)
+    await expect(refused).rejects.not.toBeInstanceOf(TerminalUnreachable)
+    // A booking that got no answer may have gone through, so it stays "not confirmed", never "unreachable".
+    const booking = createTerminalClient('tk', 'https://sandbox.test/v1', leakyFetch('tk', 'TimeoutError')).book('RT-1')
+    await expect(booking).rejects.toBeInstanceOf(TerminalOutcomeUnknown)
+    await expect(booking).rejects.not.toBeInstanceOf(TerminalUnreachable)
+  })
+
+  it('refuses a rate with no ID or no price, as quotes do', async () => {
+    const cases: [Record<string, unknown>, string][] = [
+      [{ ...rate, rate_id: '' }, 'Terminal sent a rate without an ID.'],
+      [{ ...rate, amount: 0 }, 'Terminal sent a rate with no price.'],
+      [{ ...rate, amount: -150 }, 'Terminal sent a rate with no price.'],
+    ]
+    for (const [data, message] of cases) {
+      const { fetchImpl } = fakeFetch(() => ({ body: { status: true, data } }))
+      const refused = createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).getRate('RT-1')
+      await expect(refused).rejects.toBeInstanceOf(TerminalError)
+      await expect(refused).rejects.toThrow(message)
+    }
+  })
+
   it("passes on Terminal's own refusal message", async () => {
     const { fetchImpl } = fakeFetch(() => ({ status: 400, body: { status: false, message: 'Insufficient wallet balance' } }))
     const refused = createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).book('RT-1')
     await expect(refused).rejects.toBeInstanceOf(TerminalError)
     await expect(refused).rejects.toThrow('Terminal said: Insufficient wallet balance')
+    await expect(refused).rejects.toMatchObject({ terminalMessage: 'Insufficient wallet balance' })
     await expect(refused).rejects.not.toBeInstanceOf(TerminalOutcomeUnknown)
   })
 
@@ -272,6 +321,29 @@ describe('the Terminal client', () => {
     await expect(refused).rejects.not.toBeInstanceOf(TerminalOutcomeUnknown)
     const falseOk = book(() => new Response(JSON.stringify({ status: false, message: 'No' }), { status: 200 }))
     await expect(falseOk).rejects.not.toBeInstanceOf(TerminalOutcomeUnknown)
+  })
+
+  it('treats a server error on a call that changes nothing as unreachable, but a booking stays unconfirmed', async () => {
+    const client = createTerminalClient('tk', 'https://sandbox.test/v1', (async () => new Response('Service Unavailable', { status: 503 })) as unknown as typeof fetch)
+    const quotes = client.quotes({ bookable: false, pickup: { city: 'a', state: 'lagos' }, delivery: { city: 'b', state: 'lagos' }, parcel })
+    await expect(quotes).rejects.toBeInstanceOf(TerminalUnreachable)
+    await expect(quotes).rejects.toThrow('Terminal answered 503.')
+    await expect(client.getRate('RT-1')).rejects.toBeInstanceOf(TerminalUnreachable)
+    await expect(client.walletBalance()).rejects.toBeInstanceOf(TerminalUnreachable)
+    const booking = client.book('RT-1')
+    await expect(booking).rejects.toBeInstanceOf(TerminalOutcomeUnknown)
+    await expect(booking).rejects.not.toBeInstanceOf(TerminalUnreachable)
+  })
+
+  it("uses Terminal's message only when it is a non-empty string", async () => {
+    const refuse = (message: unknown) =>
+      createTerminalClient('tk', 'https://sandbox.test/v1', (async () => new Response(JSON.stringify({ status: false, message }), { status: 400 })) as unknown as typeof fetch).walletBalance()
+    for (const odd of [{ code: 7 }, ['a'], 42, '', null]) {
+      const failed = refuse(odd)
+      await expect(failed).rejects.toThrow(/^Terminal answered 400\.$/)
+      await expect(failed).rejects.toMatchObject({ terminalMessage: null })
+    }
+    await expect(refuse('Insufficient wallet balance')).rejects.toMatchObject({ terminalMessage: 'Insufficient wallet balance' })
   })
 
   it('gives quotes 8 seconds and a booking 15', async () => {

@@ -1,5 +1,5 @@
 import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Order, User } from '@/payload-types'
 import { bookCourier, courierOptions } from '@/shop/booking'
@@ -40,6 +40,11 @@ beforeAll(async () => {
 
 beforeEach(() => {
   terminal = useFakeShopClients().terminal
+})
+
+// Restored here, so a failed assertion can never leave a spy in place for the next test.
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 afterAll(async () => {
@@ -93,13 +98,21 @@ describe('courierOptions', () => {
     vi.spyOn(terminal, 'quotes').mockRejectedValueOnce(new Error('TERMINAL_SECRET_KEY is not set.'))
     const options = await courierOptions(req, order.id)
     expect(options.terminalError).toBe('Courier booking is not set up on this server. The details are in the server log.')
-    vi.restoreAllMocks()
   })
 
-  it('says when Terminal cannot be reached', async () => {
+  it('says when Terminal cannot be reached, plainly, and keeps the error code for the log', async () => {
     terminal.failQuotes = true
+    const warn = vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
     const order = await paidOrder()
-    expect((await courierOptions(req, order.id)).terminalError).toContain("Couldn't reach Terminal")
+    expect((await courierOptions(req, order.id)).terminalError).toBe("Couldn't reach Terminal. Try again in a minute.")
+    expect(warn.mock.calls.some(([entry]) => (entry as { err?: Error }).err?.message === 'Terminal could not be reached (fake).')).toBe(true)
+  })
+
+  it("passes on Terminal's own words when it answers but cannot give prices", async () => {
+    terminal.refuseQuotes = 'Delivery address could not be verified'
+    vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
+    const order = await paidOrder()
+    expect((await courierOptions(req, order.id)).terminalError).toBe("Terminal couldn't give prices for this order: Delivery address could not be verified")
   })
 })
 
@@ -131,7 +144,7 @@ describe('bookCourier', () => {
     const results = await Promise.allSettled([bookCourier(reqA, order.id, 'rate-gig', 'A', fingerprint), bookCourier(reqB, order.id, 'rate-gig', 'B', fingerprint)])
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     const refused = results.find((result) => result.status === 'rejected') as PromiseRejectedResult
-    expect(String(refused.reason)).toContain('held by another booking')
+    expect(String(refused.reason)).toContain('Another booking holds this order')
     expect(terminal.bookings).toHaveLength(1)
   })
 
@@ -145,8 +158,9 @@ describe('bookCourier', () => {
 
   it("passes on Terminal's refusal and frees the order", async () => {
     terminal.failBooking = true
+    vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
     const order = await paidOrder()
-    await expect(book(order, 'rate-gig')).rejects.toThrow('Terminal refused the booking')
+    await expect(book(order, 'rate-gig')).rejects.toThrow(/^Terminal refused the booking\. Booking refused \(fake\)$/)
     const after = await payload.findByID({ collection: 'orders', id: order.id })
     expect(after.status).toBe('paid')
     expect(after.shipment?.bookingStartedAt ?? null).toBeNull()
@@ -185,7 +199,7 @@ describe('bookCourier', () => {
     const { fingerprint } = await courierOptions(req, order.id)
     await serverUpdate(req, order.id, { address: { line1: '9 Other Road', city: 'Ikeja', state: 'lagos', postcode: '100271' } })
     await expect(bookCourier(req, order.id, 'rate-gig', 'Packer', fingerprint)).rejects.toThrow(
-      'The order changed since these prices were fetched. Reload the panel and pick again.',
+      'The order changed since these prices were fetched. Reload the page and pick again.',
     )
     expect(terminal.bookings).toHaveLength(0)
     const after = await payload.findByID({ collection: 'orders', id: order.id })
@@ -200,9 +214,20 @@ describe('bookCourier', () => {
     expect(terminal.bookings).toHaveLength(0)
   })
 
-  it('words a failure before booking as a price or wallet problem', async () => {
+  it("words a refusal before booking as a price or wallet problem, in Terminal's own words", async () => {
+    vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
     const order = await paidOrder()
-    await expect(book(order, 'rate-missing')).rejects.toThrow("Couldn't get Terminal's price or wallet: Terminal said: Rate not found")
+    await expect(book(order, 'rate-missing')).rejects.toThrow(/^Couldn't get Terminal's price or wallet: Rate not found$/)
+  })
+
+  it('says plainly when Terminal cannot be reached before booking, and frees the order', async () => {
+    const order = await paidOrder()
+    const { fingerprint } = await courierOptions(req, order.id)
+    terminal.failWallet = true
+    const warn = vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
+    await expect(bookCourier(req, order.id, 'rate-gig', 'Packer', fingerprint)).rejects.toThrow(/^Couldn't reach Terminal\. Try again in a minute\.$/)
+    expect(warn.mock.calls.some(([entry]) => (entry as { err?: Error }).err?.message === 'Terminal could not be reached (fake).')).toBe(true)
+    expect((await payload.findByID({ collection: 'orders', id: order.id })).shipment?.bookingStartedAt ?? null).toBeNull()
   })
 
   it('tells staff to check Terminal when the booking cannot be recorded, and keeps the order held', async () => {
@@ -213,7 +238,6 @@ describe('bookCourier', () => {
     await expect(bookCourier(other, order.id, 'rate-gig', 'Packer', options.fingerprint)).rejects.toThrow(
       "Terminal booked the parcel but the order could not be updated. Check Terminal's dashboard for this order before doing anything else; the order stays held for 5 minutes.",
     )
-    vi.restoreAllMocks()
     expect(terminal.bookings).toHaveLength(1)
     const after = await payload.findByID({ collection: 'orders', id: order.id })
     expect(after.status).toBe('paid')
@@ -246,6 +270,28 @@ describe('the courier endpoints', () => {
     expect(options.status).toBe(200)
     const { fingerprint } = (await options.json()) as { fingerprint: string }
     expect((await rest('POST', `/orders/${order.id}/book-courier`, { token, body: { rateId: 'rate-gig', fingerprint } })).status).toBe(200)
+  })
+
+  it('sends a reason with each 409, so the panel can tell the cases apart without reading the message', async () => {
+    const token = await tokenFor(payload, shop)
+    const reasonOf = async (res: Response) => {
+      expect(res.status).toBe(409)
+      return ((await res.json()) as { errors: { data?: { reason?: string } }[] }).errors[0].data?.reason
+    }
+    const post = (order: Order, fingerprint: string) => rest('POST', `/orders/${order.id}/book-courier`, { token, body: { rateId: 'rate-gig', fingerprint } })
+
+    const changed = await paidOrder()
+    const stale = (await courierOptions(req, changed.id)).fingerprint
+    await serverUpdate(req, changed.id, { address: { line1: '9 Other Road', city: 'Ikeja', state: 'lagos', postcode: '100271' } })
+    expect(await reasonOf(await post(changed, stale))).toBe('stale-prices')
+
+    const booked = await paidOrder({ shipment: { terminalShipmentId: 'SH-OLD' } })
+    expect(await reasonOf(await post(booked, 'x'))).toBe('already-booked')
+
+    const held = await paidOrder()
+    const heldPrices = (await courierOptions(req, held.id)).fingerprint
+    expect(await claimBooking(req, held.id)).toBe(true)
+    expect(await reasonOf(await post(held, heldPrices))).toBe('held')
   })
 
   it('answers 404 for an id that is not a positive whole number, before touching the database', async () => {

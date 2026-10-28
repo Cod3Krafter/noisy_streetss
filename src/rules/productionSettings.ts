@@ -1,3 +1,4 @@
+import { isPrintableKey } from '@/shop/keys'
 import { MIN_QUOTE_STAMP_SECRET_LENGTH } from '@/shop/stamp'
 
 /** The settings production cannot work without. Locally they may all be empty. */
@@ -59,6 +60,9 @@ export function productionSettingProblems(env: Record<string, string | undefined
       problems.push(`${name} (must be exactly https://host in lowercase, with no path, trailing slash or :443)`)
     } else if (name === 'QUOTE_STAMP_SECRET' && value.length < MIN_QUOTE_STAMP_SECRET_LENGTH) {
       problems.push(`${name} (shorter than ${MIN_QUOTE_STAMP_SECRET_LENGTH} characters)`)
+    } else if ((name === 'PAYSTACK_SECRET_KEY' || name === 'TERMINAL_SECRET_KEY') && !isPrintableKey(value.trim())) {
+      // The same rule the shop's clients and webhooks apply. Spaces or line breaks around a key are trimmed everywhere, so they are fine.
+      problems.push(`${name} (has characters a key cannot contain, such as a line break or a space)`)
     } else if (name === 'PAYSTACK_SECRET_KEY' && value.trim().startsWith('sk_test_')) {
       problems.push(`${name} (a test key)`)
     } else if (name === 'TERMINAL_BASE_URL' && value.includes('sandbox')) {

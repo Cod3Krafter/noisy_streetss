@@ -26,7 +26,30 @@ const escapeHtml = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 const naira = (value: number | null | undefined) => formatNaira(toKobo(value ?? 0))
-const paragraphs = (lines: string[]) => lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')
+
+/** A line of an email: plain text, or text with its own HTML (already escaped) for the HTML part. */
+type Line = string | { text: string; html: string }
+
+const textOf = (line: Line) => (typeof line === 'string' ? line : line.text)
+const paragraphs = (lines: Line[]) => lines.map((line) => `<p>${typeof line === 'string' ? escapeHtml(line) : line.html}</p>`).join('')
+
+/** True for an http or https address. Anything else (javascript:, data: and the like) is never made a link. */
+function isWebAddress(value: string): boolean {
+  try {
+    const { protocol } = new URL(value)
+    return protocol === 'https:' || protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
+/** "Follow it here: <url>", with the address a link in the HTML part when it is a web address. */
+function trackingLine(url: string): Line {
+  const text = `Follow it here: ${url}`
+  if (!isWebAddress(url)) return text
+  const escaped = escapeHtml(url)
+  return { text, html: `Follow it here: <a href="${escaped}">${escaped}</a>` }
+}
 
 function itemLines(order: Order): string[] {
   return (order.items ?? []).map(
@@ -46,9 +69,9 @@ export function buildShopEmail(order: Order, input: ShopEmailInput, contact: Con
   const number = order.orderNumber ?? `order ${order.id}`
   const link = adminEntryUrl('orders', order.id)
 
-  const customer = (subject: string, lines: string[]): BuiltEmail => {
+  const customer = (subject: string, lines: Line[]): BuiltEmail => {
     const all = [...lines, ...[contactLine(contact, number)].filter((line): line is string => Boolean(line))]
-    return { audience: 'customer', subject, text: `${all.join('\n\n')}\n`, html: paragraphs(all) }
+    return { audience: 'customer', subject, text: `${all.map(textOf).join('\n\n')}\n`, html: paragraphs(all) }
   }
   const staff = (subject: string, lines: string[]): BuiltEmail => {
     const all = [...lines, ...(input.details ? [input.details] : [])]
@@ -73,7 +96,7 @@ export function buildShopEmail(order: Order, input: ShopEmailInput, contact: Con
         `${delivery}: ${naira(order.deliveryNGN)}`,
         ...(order.paystackFeeNGN ? [`Paystack fee: ${naira(order.paystackFeeNGN)}`] : []),
         `Total paid: ${naira(order.chargedNGN ?? order.totalNGN)}`,
-        `Delivering to: ${where.join(', ')}`,
+        ...(where.length > 0 ? [`Delivering to: ${where.join(', ')}`] : []),
         'A second email will follow with a tracking link once the parcel is booked with the courier.',
       ])
     }
@@ -82,7 +105,7 @@ export function buildShopEmail(order: Order, input: ShopEmailInput, contact: Con
       return customer(`Your order ${number} has been booked with ${carrier}`, [
         `Order ${number} has been booked with ${carrier} and will be collected soon.`,
         ...(order.shipment?.trackingNumber ? [`Tracking number: ${order.shipment.trackingNumber}`] : []),
-        ...(order.shipment?.trackingUrl ? [`Follow it here: ${order.shipment.trackingUrl}`] : []),
+        ...(order.shipment?.trackingUrl ? [trackingLine(order.shipment.trackingUrl)] : []),
       ])
     }
     case 'staff-paid':

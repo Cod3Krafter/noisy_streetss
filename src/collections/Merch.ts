@@ -19,7 +19,8 @@ export const Merch: CollectionConfig = {
   admin: {
     group: 'Shop and services',
     useAsTitle: 'title',
-    defaultColumns: ['title', 'type', 'priceNGN', 'inStock', '_status'],
+    // No In stock column: an item with sizes keeps its stock on each size, so the item's own box would mislead.
+    defaultColumns: ['title', 'type', 'priceNGN', '_status'],
   },
   access: publishedOrStaffAccess,
   versions: { drafts: true, maxPerDoc: 50 },

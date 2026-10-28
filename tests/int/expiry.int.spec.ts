@@ -1,8 +1,10 @@
-import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
+import { _internal_jobSystemGlobals, _internal_resetJobSystemGlobals, createLocalReq, type Payload, type PayloadRequest } from 'payload'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { Order } from '@/payload-types'
 import { setShopClients } from '@/shop/clients'
-import { expireOrder, removeExpiredDetails } from '@/shop/expiry'
+import { EXPIRY_RETRIES, expireOrder, removeExpiredDetails } from '@/shop/expiry'
+import { expireOrderTask } from '@/shop/jobs'
 import { serverUpdate } from '@/shop/orders'
 
 import { getTestPayload } from '../helpers/payload'
@@ -93,6 +95,49 @@ describe('expireOrder', () => {
     await payload.jobs.runByID({ id: job.id })
     expect((await payload.findByID({ collection: 'orders', id: order.id })).status).toBe('expired')
   })
+
+  it('waits 5 minutes between tries through the job runner while Paystack is down, and expires the order on the last', async () => {
+    paystack.failVerify = true
+    const order = await createOrder(payload)
+    const job = await payload.jobs.queue({ task: 'expireOrder', input: { orderId: order.id }, waitUntil: new Date(Date.now() - 1000) })
+    // Each failed try is logged at error level by Payload's runner, and the last one warns.
+    vi.spyOn(payload.logger, 'error').mockImplementation(() => undefined)
+    vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
+    // payload.jobs.run (unlike runByID) skips a job whose waitUntil is still ahead.
+    const run = () => payload.jobs.run({ where: { id: { equals: job.id } }, silent: true })
+    const stored = () => payload.findByID({ collection: 'payload-jobs', id: job.id, depth: 0 })
+    const status = async () => (await payload.findByID({ collection: 'orders', id: order.id })).status
+    try {
+      for (let tries = 1; tries <= EXPIRY_RETRIES; tries += 1) {
+        const before = _internal_jobSystemGlobals.getCurrentDate()
+        await run()
+        const after = await stored()
+        expect(after.totalTried).toBe(tries)
+        expect(Date.parse(after.waitUntil as string) - before.getTime()).toBeGreaterThanOrEqual(5 * 60_000)
+        expect(await status()).toBe('awaiting-payment')
+
+        await run()
+        expect((await stored()).totalTried).toBe(tries)
+        // Past the wait, as if 5 minutes had gone by.
+        const due = Date.parse(after.waitUntil as string) + 1000
+        _internal_jobSystemGlobals.getCurrentDate = () => new Date(due)
+      }
+      await run()
+    } finally {
+      _internal_resetJobSystemGlobals()
+      vi.restoreAllMocks()
+    }
+    expect(await status()).toBe('expired')
+    // A job that finishes is deleted, as Payload does by default.
+    expect((await payload.find({ collection: 'payload-jobs', where: { id: { equals: job.id } }, depth: 0 })).docs).toHaveLength(0)
+  })
+
+  it("gives the expiry's result as the job's output", async () => {
+    const order = await createOrder(payload)
+    const handler = expireOrderTask.handler as (args: { input: { orderId: number }; job: { totalTried: number }; req: PayloadRequest }) => Promise<unknown>
+    expect(await handler({ input: { orderId: order.id }, job: { totalTried: 0 }, req })).toEqual({ output: { result: 'expired' } })
+    expect(await handler({ input: { orderId: order.id }, job: { totalTried: 0 }, req })).toEqual({ output: { result: 'unchanged' } })
+  })
 })
 
 describe('removeExpiredDetails', () => {
@@ -140,6 +185,46 @@ describe('removeExpiredDetails', () => {
     expect(stored.status).toBe('paid')
     expect(stored.customerName).toBe('Ada Obi')
     expect(stored.detailsRemovedAt).toBeFalsy()
+  })
+
+  it('cleans the other orders when one fails, then reports the failure', async () => {
+    const orders = [await createOrder(payload, { status: 'expired', expiresAt: daysAgo(33) }), await createOrder(payload, { status: 'expired', expiresAt: daysAgo(32) })]
+    const ids = orders.map((order) => order.id)
+    const realUpdate = payload.update.bind(payload)
+    let failedId: number | null = null
+    // The first of the two to be cleaned fails, whichever order the candidates come in.
+    vi.spyOn(payload, 'update').mockImplementation(((args: { collection: string; id?: number }) => {
+      if (args.collection === 'orders' && ids.includes(args.id as number) && (failedId === null || failedId === args.id)) {
+        failedId = args.id as number
+        return Promise.reject(new Error('The database dropped the write (test).'))
+      }
+      return realUpdate(args as never)
+    }) as never)
+    const error = vi.spyOn(payload.logger, 'error').mockImplementation(() => undefined)
+    try {
+      await expect(removeExpiredDetails(req)).rejects.toThrow(/^Customer details could not be removed from NS-\d+\. The next daily run tries again\.$/)
+    } finally {
+      vi.restoreAllMocks()
+    }
+    const failed = orders.find((order) => order.id === failedId) as Order
+    const other = orders.find((order) => order.id !== failedId) as Order
+    expect(JSON.stringify(error.mock.calls)).toContain(failed.orderNumber)
+    expect((await payload.findByID({ collection: 'orders', id: failed.id })).customerName).toBe('Ada Obi')
+    const cleaned = await payload.findByID({ collection: 'orders', id: other.id })
+    expect(cleaned.customerName).toBeNull()
+    expect(cleaned.detailsRemovedAt).toBeTruthy()
+  })
+
+  it('looks at no more than 200 orders a run', async () => {
+    const find = vi.spyOn(payload, 'find')
+    try {
+      await removeExpiredDetails(req)
+      // Only the two fields are compared: a failed match would print the whole request.
+      const [{ collection, limit }] = find.mock.calls[0] as [{ collection: string; limit?: number }]
+      expect({ collection, limit }).toEqual({ collection: 'orders', limit: 200 })
+    } finally {
+      find.mockRestore()
+    }
   })
 
   it('is scheduled to run every day', () => {

@@ -107,6 +107,7 @@ When every check is settled, this section is cut down to the facts found, and th
 - **Delete:** nobody, whatever the status.
 - **Read and update:** admins and shop staff.
 - **What staff can change:** the status, by hand, for when a webhook goes missing (each change is written to the order's history with the staff member's name); staff notes; and the customer's phone and address, but only while the order is Paid and no courier is booked, so a phoned-in correction can go out. Every other field is read-only in the admin and refused through the API.
+- **Built, added to the above:** while a booking claim (7.1) still holds the order (started less than 5 minutes ago and not finished), a phone or address change is refused with "A booking is in progress. Wait for it to finish, then change the address." (or "...change the phone number.", or "...change the phone number and address." when both changed), so a booking goes out to the address it was claimed with, apart from the millisecond window in the known limits of section 10. A changed phone must pass checkout's rule (6.4) and is stored as `+234...`; a postcode must be six digits or empty. Checkout and the order screen share these rules and their messages.
 - Orders sit in the "Shop and services" admin group, with the list showing number, status, customer, total and date, newest first, and a status filter. Paid orders are the packing queue.
 
 ### 4.4 Stock page
@@ -133,7 +134,7 @@ Desktop                                      Mobile (staff packing on a phone)
   2. If a draft was newer than the published version, save that draft again (as a draft) with the same In stock value. It becomes the newest version again, so the editor finds their work where they left it.
   
   Both steps go through Payload's normal update, so hooks, validation and version history all apply. A test proves both before the page is built.
-- **Built:** a switch runs inside `withRowLock` (6.5) on the book or merch row, so two switches on one item at the same moment both stick. An item with a single size reads "One size". While one switch of an item is saving, every switch of that item is disabled.
+- **Built:** a switch runs inside `withRowLock` (6.5) on the book or merch row, so two switches on one item at the same moment both stick. An item with a single size reads "One size". While one switch of an item is saving, every switch of that item is disabled until that item's own save finishes; saves on other items do not hold it up.
 - Shop staff never open the book or merch edit screens.
 
 ## 5. Data
@@ -176,7 +177,7 @@ Merch gets an optional `options` array, built like a book's formats: `name`\* an
 
 ### 5.4 Webhook events (`webhook-events`)
 
-A hidden list of `key` (unique) and `receivedAt`. Terminal can send the same event twice, so each applied Terminal event is recorded under the key `terminal:<event id, or the sha256 of the raw body when it has none>:<order id>`, in the same transaction as the order change it guards, and a repeat is acknowledged and ignored. Because the row and the change commit or roll back together, a failed apply leaves no row and Terminal's retry finishes the job. Paystack's events have no id, so a repeated Paystack notice is made harmless by 6.5 instead.
+A hidden list of `key` (unique) and `receivedAt`. Terminal can send the same event twice, so each applied Terminal event is recorded under the key `terminal:<event id, or body:<sha256 of the raw body>>:<order id>` (for an event without an id the code writes `terminal:body:<sha256>:<orderId>`), in the same transaction as the order change it guards, and a repeat is acknowledged and ignored. Only `event_id` counts as an event id. A top-level `id` is not used: nothing says it is unique per event, and a shared one would make every later event for the order look like a repeat. Because the row and the change commit or roll back together, a failed apply leaves no row and Terminal's retry finishes the job. Paystack's events have no id, so a repeated Paystack notice is made harmless by 6.5 instead.
 
 ### 5.5 Deleting products
 
@@ -230,8 +231,9 @@ Each quote carries a stamp: an HMAC (a tamper-proof signature made with a secret
 ### 6.4 Checkout: `POST /api/shop/checkout`
 
 - **Takes:** the customer (`name`, `email`, `phone`), the address (`line1`, `line2`, `city`, `state`, `postcode`), the cart, the chosen quote's stamp, and the honeypot field.
-- **Checks:** every book is published, has `sellInShop` ticked, and the format exists and is in stock. Every merch item is published, and the option exists and is in stock (or the item is, when it has no options). Quantities are 1 to 10 per line, with at most 20 lines. The email passes B1's email check. The phone is a Nigerian number (`0` and 10 digits, or `+234` and 10 digits, the first digit after the `0` or `+234` not being zero), stored as `+234...`. A stamp longer than 2048 characters is refused before any hashing.
+- **Checks:** every book is published, has `sellInShop` ticked, and the format exists and is in stock. Every merch item is published, and the option exists and is in stock (or the item is, when it has no options). Quantities are 1 to 10 per line, with at most 20 lines. The email passes B1's email check. The phone is a Nigerian number (`0` and 10 digits, or `+234` and 10 digits, the first digit after the `0` or `+234` not being zero), stored as `+234...`. A stamp longer than 2048 characters is refused before any hashing. An address line 2 over 200 characters gets its own message, "Address line 2 is too long."
 - **Prices** come from the database. Items total + the stamped delivery price = the order total. A single pricing function does this, with a place for B3's member discount on books.
+- **Carried over to B3:** `priceOrder`'s `booksDiscountPercent` is not checked today, because nothing passes it. Clamp it to 0 to 100 before B3 uses it, so a bad setting can never make a book's price negative or raise it.
 - **Honeypot:** as in B1, a bot that fills the hidden field gets a normal-looking answer with a made-up reference. Nothing is saved, and Paystack is never called.
 - The order is created as Awaiting payment, with a random reference, and Paystack is asked to start the payment: the email, the total in kobo, the reference, the return address `<site>/checkout/complete` and the order id in its metadata. The order is only kept if Paystack accepts. Otherwise the customer is told to try again.
 - The expiry job is queued for `expiresAt` (6.7) inside the same transaction as the order, before Paystack is asked, so an order is never kept without its expiry.
@@ -252,6 +254,7 @@ One function, used by the Paystack webhook, the return-page lookup and the expir
 ### 6.6 Paystack's webhook: `POST /api/paystack/webhook`
 
 - The `x-paystack-signature` header must be the HMAC-SHA512 of the raw request body, made with the Paystack secret key. Anything else is refused (401) and nothing is done.
+- **Built:** the key is read by the same rule as the clients' keys (12.1): trimmed, so a key saved with a line break after it still works, and refused when a line break or space is left inside it. A missing or unusable key is logged at error level, by its name only, and every webhook is answered 401 until it is fixed.
 - Only `charge.success` is acted on, through 6.5. Other events are acknowledged and ignored.
 - A notice for a reference no order has is acknowledged and logged, so Paystack doesn't keep sending it.
 - Paystack's webhook address is set in its dashboard by hand, once per mode (test and live).
@@ -260,10 +263,11 @@ One function, used by the Paystack webhook, the return-page lookup and the expir
 
 - **`GET /api/shop/orders/:reference`** backs the page the customer comes back to. If the order is still Awaiting payment, it runs 6.5 first, at most once every 10 seconds per order (`lastCheckedAt`; the due-for-a-check test and the `lastCheckedAt` write both run inside the order's lock). It gives the order number, status, `paidLate`, items, totals, the courier and estimate, and the city and state. It gives no street address, phone or email, because the reference sits in a web address that can be shared.
 - **Expiry:** checkout queues an `expireOrder` job to run at `expiresAt`. The job asks Paystack once through 6.5. If the order still isn't paid, Awaiting payment becomes Expired; the job re-reads the order under the lock before expiring it. If Paystack can't be reached, the job retries, and on its last try it presses on and expires the order anyway (only a Paystack outage is tolerated that way; any other error is rethrown); a payment found later still marks it Paid.
+- **Built:** the job tries 3 times in all (`EXPIRY_RETRIES` is 2), 5 minutes apart (Payload's fixed retry backoff), so a short Paystack outage has usually passed before the order is expired anyway. The job's output is the result: `paid`, `expired` or `unchanged`.
 
 ### 6.8 Removing customer details from dead orders
 
-A daily job finds orders that have been Expired for more than 30 days and still hold customer details. It empties the name, email, phone and street address lines, keeps the city, state, items and totals, sets `detailsRemovedAt`, and adds a history entry. Each order is cleaned under its lock on a fresh read, so an order paid late in the meantime keeps its details. Nigeria's Data Protection Act 2023 expects personal data to be kept no longer than its purpose needs, and an unpaid order has none left. Paid orders keep everything, as the record of money taken.
+A daily job finds orders that have been Expired for more than 30 days and still hold customer details. It empties the name, email, phone and street address lines, keeps the city, state, items and totals, sets `detailsRemovedAt`, and adds a history entry. Each order is cleaned under its lock on a fresh read, so an order paid late in the meantime keeps its details. **Built:** a run looks at no more than 200 orders, the longest expired first, and the next day's run picks up any left over. One order that fails is logged at error level with its order number and the others carry on; once they are done, the run fails with one error naming every order that failed, so the job still shows the failure. Nigeria's Data Protection Act 2023 expects personal data to be kept no longer than its purpose needs, and an unpaid order has none left. Paid orders keep everything, as the record of money taken.
 
 ## 7. Fulfilment
 
@@ -297,12 +301,16 @@ Desktop: order screen, panel in the sidebar     Mobile: the panel stacks below t
   - When Terminal cannot confirm a booking (no answer, a timeout, a 5xx, an unreadable reply, or no shipment id: `TerminalOutcomeUnknown`), the claim is kept rather than released and staff are told to check Terminal's dashboard. The panel shows the held claim and disables Book for up to 5 minutes.
   - A successful booking is recorded under the order's lock (6.5), and the tracking email is queued in the same transaction.
   - When courier booking is not configured (a missing key or a settings failure), the panel says "Courier booking is not set up on this server" rather than blaming Terminal. For an order that is not Paid, the panel's message depends on the status.
+  - After a booking goes through, Book stays busy until the page has reloaded. A 409 answer fetches the panel again by itself. Each 409 carries a `reason` in its body (`errors[0].data.reason`), and the panel goes by that, not by the wording. For `stale-prices` (the order changed since the prices were fetched) it says "The order changed. The prices have been reloaded; pick again." For `held` (another booking holds the order) and `already-booked` it shows the server's own message.
+  - When Terminal refuses the booking call, the panel shows "Terminal refused the booking." followed by Terminal's own message, and the claim is released. A rate Terminal gives with no ID or no price is refused before booking, as quotes are.
+  - Staff never see raw error codes or HTTP statuses. When Terminal cannot be reached at all (the network fails or times out, or a call that changes nothing, such as quotes, a rate or the wallet, gets a 5xx answer: `TerminalUnreachable`), the panel says "Couldn't reach Terminal. Try again in a minute.", whether it was fetching prices or about to book. When Terminal answers but cannot give prices, it says "Terminal couldn't give prices for this order:" followed by Terminal's own message (used only when it is a non-empty string; anything else counts as no message). A 5xx on the booking call itself is not this case: it stays unconfirmed (`TerminalOutcomeUnknown`). The error's name and cause code go to the warn log only. Paystack's outage label never reaches a customer either: checkout says "The payment could not be started. Please try again in a moment.", and the return page only logs a failed check.
+  - The database's clock judges the claim's age when claiming, the same clock that stamps it. The order screen and the panel's held-claim notice use the app server's clock instead; on managed hosts the two differ by seconds, which only moves the 5-minute edge slightly.
 - Once booked, the panel shows the carrier, tracking number, tracking link and label to print.
 - A booking cancelled in Terminal's dashboard comes back by webhook (7.2), so the admin has no cancel button.
 
 ### 7.2 Terminal's webhook: `POST /api/terminal/webhook`
 
-- The `X-Terminal-Signature` header must be the HMAC-SHA512 of the raw body, made with the Terminal secret key. Anything else is refused (401).
+- The `X-Terminal-Signature` header must be the HMAC-SHA512 of the raw body, made with the Terminal secret key. Anything else is refused (401). The key is read as in 6.6: trimmed, refused with a line break or space inside it, and a missing or unusable key is logged by name and answers 401.
 - The order is found by its shipment id, and a repeated event is acknowledged and ignored (5.4). An event for an unknown shipment is acknowledged and logged.
 
 | Event | Effect |
@@ -317,10 +325,10 @@ Desktop: order screen, panel in the sidebar     Mobile: the panel stacks below t
 
 - The webhook address is registered once per environment by a small script in the repository (`POST /v1/webhooks`, taking `name`, `active`, `events`, `live` and `url`).
 - **Built, following Terminal's documented shapes (commit 4b06b23):**
-  - Only pickup events carry `event_id`. Other events are recognised as repeats by a sha256 of the raw body.
+  - Only pickup events carry `event_id`. Other events are recognised as repeats by a sha256 of the raw body. A top-level `id` is never read as the event id (5.4).
   - The shipment id sits in `data.shipment_id` (shipment and reconciliation events), `data.shipment` (transaction events) and the `data.shipment_ids` array (pickup events). A pickup naming several shipments is applied to every matching order.
-  - Each event is applied under the order's lock, with the event recorded per order (`terminal:<event id or body hash>:<order id>`) in the same transaction, and the shipment id re-checked inside the lock. A failed apply is therefore retried by Terminal, and a stale cancellation cannot clear a newer booking.
-  - Heavier-parcel alerts read `exception_charge`. The cancellation history note gives the courier, cost, who booked and when.
+  - Each event is applied under the order's lock, with the event recorded per order (`terminal:<event id, or body:<sha256 of the raw body>>:<order id>`, 5.4) in the same transaction, and the shipment id re-checked inside the lock. A failed apply is therefore retried by Terminal, and a stale cancellation cannot clear a newer booking.
+  - Heavier-parcel alerts read `exception_charge`. The cancellation history note gives the courier, cost, who booked and when (in Lagos time). A booking date that cannot be read is left out of the note, and the cancellation still applies.
 
 ### 7.3 Statuses
 
@@ -365,8 +373,8 @@ If `orderAlertEmail` is empty, the alert is logged as a warning and not sent. Tw
 
 | Task | Runs | Does |
 |---|---|---|
-| `expireOrder` | Once per order, at `expiresAt` | 6.7 |
-| `removeExpiredDetails` | Daily | 6.8 |
+| `expireOrder` | Once per order, at `expiresAt`, with up to 2 retries 5 minutes apart | 6.7 |
+| `removeExpiredDetails` | Daily, at most 200 orders a run | 6.8 |
 | `sendShopEmail` | Whenever queued | Section 8 |
 
 These join B1's queue (B1 spec 5.7). In production Vercel Cron calls `/api/payload-jobs/run` every minute. In Payload 3.90.2 that endpoint also queues scheduled tasks unless told not to (checked in its source, 27 October 2026), so the daily task needs no cron of its own.
@@ -376,8 +384,14 @@ These join B1's queue (B1 spec 5.7). In production Vercel Cron calls `/api/paylo
 | Situation | Result |
 |---|---|
 | Terminal down, slow or empty at checkout | The flat price for the state |
-| Terminal cannot be reached when the panel opens | The panel says "Couldn't reach Terminal, try again". Nothing changes |
-| Terminal fails before the booking (price or wallet) | "Couldn't get Terminal's price or wallet". The claim is released and nothing changes |
+| Terminal cannot be reached when the panel opens (or answers 5xx to prices or the wallet) | The panel says "Couldn't reach Terminal. Try again in a minute." Nothing changes |
+| Terminal answers the panel but gives no prices | The panel says "Terminal couldn't give prices for this order:" and Terminal's message. Nothing changes |
+| Terminal cannot be reached before the booking (price or wallet) | "Couldn't reach Terminal. Try again in a minute." The claim is released and nothing changes |
+| Terminal refuses the price or wallet check before the booking | "Couldn't get Terminal's price or wallet:" and Terminal's message. The claim is released and nothing changes |
+| Terminal refuses the booking call | Terminal's message is shown, the claim is released and nothing changes |
+| A 409 on booking: another booking holds the order | The panel shows "Another booking holds this order for up to 5 minutes. Wait a few minutes, then try again." and fetches itself again, showing the held claim |
+| A 409 on booking: a courier is already booked | The panel shows "A courier is already booked for this order." and fetches itself again |
+| A 409 on booking: the order changed since the prices were fetched | The panel shows "The order changed. The prices have been reloaded; pick again." (the server message is "The order changed since these prices were fetched. Reload the page and pick again.") |
 | Terminal does not confirm the booking | The claim is kept, the order is held for 5 minutes and staff are told to check Terminal's dashboard before booking again |
 | Paystack can't start the payment | No order is kept. The customer is asked to try again |
 | A webhook signature is wrong | Refused (401). Nothing done |
@@ -386,12 +400,19 @@ These join B1's queue (B1 spec 5.7). In production Vercel Cron calls `/api/paylo
 | The last copy sold twice | Both orders Paid. Staff refund one in Paystack and mark it Refunded |
 | A payment lands after expiry | Paid, with `paidLate` ticked and noted in the staff alert |
 | An email fails | Retried by the job queue |
+| A webhook key is missing, or has a line break or space inside it | Every webhook is refused (401) and the key's name is logged as an error. The production check reports it too |
+| One order's details cannot be removed | Logged, the other orders are cleaned, and the run fails naming it. The next day's run tries again |
 
 Known limits of the build:
 
 - An editor who has a book open in the edit screen can undo a stock switch by saving the stale form, because the admin does not refresh it.
 - A Terminal webhook that arrives before its booking is recorded is acknowledged as an unknown shipment.
 - Pickup `data.version` ordering is not used yet, and `pickup.cancelled` is assumed to mean the booking is gone. Both are checked in Task 16.
+- A staff save in the admin that lands at the moment of a webhook can lose that webhook's history entry. Admin saves do not take the row lock; the stale-form check ("This order changed while it was open") catches the common case, a form opened before the webhook arrived.
+- An editor's draft saved in the instant a stock switch re-saves that draft (4.4) is overwritten by the switch's copy.
+- If Terminal books a parcel but recording it fails, staff cannot attach the booking in the admin, and its webhooks arrive as unknown shipments. Cancel the booking in Terminal's dashboard and book again once the claim has lapsed.
+- A staff address save whose check runs in the instant before a booking claim can still commit after the booking has read the order (a window of milliseconds). The booking then goes to the address it read.
+- The B2 migration's `down()` fails once a shop staff account or B2 job rows exist.
 
 ## 11. Testing and verification
 
@@ -449,9 +470,9 @@ This is also where webhook delivery and retries get checked.
 | `TERMINAL_BASE_URL` | `https://sandbox.terminal.africa/v1` in development, `https://api.terminal.africa/v1` in production |
 | `QUOTE_STAMP_SECRET` | At least 32 random characters |
 
-The clients are built on demand per service, so a missing Paystack key does not disable Terminal features, and the reverse. A key must be printable characters with no spaces or line breaks; a malformed key is refused without being printed.
+The clients are built on demand per service, so a missing Paystack key does not disable Terminal features, and the reverse. A key must be printable characters with no spaces or line breaks; a malformed key is refused without being printed. Spaces and line breaks around a key are trimmed everywhere it is read, the webhooks (6.6, 7.2) and the registration script included.
 
-The spike's `PAYSTACK_SECRET_TEST_KEY` and `TERMINAL_SECRET_TEST_KEY` in `.env` are renamed to these. B1's production settings check (B1 spec section 11) also reports each of these when missing, and reports a Paystack test key (`sk_test_`) or Terminal's sandbox address set in production.
+The spike's `PAYSTACK_SECRET_TEST_KEY` and `TERMINAL_SECRET_TEST_KEY` in `.env` are renamed to these. B1's production settings check (B1 spec section 11) also reports each of these when missing, and reports a Paystack test key (`sk_test_`) or Terminal's sandbox address set in production, and a Paystack or Terminal key that still holds a line break or space once trimmed. Spaces or line breaks around a key are not reported, since they are trimmed.
 
 ### 12.2 Before launch (added to the B1 spec's section 11)
 
@@ -463,7 +484,9 @@ The spike's `PAYSTACK_SECRET_TEST_KEY` and `TERMINAL_SECRET_TEST_KEY` in `.env` 
 - [ ] Real weights on every book format and merch item.
 - [ ] Rate limits: the shop's public endpoints (`/api/shop/quotes`, `/api/shop/checkout`, `/api/shop/orders/:reference`) join the open rate-limit decision. Each checkout calls Paystack and each quote calls Terminal.
 - [ ] One real order for a small amount after the first deploy, booked and then refunded.
-- [ ] Size Supabase's pooler with the row locks in mind: each request waiting on a lock holds a pooled connection.
+- [ ] Size Supabase's pooler with the row locks in mind: each request waiting on a lock holds a pooled connection, and checkout also holds one connection while Paystack starts the payment (up to 10 seconds).
+- [ ] Review Shop settings after the B2 migration: the everywhere-else price (filled from the highest flat price, or ₦5,000), any area with no states, and the pickup state (empty if the old text could not be matched).
+- [ ] Frontend: product pages refresh when stock or prices change (no revalidate hooks exist yet).
 - [ ] `webhook_events` gains one row per applied Terminal event and nothing prunes it. Decide a retention.
 - [ ] Add a staff alert or a check for jobs that finally fail. An expiry or email job that gives up shows only in Payload's logs.
 

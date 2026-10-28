@@ -12,7 +12,7 @@ import { formatNaira, toKobo, toNaira } from '@/shop/money'
 import { findOrder, serverUpdate } from '@/shop/orders'
 import { parcelFor } from '@/shop/quotes'
 import { readShopSettings, type ShopSettingsData } from '@/shop/settings'
-import { type QuoteRequest, TerminalError, TerminalOutcomeUnknown } from '@/shop/terminal'
+import { type QuoteRequest, TerminalError, TerminalOutcomeUnknown, TerminalUnreachable } from '@/shop/terminal'
 
 export type CourierOption = { rateId: string; carrierName: string; carrierSlug: string; estimate: string; priceKobo: number; isCustomerChoice: boolean }
 
@@ -84,7 +84,11 @@ export function orderFingerprint(order: Order): string {
   return createHash('sha256').update(JSON.stringify(details)).digest('hex').slice(0, 24)
 }
 
-const reasonOf = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error')
+/** What staff are shown when Terminal could not be reached. The error's name and code go to the log only. */
+export const TERMINAL_UNREACHABLE = "Couldn't reach Terminal. Try again in a minute."
+
+/** Terminal's own words when it answered with them, otherwise the error's plain message. */
+const terminalWords = (error: TerminalError) => error.terminalMessage ?? error.message
 
 /**
  * What the Book courier panel shows. Terminal doesn't say how long a quote stays bookable, so
@@ -128,7 +132,10 @@ export async function courierOptions(req: PayloadRequest, orderId: number): Prom
   } catch (error) {
     if (error instanceof TerminalError) {
       req.payload.logger.warn({ err: error, msg: `Courier prices for ${order.orderNumber} could not be fetched.` })
-      return { ...base, terminalError: `Couldn't reach Terminal, try again. (${reasonOf(error)})` }
+      return {
+        ...base,
+        terminalError: error instanceof TerminalUnreachable ? TERMINAL_UNREACHABLE : `Terminal couldn't give prices for this order: ${terminalWords(error)}`,
+      }
     }
     // A missing key, bad settings or a database fault: the details are for the log, not the panel.
     req.payload.logger.error({ err: error, msg: `Courier prices for ${order.orderNumber} could not be fetched: courier booking is not set up.` })
@@ -149,10 +156,10 @@ export async function bookCourier(req: PayloadRequest, orderId: number, rateId: 
   const order = await findOrder(req, orderId)
   if (!order) throw new Refusal('That order no longer exists.', 404)
   if (order.status !== 'paid') throw new Refusal('Only a Paid order can be booked.')
-  if (order.shipment?.terminalShipmentId) throw new Refusal('A courier is already booked for this order.', 409)
+  if (order.shipment?.terminalShipmentId) throw new Refusal('A courier is already booked for this order.', 409, { reason: 'already-booked' })
   if (!order.address?.postcode) throw new Refusal("Add the customer's postcode to the address first. Couriers need it.")
-  if (fingerprint !== orderFingerprint(order)) throw new Refusal('The order changed since these prices were fetched. Reload the panel and pick again.', 409)
-  if (!(await claimBooking(req, order.id))) throw new Refusal('This order is held by another booking for up to 5 minutes. Reload the panel to see why.', 409)
+  if (fingerprint !== orderFingerprint(order)) throw new Refusal('The order changed since these prices were fetched. Reload the page and pick again.', 409, { reason: 'stale-prices' })
+  if (!(await claimBooking(req, order.id))) throw new Refusal('Another booking holds this order for up to 5 minutes. Wait a few minutes, then try again.', 409, { reason: 'held' })
 
   let booking: Awaited<ReturnType<ReturnType<typeof shopClients>['terminal']['book']>>
   let stage: 'preparing' | 'booking' = 'preparing'
@@ -179,7 +186,16 @@ export async function bookCourier(req: PayloadRequest, orderId: number, rateId: 
     }
     await releaseBooking(req, order.id)
     if (error instanceof TerminalError) {
-      throw new Refusal(stage === 'booking' ? `Terminal refused the booking: ${error.message}` : `Couldn't get Terminal's price or wallet: ${error.message}`, 502)
+      // The error's name and cause code are for the log; staff get plain words.
+      req.payload.logger.warn({ err: error, msg: `Courier booking for ${order.orderNumber} stopped before anything was booked.` })
+      throw new Refusal(
+        error instanceof TerminalUnreachable
+          ? TERMINAL_UNREACHABLE
+          : stage === 'booking'
+            ? `Terminal refused the booking. ${terminalWords(error)}`
+            : `Couldn't get Terminal's price or wallet: ${terminalWords(error)}`,
+        502,
+      )
     }
     throw error
   }

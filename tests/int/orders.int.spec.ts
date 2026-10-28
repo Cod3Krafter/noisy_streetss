@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import type { User } from '@/payload-types'
 import { SHOP_SERVER } from '@/shop/context'
 
-import { createImage, createStaff, createWriter, expectFieldError, getTestPayload, rest } from '../helpers/payload'
+import { createImage, createStaff, createWriter, expectFieldError, getTestPayload, rest, tokenFor } from '../helpers/payload'
 import { createOrder } from '../helpers/shop'
 
 let payload: Payload
@@ -209,17 +209,80 @@ describe('orders', () => {
       'customerPhone',
       /only be changed while the order is Paid/,
     )
+    // Shown under the first field that really changed: an empty line 2 sent back for none is not a change.
     await expectFieldError(
       payload.update({
         collection: 'orders',
         id: order.id,
-        data: { address: { ...order.address, line1: '9 Allen Avenue' } },
+        data: { address: { ...order.address, line2: '', city: 'Lekki', postcode: '101245' } },
         overrideAccess: false,
         user: shop,
       }),
-      'address',
-      /only be changed while the order is Paid/,
+      'address.city',
+      /^The phone and address can only be changed while the order is Paid and no courier is booked\.$/,
     )
+  })
+
+  it('refuse a phone or address change while a booking is in progress, and allow it once the claim has lapsed', async () => {
+    const held = await createOrder(payload, { status: 'paid', shipment: { bookingStartedAt: new Date(Date.now() - 60_000).toISOString() } })
+    const refusals: [Record<string, unknown>, string, string][] = [
+      [{ customerPhone: '+2348000000007' }, 'customerPhone', 'phone number'],
+      [{ address: { ...held.address, line2: 'Flat 2' } }, 'address.line2', 'address'],
+      [{ customerPhone: '+2348000000007', address: { ...held.address, line2: 'Flat 2' } }, 'customerPhone', 'phone number and address'],
+    ]
+    for (const [data, path, what] of refusals) {
+      await expectFieldError(
+        payload.update({ collection: 'orders', id: held.id, data, overrideAccess: false, user: shop }),
+        path,
+        new RegExp(String.raw`^A booking is in progress\. Wait for it to finish, then change the ${what}\.$`),
+      )
+    }
+    const lapsed = await createOrder(payload, { status: 'paid', shipment: { bookingStartedAt: new Date(Date.now() - 6 * 60_000).toISOString() } })
+    const moved = await payload.update({
+      collection: 'orders',
+      id: lapsed.id,
+      data: { address: { ...lapsed.address, line1: '11 Allen Avenue' } },
+      overrideAccess: false,
+      user: shop,
+    })
+    expect(moved.address?.line1).toBe('11 Allen Avenue')
+  })
+
+  it('check a changed phone number by the checkout rule, and store it as +234', async () => {
+    const order = await createOrder(payload, { status: 'paid' })
+    for (const customerPhone of ['+44 7700 900123', '0803', '']) {
+      await expectFieldError(
+        payload.update({ collection: 'orders', id: order.id, data: { customerPhone }, overrideAccess: false, user: shop }),
+        'customerPhone',
+        /^Enter a Nigerian phone number, such as 0803 123 4567\.$/,
+      )
+    }
+    const updated = await payload.update({ collection: 'orders', id: order.id, data: { customerPhone: '0805 111 2222' }, overrideAccess: false, user: shop })
+    expect(updated.customerPhone).toBe('+2348051112222')
+  })
+
+  it('refuse a postcode that is not six digits, and allow an empty one', async () => {
+    const order = await createOrder(payload, { status: 'paid' })
+    for (const postcode of ['1234', '10027a', '1002711']) {
+      await expectFieldError(
+        payload.update({ collection: 'orders', id: order.id, data: { address: { ...order.address, postcode } }, overrideAccess: false, user: shop }),
+        'address.postcode',
+        /^A Nigerian postcode has six digits\. Leave it empty if you are not sure\.$/,
+      )
+    }
+    const cleared = await payload.update({ collection: 'orders', id: order.id, data: { address: { ...order.address, postcode: '' } }, overrideAccess: false, user: shop })
+    expect(cleared.address?.postcode || null).toBeNull()
+    const set = await payload.update({ collection: 'orders', id: order.id, data: { address: { ...order.address, postcode: '100001' } }, overrideAccess: false, user: shop })
+    expect(set.address?.postcode).toBe('100001')
+  })
+
+  it('refuse any change by an editor', async () => {
+    const order = await createOrder(payload, { status: 'paid' })
+    await expect(
+      payload.update({ collection: 'orders', id: order.id, data: { staffNotes: 'Editor was here' }, overrideAccess: false, user: editor }),
+    ).rejects.toBeInstanceOf(Forbidden)
+    expect((await rest('PATCH', `/orders/${order.id}`, { token: await tokenFor(payload, editor), body: { staffNotes: 'Editor was here' } })).status).toBe(403)
+    expect((await payload.findByID({ collection: 'orders', id: order.id })).staffNotes ?? null).toBeNull()
   })
 
   it('let an ordered book be deleted, keeping the order line as it was bought', async () => {

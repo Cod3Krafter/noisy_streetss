@@ -1,4 +1,5 @@
 import { toKobo } from '@/shop/money'
+import { networkErrorLabel } from '@/shop/networkError'
 import { terminalStateName } from '@/shop/states'
 
 export const TERMINAL_SANDBOX = 'https://sandbox.terminal.africa/v1'
@@ -6,17 +7,38 @@ const QUOTE_TIMEOUT_MS = 8_000
 const TIMEOUT_MS = 15_000
 
 export class TerminalError extends Error {
-  constructor(message: string) {
+  /** Terminal's own words, when its answer carried a message. */
+  readonly terminalMessage: string | null
+
+  constructor(message: string, terminalMessage: string | null = null) {
     super(message)
     this.name = 'TerminalError'
+    this.terminalMessage = terminalMessage
   }
 }
 
-/** A booking request that got no answer (or an answer without a shipment ID): the parcel may be booked. */
+/**
+ * A booking whose outcome is unknown, so the parcel may be booked: the request failed on the network
+ * (no answer, or a timeout), Terminal answered with a server error (5xx), a success (2xx) answer could
+ * not be read, or the answer gave no shipment ID.
+ */
 export class TerminalOutcomeUnknown extends TerminalError {
   constructor(message: string) {
     super(message)
     this.name = 'TerminalOutcomeUnknown'
+  }
+}
+
+/**
+ * A call that got no usable answer from Terminal: the network failed or it timed out, or Terminal answered
+ * with a server error (5xx). Nothing was refused. Only for calls that change nothing; a booking that gets no answer is
+ * TerminalOutcomeUnknown instead, because it may have gone through. The message names only the
+ * error and its cause code (for the log); staff are shown plain words instead.
+ */
+export class TerminalUnreachable extends TerminalError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TerminalUnreachable'
   }
 }
 
@@ -117,19 +139,22 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
         signal: AbortSignal.timeout(timeoutMs),
       })
     } catch (error) {
-      // Only the error's name: its message can quote the Authorization header, and so the key.
-      const code = (error as { cause?: { code?: unknown } } | null)?.cause?.code
-      const name = `${error instanceof Error ? error.name : 'Error'}${typeof code === 'string' ? `: ${code}` : ''}`
+      // Only the error's name and cause code: its message can quote the Authorization header, and so the key.
+      const name = networkErrorLabel(error)
       if (unconfirmedIfNoAnswer) throw new TerminalOutcomeUnknown(`Terminal did not confirm the booking (${name}). It may have gone through.`)
-      throw new TerminalError(`Terminal could not be reached (${name}).`)
+      throw new TerminalUnreachable(`Terminal could not be reached (${name}).`)
     }
-    const json = (await response.json().catch(() => null)) as { status?: boolean; message?: string; data?: unknown } | null
+    const json = (await response.json().catch(() => null)) as { status?: boolean; message?: unknown; data?: unknown } | null
     // A booking that got a server error, or a success whose body never arrived, may still have been made.
     if (unconfirmedIfNoAnswer && (response.status >= 500 || (response.ok && !json))) {
       throw new TerminalOutcomeUnknown(`Terminal did not confirm the booking (answered ${response.status}). It may have gone through.`)
     }
+    // A server error on a call that changes nothing is an outage like any other: nothing was refused, and asking again is safe.
+    if (response.status >= 500) throw new TerminalUnreachable(`Terminal answered ${response.status}.`)
     if (!response.ok || !json || json.status === false) {
-      throw new TerminalError(json?.message ? `Terminal said: ${json.message}` : `Terminal answered ${response.status}.`)
+      // Terminal's words only when they are a real string; anything else is treated as no message.
+      const said = text(json?.message)
+      throw new TerminalError(said ? `Terminal said: ${said}` : `Terminal answered ${response.status}.`, said)
     }
     return json.data
   }
@@ -152,7 +177,11 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
     },
 
     async getRate(rateId) {
-      return rateFrom((await call('GET', `/rates/${encodeURIComponent(rateId)}`)) as Record<string, unknown>)
+      const rate = rateFrom(((await call('GET', `/rates/${encodeURIComponent(rateId)}`)) ?? {}) as Record<string, unknown>)
+      // The same rule quotes apply: a rate without an ID or a price cannot be booked.
+      if (!rate.rateId) throw new TerminalError('Terminal sent a rate without an ID.')
+      if (rate.amountKobo <= 0) throw new TerminalError('Terminal sent a rate with no price.')
+      return rate
     },
 
     async walletBalance() {

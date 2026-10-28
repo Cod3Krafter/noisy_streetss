@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 
 import type { PayloadRequest } from 'payload'
 
+import { readableDateTime } from '@/jobs/scheduledPublishAlerts'
 import type { Order } from '@/payload-types'
 import { recordEventOnce, withOrderLock } from '@/shop/claims'
 import { queueShopEmail, type ShopEmailKind } from '@/shop/emails'
@@ -20,7 +21,9 @@ const textOf = (value: unknown) => (typeof value === 'string' && value ? value :
 /**
  * The event's id, name and shipment ids, where Terminal's docs put them: shipment and reconciliation
  * events carry data.shipment_id, a transaction carries the id as data.shipment, and a pickup lists
- * data.shipment_ids (possibly several). Only pickup events document an event_id.
+ * data.shipment_ids (possibly several). Only pickup events document an event_id. A top-level `id` is
+ * never used: nothing says it is unique per event, and if it were not, every later event for the
+ * order would look like a repeat and be dropped. Without an event_id the body hash is used instead.
  */
 export function readTerminalEvent(body: unknown): { eventId: string | null; event: TerminalEvent } {
   const raw = objectOf(body)
@@ -32,7 +35,7 @@ export function readTerminalEvent(body: unknown): { eventId: string | null; even
     ...(Array.isArray(data.shipment_ids) ? data.shipment_ids.map(textOf) : []),
   ].filter((id): id is string => id !== null)
   return {
-    eventId: textOf(raw.event_id) ?? textOf(raw.id),
+    eventId: textOf(raw.event_id),
     event: { type: textOf(raw.event) ?? textOf(raw.type) ?? '', shipmentIds: [...new Set(ids)], data },
   }
 }
@@ -66,14 +69,12 @@ function alertDetails(event: TerminalEvent): string | null {
   return typeof amount === 'number' ? `Amount claimed: ${formatNaira(toKobo(amount))}.` : null
 }
 
+/** The cancelled booking's details for its history note. A booking date that cannot be read is left out, never thrown over. */
 function bookingNote(shipment: Order['shipment']): string {
   const cost = typeof shipment?.courierCostNGN === 'number' ? formatNaira(toKobo(shipment.courierCostNGN)) : 'cost unknown'
-  const when = shipment?.bookedAt
-    ? new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Lagos' })
-        .formatToParts(new Date(shipment.bookedAt))
-        .reduce<Record<string, string>>((parts, part) => ({ ...parts, [part.type]: part.value }), {})
-    : null
-  const booked = `booked by ${shipment?.bookedBy ?? 'unknown'}${when ? ` on ${when.day} ${when.month} ${when.year}` : ''}`
+  const bookedAt = shipment?.bookedAt
+  const when = bookedAt && !Number.isNaN(Date.parse(bookedAt)) ? readableDateTime(bookedAt) : null
+  const booked = `booked by ${shipment?.bookedBy ?? 'unknown'}${when ? ` on ${when}` : ''}`
   return `Booking cancelled in Terminal (was ${shipment?.carrierName ?? 'a courier'}, ${cost}, ${booked}, shipment ${shipment?.terminalShipmentId}, tracking ${shipment?.trackingNumber ?? 'none'})`
 }
 

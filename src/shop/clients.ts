@@ -1,3 +1,4 @@
+import { isPrintableKey } from '@/shop/keys'
 import { createPaystackClient, type PaystackClient } from '@/shop/paystack'
 import { createTerminalClient, TERMINAL_SANDBOX, type TerminalClient } from '@/shop/terminal'
 
@@ -10,12 +11,31 @@ export function setShopClients(clients: ShopClients | null): void {
   replacement = clients
 }
 
-function setting(name: string): string {
+type KeyName = 'PAYSTACK_SECRET_KEY' | 'TERMINAL_SECRET_KEY'
+
+/** The key, trimmed, or what is wrong with it. The problem names the setting, never its value. */
+function readKey(name: KeyName): { key: string; problem: null } | { key: null; problem: string } {
   const value = process.env[name]?.trim()
-  if (!value) throw new Error(`${name} is not set.`)
-  // A line break or space inside a key breaks the header, and the error would quote the key.
-  if (!/^[\x21-\x7e]+$/.test(value)) throw new Error(`${name} has characters a key cannot contain, such as a line break. Paste it again.`)
-  return value
+  if (!value) return { key: null, problem: `${name} is not set.` }
+  if (!isPrintableKey(value)) return { key: null, problem: `${name} has characters a key cannot contain, such as a line break. Paste it again.` }
+  return { key: value, problem: null }
+}
+
+function setting(name: KeyName): string {
+  const { key, problem } = readKey(name)
+  if (problem !== null) throw new Error(problem)
+  return key
+}
+
+/**
+ * The key a webhook's signature is checked with, read by the same rule as the clients' keys. It
+ * never throws: a missing or unusable key is logged at error level (by its name, never its value)
+ * and gives null, which the webhook answers as a signature that does not match.
+ */
+export function webhookKey(name: KeyName, logger: { error: (message: string) => void }): string | null {
+  const { key, problem } = readKey(name)
+  if (problem !== null) logger.error(`${problem} Webhooks cannot be checked until it is fixed.`)
+  return key
 }
 
 /**

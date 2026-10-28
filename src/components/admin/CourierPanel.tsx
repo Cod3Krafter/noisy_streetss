@@ -7,6 +7,7 @@ import type { CourierOptions } from '@/shop/booking'
 
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG', { maximumFractionDigits: 2 })}`
 const messageOf = (json: unknown) => (json as { errors?: { message?: string }[] } | null)?.errors?.[0]?.message
+const reasonOf = (json: unknown) => (json as { errors?: { data?: { reason?: string } }[] } | null)?.errors?.[0]?.data?.reason
 
 const box = { border: '1px solid var(--theme-elevation-150)', borderRadius: 4, padding: 16, marginBottom: 24 }
 const warning = { background: 'var(--theme-warning-100)', padding: 8, borderRadius: 4, margin: '8px 0' }
@@ -25,6 +26,8 @@ export function CourierPanel() {
   const [error, setError] = useState<string | null>(null)
   const [chosen, setChosen] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Kept apart from `error`, which a fresh fetch clears: this one explains the fetch itself.
+  const [notice, setNotice] = useState<string | null>(null)
 
   const [attempt, setAttempt] = useState(0)
 
@@ -55,6 +58,7 @@ export function CourierPanel() {
     if (!chosen) return
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
       const res = await fetch(`/api/orders/${id}/book-courier`, {
         method: 'POST',
@@ -63,15 +67,22 @@ export function CourierPanel() {
         body: JSON.stringify({ rateId: chosen, fingerprint: data?.fingerprint }),
       })
       if (res.ok) {
+        // Book stays busy until the page has reloaded, so it can't be pressed again in between.
         window.location.reload()
         return
       }
-      setError(messageOf(await res.json().catch(() => null)) ?? 'The booking may not have gone through. Reload the panel to check before trying again.')
+      if (res.status === 409) {
+        // Fetch the panel again. Only stale prices get the "pick again" notice: the other 409s (already booked, held by another booking) say their own reason.
+        const json = await res.json().catch(() => null)
+        setNotice(reasonOf(json) === 'stale-prices' || !messageOf(json) ? 'The order changed. The prices have been reloaded; pick again.' : (messageOf(json) as string))
+        setAttempt((count) => count + 1)
+      } else {
+        setError(messageOf(await res.json().catch(() => null)) ?? 'The booking may not have gone through. Reload the page to check before trying again.')
+      }
     } catch {
-      setError('The booking may not have gone through. Reload the panel to check before trying again.')
-    } finally {
-      setBusy(false)
+      setError('The booking may not have gone through. Reload the page to check before trying again.')
     }
+    setBusy(false)
   }
 
   if (!id) return null
@@ -82,6 +93,7 @@ export function CourierPanel() {
     <div style={box}>
       <h4 style={{ margin: '0 0 8px' }}>Courier</h4>
       {error ? <p role="alert" style={{ color: 'var(--theme-error-500)' }}>{error}</p> : null}
+      {notice ? <p role="status" style={warning}>{notice}</p> : null}
       {!data && !error ? <p>Loading courier prices.</p> : null}
       {data?.booked ? (
         <div>
@@ -117,7 +129,15 @@ export function CourierPanel() {
             const difference = option.priceKobo - data.paidDeliveryKobo
             return (
               <label key={option.rateId} style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '6px 0', flexWrap: 'wrap' }}>
-                <input type="radio" name="courier" checked={chosen === option.rateId} onChange={() => setChosen(option.rateId)} />
+                <input
+                  type="radio"
+                  name="courier"
+                  checked={chosen === option.rateId}
+                  onChange={() => {
+                    setChosen(option.rateId)
+                    setNotice(null)
+                  }}
+                />
                 <span style={{ fontWeight: 600 }}>{option.carrierName}</span>
                 <span>{naira(option.priceKobo)}</span>
                 {option.estimate ? <span>{option.estimate}</span> : null}

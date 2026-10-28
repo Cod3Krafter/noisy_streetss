@@ -10,8 +10,9 @@ export const REFUSAL = 'Refusal'
  * real faults still stand out.
  */
 export class Refusal extends APIError {
-  constructor(message: string, status = 400) {
-    super(message, status, null, true)
+  /** `data` travels in the error body (errors[0].data), for a caller that must tell refusals apart without reading the message. */
+  constructor(message: string, status = 400, data: Record<string, unknown> | null = null) {
+    super(message, status, data, true)
     // Payload picks the log level by `name`. Set it here rather than relying on the class name,
     // which the production build may shorten.
     this.name = REFUSAL

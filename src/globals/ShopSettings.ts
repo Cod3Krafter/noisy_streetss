@@ -67,10 +67,13 @@ export const ShopSettings: GlobalConfig = {
       fields: [
         {
           name: 'terminalPackagingId',
-          label: 'Parcel box (Terminal packaging ID)',
+          label: 'Parcel box code from Terminal',
           type: 'text',
           defaultValue: TERMINAL_DEFAULT_BOX,
-          admin: { description: "Starts as Terminal's own 20 x 20 x 10 cm box." },
+          admin: {
+            description:
+              "The code of the box parcels are sent in. Find it in Terminal's dashboard, in the packaging section. Starts as Terminal's own 20 x 20 x 10 cm box.",
+          },
         },
         {
           name: 'boxWeightGrams',

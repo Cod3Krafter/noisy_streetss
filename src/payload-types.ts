@@ -3288,7 +3288,7 @@ export interface ShopSetting {
    */
   elsewherePriceNGN: number;
   /**
-   * Starts as Terminal's own 20 x 20 x 10 cm box.
+   * The code of the box parcels are sent in. Find it in Terminal's dashboard, in the packaging section. Starts as Terminal's own 20 x 20 x 10 cm box.
    */
   terminalPackagingId?: string | null;
   boxWeightGrams?: number | null;
