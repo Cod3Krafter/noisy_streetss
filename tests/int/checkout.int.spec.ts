@@ -1,7 +1,8 @@
 import type { Payload } from 'payload'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Book } from '@/payload-types'
+import { STALE_DELIVERY } from '@/shop/checkout'
 import { setShopClients } from '@/shop/clients'
 
 import { getTestPayload, rest } from '../helpers/payload'
@@ -72,6 +73,7 @@ describe('POST /api/shop/checkout', () => {
       totalNGN: 23350,
       delivery: { method: 'courier', carrierName: 'GIG Logistics', carrierSlug: 'gig', priceNGN: 3350 },
     })
+    expect(order.address).toMatchObject({ line1: '5 Allen Avenue', line2: null, city: 'Ikeja', state: 'lagos', postcode: '100271', country: 'Nigeria' })
     expect(order.items?.[0]).toMatchObject({ title: book.title, optionName: 'Paperback', unitPriceNGN: 10000, quantity: 2, weightGrams: 400 })
     expect(order.history?.[0]).toMatchObject({ to: 'awaiting-payment', by: 'Checkout' })
     expect(new Date(order.expiresAt as string).getTime() - Date.now()).toBeGreaterThan(29 * 60_000)
@@ -90,21 +92,44 @@ describe('POST /api/shop/checkout', () => {
   })
 
   it('answers a bot as if it worked, and saves nothing', async () => {
-    const res = await pay(details({ delivery: { stamp: await stampFor() }, website: 'http://spam.example' }))
+    const res = await pay(details({ email: 'bot@example.com', delivery: { stamp: await stampFor() }, website: 'http://spam.example' }))
     expect(res.status).toBe(201)
-    const { reference } = (await res.json()) as { reference: string }
-    expect((await payload.count({ collection: 'orders', where: { 'payment.reference': { equals: reference } } })).totalDocs).toBe(0)
+    expect((await payload.count({ collection: 'orders', where: { customerEmail: { equals: 'bot@example.com' } } })).totalDocs).toBe(0)
     expect(paystack.initialized).toHaveLength(0)
+  })
+
+  it('ignores prices sent in the body', async () => {
+    const stamp = await stampFor()
+    const res = await pay(
+      details({
+        email: 'cheap@example.com',
+        delivery: { stamp, priceNGN: 1 },
+        totalNGN: 1,
+        itemsNGN: 1,
+        items: [{ ...cart()[0], unitPriceNGN: 1, priceNGN: 1, totalNGN: 1 }],
+      }),
+    )
+    expect(res.status).toBe(201)
+    const { docs } = await payload.find({ collection: 'orders', where: { customerEmail: { equals: 'cheap@example.com' } } })
+    expect(docs[0]).toMatchObject({ itemsNGN: 20000, deliveryNGN: 3350, totalNGN: 23350 })
+    expect(docs[0].items?.[0].unitPriceNGN).toBe(10000)
+    expect(paystack.initialized[0].amountKobo).toBe(2_335_000)
   })
 
   it('refuses a delivery price for another state, another cart or none at all', async () => {
     const lagos = await stampFor('lagos')
     const otherState = await pay(details({ delivery: { stamp: lagos }, address: { line1: '1 Ring Road', city: 'Ibadan', state: 'oyo' } }))
     expect(otherState.status).toBe(400)
-    expect(await messageOf(otherState)).toContain('Delivery prices have changed')
-    expect((await pay(details({ delivery: { stamp: lagos }, items: cart(3) }))).status).toBe(400)
-    expect((await pay(details({ delivery: { stamp: 'made-up' } }))).status).toBe(400)
-    expect((await pay(details())).status).toBe(400)
+    expect(await messageOf(otherState)).toContain(STALE_DELIVERY)
+    const otherCart = await pay(details({ delivery: { stamp: lagos }, items: cart(3) }))
+    expect(otherCart.status).toBe(400)
+    expect(await messageOf(otherCart)).toContain(STALE_DELIVERY)
+    const madeUp = await pay(details({ delivery: { stamp: 'made-up' } }))
+    expect(madeUp.status).toBe(400)
+    expect(await messageOf(madeUp)).toContain(STALE_DELIVERY)
+    const none = await pay(details())
+    expect(none.status).toBe(400)
+    expect(await messageOf(none)).toContain(STALE_DELIVERY)
   })
 
   it('refuses bad details with a message the customer can act on', async () => {
@@ -128,6 +153,19 @@ describe('POST /api/shop/checkout', () => {
     const res = await pay(details({ email: 'nopay@example.com', delivery: { stamp: await stampFor() } }))
     expect(res.status).toBe(502)
     expect((await payload.count({ collection: 'orders', where: { customerEmail: { equals: 'nopay@example.com' } } })).totalDocs).toBe(0)
+  })
+
+  it('keeps no order when the expiry job cannot be queued', async () => {
+    const stamp = await stampFor()
+    const queue = vi.spyOn(payload.jobs, 'queue').mockRejectedValueOnce(new Error('The queue is down (test).'))
+    try {
+      const res = await pay(details({ email: 'noqueue@example.com', delivery: { stamp } }))
+      expect(res.status).toBeGreaterThanOrEqual(500)
+    } finally {
+      queue.mockRestore()
+    }
+    expect((await payload.count({ collection: 'orders', where: { customerEmail: { equals: 'noqueue@example.com' } } })).totalDocs).toBe(0)
+    expect(paystack.initialized).toHaveLength(0)
   })
 
   it('refuses an item that sold out after the price was given', async () => {

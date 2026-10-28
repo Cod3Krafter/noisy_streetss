@@ -1,3 +1,5 @@
+import type { Order } from '@/payload-types'
+
 /** Nigeria's 36 states and the Federal Capital Territory. The values are stored on orders and settings. */
 export const NIGERIAN_STATES = [
   { label: 'Abia', value: 'abia' },
@@ -41,7 +43,9 @@ export const NIGERIAN_STATES = [
 
 const LABELS = new Map(NIGERIAN_STATES.map((state) => [state.value, state.label]))
 
-export function isNigerianState(value: unknown): value is string {
+export type NigerianState = NonNullable<NonNullable<Order['address']>['state']>
+
+export function isNigerianState(value: unknown): value is NigerianState {
   return typeof value === 'string' && LABELS.has(value)
 }
 

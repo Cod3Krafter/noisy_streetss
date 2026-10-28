@@ -2,7 +2,6 @@ import { randomBytes } from 'node:crypto'
 import { commitTransaction, initTransaction, killTransaction, type PayloadRequest } from 'payload'
 
 import { isSpam } from '@/hooks/honeypot'
-import type { Order } from '@/payload-types'
 import { Refusal } from '@/refusal'
 import { emailValidator } from '@/rules/validators'
 import { parcelWeightGrams, parseCart, priceOrder, resolveCart } from '@/shop/cart'
@@ -55,8 +54,9 @@ function parseAddress(value: unknown) {
 }
 
 /**
- * Creates the order and starts its Paystack payment, all or nothing: if Paystack can't start the
- * payment, no order is kept. Everything the customer sees is checked and priced again here.
+ * Creates the order, queues its expiry job and starts its Paystack payment, all or nothing: if the job
+ * can't be queued or Paystack can't start the payment, no order and no job are kept. Everything the
+ * customer sees is checked and priced again here.
  */
 export async function checkout(req: PayloadRequest, body: Record<string, unknown>): Promise<CheckoutAnswer> {
   if (isSpam(body)) {
@@ -90,7 +90,7 @@ export async function checkout(req: PayloadRequest, body: Record<string, unknown
         customerName: customer.name,
         customerEmail: customer.email,
         customerPhone: customer.phone,
-        address: { ...address, state: address.state as NonNullable<Order['address']>['state'], country: 'Nigeria' },
+        address: { ...address, country: 'Nigeria' },
         items: lines.map((line) => ({
           product: { relationTo: line.collection, value: line.id },
           optionId: line.optionId,
@@ -116,6 +116,8 @@ export async function checkout(req: PayloadRequest, body: Record<string, unknown
         history: [{ at: now.toISOString(), to: 'awaiting-payment', by: 'Checkout' }],
       },
     })
+    // Queued through the same req, so the job is saved or dropped together with the order.
+    await req.payload.jobs.queue({ task: 'expireOrder', input: { orderId: order.id }, waitUntil: expiresAt, req })
     const { authorizationUrl } = await shopClients().paystack.initialize({
       email: customer.email,
       amountKobo: totals.totalKobo,
@@ -124,7 +126,6 @@ export async function checkout(req: PayloadRequest, body: Record<string, unknown
       metadata: { orderId: order.id, orderNumber: order.orderNumber },
     })
     if (shouldCommit) await commitTransaction(req)
-    await req.payload.jobs.queue({ task: 'expireOrder', input: { orderId: order.id }, waitUntil: expiresAt, req })
     return { paymentUrl: authorizationUrl, reference }
   } catch (error) {
     await killTransaction(req)

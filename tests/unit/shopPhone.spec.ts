@@ -11,7 +11,7 @@ describe('normaliseNigerianPhone', () => {
   })
 
   it('refuses anything else', () => {
-    for (const value of ['803 123 4567', '0803123456', '+44 7700 900123', '+2348031234567890', '', undefined, 8031234567]) {
+    for (const value of ['803 123 4567', '0803123456', '+44 7700 900123', '+2348031234567890', '+234 0803 123 456', '+2340803123456', '', undefined, 8031234567]) {
       expect(normaliseNigerianPhone(value)).toBeNull()
     }
   })

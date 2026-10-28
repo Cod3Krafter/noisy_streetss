@@ -1,5 +1,5 @@
 import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setShopClients } from '@/shop/clients'
 import { expireOrder } from '@/shop/expiry'
@@ -60,6 +60,18 @@ describe('expireOrder', () => {
     const order = await createOrder(payload)
     await expect(expireOrder(req, order.id, 0)).rejects.toThrow('could not be reached')
     expect(await expireOrder(req, order.id, 2)).toBe('expired')
+  })
+
+  it('does not expire an order when something other than a Paystack outage fails on the last try', async () => {
+    const order = await createOrder(payload)
+    paystack.pay(order.payment?.reference as string, { requestedAmountKobo: 1_320_000, amountKobo: 1_340_000, feesKobo: 20_000 })
+    const queue = vi.spyOn(payload.jobs, 'queue').mockRejectedValueOnce(new Error('The queue is down (test).'))
+    try {
+      await expect(expireOrder(req, order.id, 2)).rejects.toThrow('The queue is down')
+    } finally {
+      queue.mockRestore()
+    }
+    expect((await payload.findByID({ collection: 'orders', id: order.id })).status).toBe('awaiting-payment')
   })
 
   it('leaves an order alone that became Paid between the first read and the lock', async () => {

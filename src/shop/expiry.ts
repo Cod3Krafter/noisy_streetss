@@ -4,6 +4,7 @@ import { withOrderLock } from '@/shop/claims'
 import { appendHistory } from '@/shop/history'
 import { markPaid } from '@/shop/markPaid'
 import { findOrder, serverUpdate } from '@/shop/orders'
+import { PaystackError } from '@/shop/paystack'
 
 /** How many times the expiry job tries again when Paystack can't be reached. */
 export const EXPIRY_RETRIES = 2
@@ -20,7 +21,8 @@ export async function expireOrder(req: PayloadRequest, orderId: number, triesSoF
     const result = await markPaid(req, order.payment?.reference ?? '', 'Expiry check')
     if (result === 'paid' || result === 'paid-late') return 'paid'
   } catch (error) {
-    if (triesSoFar < EXPIRY_RETRIES) throw error
+    // Only a Paystack outage is absorbed, and only on the last try: any other failure may follow a confirmed payment.
+    if (!(error instanceof PaystackError) || triesSoFar < EXPIRY_RETRIES) throw error
     req.payload.logger.warn({ err: error, msg: `Paystack could not be asked about ${order.orderNumber} before it expired.` })
   }
   // Re-read under the lock: the order may have been paid, or changed, since it was first read.
