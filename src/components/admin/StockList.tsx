@@ -45,22 +45,27 @@ export function StockList({ rows: initial }: { rows: StockRow[] }) {
   }, [rows, query])
 
   async function toggle(row: StockRow) {
-    setBusy(row.key)
+    setBusy(`${row.collection}:${row.id}`)
     setError(null)
     const inStock = !row.inStock
-    const res = await fetch('/api/shop/stock', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ collection: row.collection, id: row.id, optionId: row.optionId, inStock }),
-    })
-    if (res.ok) {
-      setRows((current) => current.map((candidate) => (candidate.key === row.key ? { ...candidate, inStock } : candidate)))
-    } else {
-      const json = (await res.json().catch(() => null)) as { errors?: { message?: string }[] } | null
-      setError(json?.errors?.[0]?.message ?? 'The change was not saved. Try again.')
+    try {
+      const res = await fetch('/api/shop/stock', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collection: row.collection, id: row.id, optionId: row.optionId, inStock }),
+      })
+      if (res.ok) {
+        setRows((current) => current.map((candidate) => (candidate.key === row.key ? { ...candidate, inStock } : candidate)))
+      } else {
+        const json = (await res.json().catch(() => null)) as { errors?: { message?: string }[] } | null
+        setError(json?.errors?.[0]?.message ?? 'The change was not saved. Try again.')
+      }
+    } catch {
+      setError('The change was not saved. Try again.')
+    } finally {
+      setBusy(null)
     }
-    setBusy(null)
   }
 
   return (
@@ -84,8 +89,8 @@ export function StockList({ rows: initial }: { rows: StockRow[] }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {group.rows.map((row) => (
               <label key={row.key} style={chip(row.inStock)}>
-                <input type="checkbox" checked={row.inStock} disabled={busy === row.key} onChange={() => void toggle(row)} />
-                <span>{row.optionName ?? 'In stock'}</span>
+                <input type="checkbox" checked={row.inStock} disabled={busy === group.key} onChange={() => void toggle(row)} />
+                <span>{row.optionName ?? 'One size'}</span>
                 {row.inStock ? null : <span style={{ color: 'var(--theme-error-500)' }}>Sold out</span>}
               </label>
             ))}

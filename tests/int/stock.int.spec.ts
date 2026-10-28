@@ -1,8 +1,8 @@
 import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import type { User } from '@/payload-types'
-import { setStock, stockRows } from '@/shop/stock'
+import type { Book, User } from '@/payload-types'
+import { parseStockChange, setStock, stockRows } from '@/shop/stock'
 
 import { createStaff, getTestPayload, rest, tokenFor } from '../helpers/payload'
 import { createShopBook, createShopMerch } from '../helpers/shop'
@@ -88,5 +88,68 @@ describe('the Stock page', () => {
     expect((await rest('POST', '/shop/stock', { body })).status).toBe(403)
     expect((await rest('POST', '/shop/stock', { body, token: await tokenFor(payload, shop) })).status).toBe(200)
     expect((await payload.findByID({ collection: 'books', id: book.id })).formats?.[0]?.inStock).toBe(false)
+  })
+
+  it('keeps two switches on one item made at the same moment, in the live record and in a waiting draft', async () => {
+    const shirt = await createShopMerch(payload, { options: [{ name: 'S' }, { name: 'M' }, { name: 'L' }] })
+    await payload.update({ collection: 'merch', id: shirt.id, draft: true, data: { title: 'Draft shirt' } })
+    const [reqA, reqB] = await Promise.all([createLocalReq({}, payload), createLocalReq({}, payload)])
+    await Promise.all([
+      setStock(reqA, { collection: 'merch', id: shirt.id, optionId: shirt.options?.[0]?.id ?? null, inStock: false }),
+      setStock(reqB, { collection: 'merch', id: shirt.id, optionId: shirt.options?.[1]?.id ?? null, inStock: false }),
+    ])
+    const live = await payload.findByID({ collection: 'merch', id: shirt.id, draft: false })
+    expect(live.options?.map((option) => option.inStock)).toEqual([false, false, true])
+    expect(live.title).toBe(shirt.title)
+    const latest = await payload.findByID({ collection: 'merch', id: shirt.id, draft: true })
+    expect(latest._status).toBe('draft')
+    expect(latest.title).toBe('Draft shirt')
+    expect(latest.options?.map((option) => option.inStock)).toEqual([false, false, true])
+  })
+
+  it('refuses a change body that is not a stock change, with a 400', async () => {
+    const token = await tokenFor(payload, shop)
+    expect((await rest('POST', '/shop/stock', { body: { collection: 'users', id: true, inStock: 'yes' }, token })).status).toBe(400)
+  })
+
+  it('refuses an item that was never published', async () => {
+    const book = await createShopBook(payload, { publish: false })
+    await expect(setStock(req, { collection: 'books', id: book.id, optionId: book.formats?.[0]?.id ?? null, inStock: false })).rejects.toThrow('Only items on the live site')
+  })
+
+  it('leaves a draft-only item out of the list', async () => {
+    const book = await createShopBook(payload, { publish: false })
+    expect((await stockRows(req)).some((row) => row.collection === 'books' && row.id === book.id)).toBe(false)
+  })
+
+  it('refuses ids that are not whole numbers in range', () => {
+    expect(parseStockChange({ collection: 'books', id: '12', optionId: null, inStock: true }).id).toBe(12)
+    for (const id of [true, '1e3', ' 5', '0x10', '', 2147483648, '2147483648', 1.5, -1, null, [3]]) {
+      expect(() => parseStockChange({ collection: 'books', id, optionId: null, inStock: true }), String(id)).toThrow('could not be read')
+    }
+  })
+
+  it('leaves everything else on the record alone, in the live record and the draft', async () => {
+    const book = await createShopBook(payload, {
+      formats: [
+        { formatName: 'Paperback', priceNGN: 9000, inStock: true, weightGrams: 300 },
+        { formatName: 'Hardback', priceNGN: 14000, inStock: true, weightGrams: 500 },
+      ],
+    })
+    await payload.update({ collection: 'books', id: book.id, draft: true, data: { title: 'Draft title' } })
+    const before = await payload.findByID({ collection: 'books', id: book.id, draft: false })
+    await setStock(req, { collection: 'books', id: book.id, optionId: book.formats?.[1]?.id ?? null, inStock: false })
+    const shape = (doc: Book) => ({
+      writers: doc.writers,
+      meta: doc.meta,
+      cover: doc.cover,
+      rows: doc.formats?.map((format) => [format.id, format.formatName, format.priceNGN, format.weightGrams]),
+    })
+    const live = await payload.findByID({ collection: 'books', id: book.id, draft: false })
+    expect(shape(live)).toEqual(shape(before))
+    const latest = await payload.findByID({ collection: 'books', id: book.id, draft: true })
+    expect(latest.writers).toEqual(before.writers)
+    expect(latest.meta).toEqual(before.meta)
+    expect(latest.formats?.map((format) => format.id)).toEqual(before.formats?.map((format) => format.id))
   })
 })

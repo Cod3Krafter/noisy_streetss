@@ -20,19 +20,22 @@ async function transactionDatabase(req: PayloadRequest): Promise<Database> {
   return session.db
 }
 
+/** The tables a row lock can be taken on. A fixed list, so the table name never comes from input. */
+const lockable = { orders: sql.identifier('orders'), books: sql.identifier('books'), merch: sql.identifier('merch') } as const
+
 /**
- * Runs `work` while holding the order's row, inside a transaction. A second caller waits on the
+ * Runs `work` while holding one row of `table`, inside a transaction. A second caller waits on the
  * row lock and then reads the state the first one committed, so a check followed by a write
  * cannot be overtaken. A failure rolls back everything the work wrote, so a retry can finish it.
  * Every Payload call in `work` must pass this same `req`, so it runs in the same transaction, and
  * callers running at the same moment each need a req of their own: one req carries one transaction.
  * If `req` is already in a transaction, the lock joins it and is held until that one ends.
  */
-export async function withOrderLock<T>(req: PayloadRequest, orderId: number, work: () => Promise<T>): Promise<T> {
+export async function withRowLock<T>(req: PayloadRequest, table: keyof typeof lockable, id: number, work: () => Promise<T>): Promise<T> {
   const shouldCommit = await initTransaction(req)
   try {
     const db = await transactionDatabase(req)
-    await db.execute(sql`select "id" from "orders" where "id" = ${orderId} for update`)
+    await db.execute(sql`select "id" from ${lockable[table]} where "id" = ${id} for update`)
     const result = await work()
     if (shouldCommit) await commitTransaction(req)
     return result
@@ -41,6 +44,9 @@ export async function withOrderLock<T>(req: PayloadRequest, orderId: number, wor
     throw error
   }
 }
+
+/** Runs `work` while holding the order's row. See withRowLock. */
+export const withOrderLock = <T>(req: PayloadRequest, orderId: number, work: () => Promise<T>): Promise<T> => withRowLock(req, 'orders', orderId, work)
 
 /** A booking that never finished (a crash or a timeout) stops holding its order after this long. */
 export const BOOKING_CLAIM_LAPSES_MS = 5 * 60_000

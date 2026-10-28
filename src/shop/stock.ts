@@ -1,7 +1,8 @@
-import { commitTransaction, initTransaction, killTransaction, type PayloadRequest } from 'payload'
+import type { PayloadRequest } from 'payload'
 
 import type { Book, Merch } from '@/payload-types'
 import { Refusal } from '@/refusal'
+import { withRowLock } from '@/shop/claims'
 
 export type StockRow = {
   key: string
@@ -17,7 +18,7 @@ export type StockChange = { collection: 'books' | 'merch'; id: number; optionId:
 
 /** Every format and size on sale on the live site, with its In stock value. */
 export async function stockRows(req: PayloadRequest): Promise<StockRow[]> {
-  const live = { draft: false, depth: 0, limit: 0, pagination: false, sort: 'title', overrideAccess: true, req } as const
+  const live = { draft: false, depth: 0, limit: 0, pagination: false, sort: 'title', overrideAccess: true, showHiddenFields: true, req } as const
   const books = await req.payload.find({ collection: 'books', where: { and: [{ sellInShop: { equals: true } }, { _status: { equals: 'published' } }] }, ...live })
   const merch = await req.payload.find({ collection: 'merch', where: { _status: { equals: 'published' } }, ...live })
   const rows: StockRow[] = []
@@ -51,7 +52,7 @@ function withStock(doc: Book | Merch, change: StockChange): Record<string, unkno
   return { options: options.map((option) => (option.id === change.optionId ? { ...option, inStock: change.inStock } : option)) }
 }
 
-/** The whole record as save data, without what Payload sets itself. */
+/** The whole record as save data, without what Payload sets itself. Publishing the whole record relies on the read having returned every field, hidden ones included. */
 function asData(doc: Book | Merch): Record<string, unknown> {
   const data = { ...(doc as unknown as Record<string, unknown>) }
   delete data.id
@@ -61,7 +62,7 @@ function asData(doc: Book | Merch): Record<string, unknown> {
 }
 
 function find(req: PayloadRequest, change: StockChange, draft: boolean): Promise<Book | Merch | null> {
-  const options = { id: change.id, draft, depth: 0, overrideAccess: true, disableErrors: true, req } as const
+  const options = { id: change.id, draft, depth: 0, overrideAccess: true, showHiddenFields: true, disableErrors: true, req } as const
   return change.collection === 'books' ? req.payload.findByID({ collection: 'books', ...options }) : req.payload.findByID({ collection: 'merch', ...options })
 }
 
@@ -72,32 +73,30 @@ function find(req: PayloadRequest, change: StockChange, draft: boolean): Promise
  * so it stays the newest version and can't undo the switch when it's published.
  */
 export async function setStock(req: PayloadRequest, change: StockChange): Promise<void> {
-  const published = await find(req, change, false)
-  if (!published || published._status !== 'published') throw new Refusal('Only items on the live site can have their stock changed here.')
-  const liveChange = withStock(published, change)
-  if (!liveChange) throw new Refusal('That option no longer exists. Reload the page.')
-  const latest = await find(req, change, true)
-  const draftWaiting = latest?._status === 'draft'
-
-  const shouldCommit = await initTransaction(req)
-  try {
+  // The item's row is locked for both reads and both writes, so two switches on one item made at
+  // the same moment each build on what the other saved, and neither change is lost.
+  await withRowLock(req, change.collection, change.id, async () => {
+    const published = await find(req, change, false)
+    if (!published || published._status !== 'published') throw new Refusal('Only items on the live site can have their stock changed here.')
+    const liveChange = withStock(published, change)
+    if (!liveChange) throw new Refusal('That option no longer exists. Reload the page.')
+    const latest = await find(req, change, true)
     const save = { collection: change.collection, id: change.id, overrideAccess: true, depth: 0, req }
     await req.payload.update({ ...save, draft: false, data: { ...asData(published), ...liveChange, _status: 'published' } as never })
-    if (draftWaiting && latest) {
+    if (latest?._status === 'draft') {
       await req.payload.update({ ...save, draft: true, data: { ...asData(latest), ...(withStock(latest, change) ?? {}), _status: 'draft' } as never })
     }
-    if (shouldCommit) await commitTransaction(req)
-  } catch (error) {
-    await killTransaction(req)
-    throw error
-  }
+  })
 }
+
+/** The largest id the database's integer column holds. */
+const MAX_ID = 2147483647
 
 /** A switch from the Stock page, checked for shape. */
 export function parseStockChange(body: Record<string, unknown>): StockChange {
-  const id = Number(body.id)
+  const id = typeof body.id === 'number' ? body.id : typeof body.id === 'string' && /^\d+$/.test(body.id) ? Number(body.id) : NaN
   const optionId = body.optionId === undefined || body.optionId === null || body.optionId === '' ? null : body.optionId
-  if ((body.collection !== 'books' && body.collection !== 'merch') || !Number.isInteger(id) || id < 1 || typeof body.inStock !== 'boolean' || (optionId !== null && typeof optionId !== 'string')) {
+  if ((body.collection !== 'books' && body.collection !== 'merch') || !Number.isInteger(id) || id < 1 || id > MAX_ID || typeof body.inStock !== 'boolean' || (optionId !== null && typeof optionId !== 'string')) {
     throw new Refusal('The change could not be read. Reload the page.')
   }
   return { collection: body.collection, id, optionId, inStock: body.inStock }
