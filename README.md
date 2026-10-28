@@ -17,7 +17,7 @@ npm run seed                # dummy content; safe to rerun, local databases only
 npm run dev                 # http://localhost:3000 and http://localhost:3000/admin
 ```
 
-Seeded logins (local only): `admin@noisystreetss.test` / `admin-dev-password` and `editor@noisystreetss.test` / `editor-dev-password`.
+Seeded logins (local only): `admin@noisystreetss.test` / `admin-dev-password`, `editor@noisystreetss.test` / `editor-dev-password` and `shop@noisystreetss.test` / `shop-dev-password`.
 
 ## Commands
 
@@ -41,6 +41,17 @@ Never run two test runs at the same time: they share the one test database.
 Locally, Payload pushes the code's schema into the database automatically, but only when the database is a local one (host `localhost` or `127.0.0.1`, database `noisy_streetss` or ending `_test`); any other database is left alone and a warning is logged. Every schema change still needs a migration (`npm run migrate:create -- <name>`), committed with the change, and the migrations should be proven on an empty local database before a deploy. Production only ever runs migrations, by hand. On Supabase, run them with `DATABASE_URI` set to Supabase's direct connection string (`DIRECT_DATABASE_URI`), or the session pooler, never the transaction pooler, but never put that address in `.env`: pass it inline for that one command, for example in PowerShell `$env:DATABASE_URI = Read-Host 'Direct connection string'; npm run migrate; Remove-Item Env:DATABASE_URI` (Read-Host keeps the string, which holds the password, out of PowerShell's saved command history). Keeping the live address out of `.env` means a stray `npm run dev` can never point at it.
 
 `drizzle-orm` is pinned to the version `@payloadcms/db-postgres` uses, so npm installs a single copy and generated migrations type-check. Bump it together with Payload.
+
+## Shop
+
+Checkout, payment and delivery go through Paystack and Terminal Africa. Locally, `.env` holds Paystack's test key and Terminal's sandbox key (see `.env.example`). The tests never use them; they talk to fakes.
+
+- Seeded staff accounts: `admin@noisystreetss.test`, `editor@noisystreetss.test` and `shop@noisystreetss.test`. Shop staff only see orders and the Stock page.
+- Stock is changed on the admin's Stock page (`/admin/stock`). It changes the live record without publishing anyone's draft.
+- Paid orders are booked from the Book courier panel on the order screen.
+- Webhooks: register Terminal's once per environment with `node --env-file=.env scripts/register-terminal-webhook.mjs https://<site>/api/terminal/webhook`. Paystack's is set by hand in its dashboard (Settings > API Keys & Webhooks) as `https://<site>/api/paystack/webhook`, once for test mode and once for live mode.
+- Webhooks need a public address. Locally, run a tunnel (`cloudflared tunnel --url http://localhost:3000`) and register its address.
+- Design: `docs/superpowers/specs/2026-10-27-b2-shop-design.md`.
 
 ## Production hardening
 

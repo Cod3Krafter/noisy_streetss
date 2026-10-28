@@ -14,6 +14,10 @@ const complete = {
   S3_REGION: 'eu-west-1',
   S3_ACCESS_KEY_ID: 'id',
   S3_SECRET_ACCESS_KEY: 'key',
+  PAYSTACK_SECRET_KEY: 'sk_live_example',
+  TERMINAL_SECRET_KEY: 'terminal-live-example',
+  TERMINAL_BASE_URL: 'https://api.terminal.africa/v1',
+  QUOTE_STAMP_SECRET: 'q'.repeat(32),
 }
 
 describe('productionSettingProblems', () => {
@@ -30,6 +34,10 @@ describe('productionSettingProblems', () => {
       'CRON_SECRET',
       'S3_BUCKET_MEDIA',
       'S3_BUCKET_MANUSCRIPTS',
+      'PAYSTACK_SECRET_KEY',
+      'TERMINAL_SECRET_KEY',
+      'TERMINAL_BASE_URL',
+      'QUOTE_STAMP_SECRET',
     ])
   })
 
@@ -60,6 +68,15 @@ describe('productionSettingProblems', () => {
       'PAYLOAD_SECRET (shorter than 32 characters)',
     ])
     expect(productionSettingProblems({ ...complete, PAYLOAD_SECRET: 'x'.repeat(32) })).toEqual([])
+  })
+
+  it('says what is wrong with the shop settings', () => {
+    expect(productionSettingProblems({ ...complete, QUOTE_STAMP_SECRET: 'q'.repeat(31) })).toEqual(['QUOTE_STAMP_SECRET (shorter than 32 characters)'])
+    expect(productionSettingProblems({ ...complete, PAYSTACK_SECRET_KEY: 'sk_test_abc' })).toEqual(['PAYSTACK_SECRET_KEY (a test key)'])
+    expect(productionSettingProblems({ ...complete, PAYSTACK_SECRET_KEY: '  sk_test_abc' })).toEqual(['PAYSTACK_SECRET_KEY (a test key)'])
+    expect(productionSettingProblems({ ...complete, TERMINAL_BASE_URL: 'https://sandbox.terminal.africa/v1' })).toEqual([
+      "TERMINAL_BASE_URL (Terminal's sandbox address)",
+    ])
   })
 
   it('says what is wrong with a short cron secret', () => {

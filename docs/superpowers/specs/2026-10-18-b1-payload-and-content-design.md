@@ -344,12 +344,13 @@ The groups are listed in the order the admin menu shows them. Payload orders gro
 | Events | 3 | Two upcoming, one past |
 | Careers | 2 | One open, one past its closing date |
 | Book Club sessions | 2 | Registration open on one only |
-| Merch, studio services, membership plans | 4, 4, 3 | From the prototype |
+| Merch, studio services, membership plans | 5, 4, 3 | From the prototype. The merch includes one T-shirt with sizes, one size sold out (B2) |
 | Announcements, popup campaigns | 2, 1 | One announcement expired |
 | Press mentions, partners | 4 each | |
 | Form entries | 2 per form | The two manuscript submissions each have their own sample PDF, and belong to the open call |
 | Page records, basic pages, settings | All | Legal pages read "Placeholder: replace with the client's policy" |
-| Staff accounts | `admin@noisystreetss.test`, `editor@noisystreetss.test` | Development passwords only. `.test` addresses can never receive real mail |
+| Staff accounts | `admin@noisystreetss.test`, `editor@noisystreetss.test`, `shop@noisystreetss.test` | Development passwords only. `.test` addresses can never receive real mail |
+| Orders (B2) | 3 | One Paid, one Delivered, one Expired |
 
 ## 9. Testing and verification
 
@@ -415,18 +416,30 @@ Everything to do or decide before and just after the first production deploy. Ti
 
 ### Decide
 
-- [ ] **Rate limits on the public forms.** `POST /api/contact-messages`, `/api/partnership-enquiries`, `/api/bookstore-applications` and `/api/advisory-enquiries` are live from the first deploy, whether or not any page shows the form. Each real entry sends an alert email, and the sending quota (Resend's free tier, about 100 a day) is shared with password resets and B2's order emails. Anyone can post to these addresses, so a script could use up the quota and block password resets. Options: a per-IP limit (a cap on requests from one address), a daily cap on alert emails, both before the first deploy; or deploy with public create switched off (`create: nobody`) until the frontend forms exist. **Not yet decided** (developer, 26 October 2026).
+- [ ] **Rate limits on the public forms.** `POST /api/contact-messages`, `/api/partnership-enquiries`, `/api/bookstore-applications` and `/api/advisory-enquiries` are live from the first deploy, whether or not any page shows the form. Each real entry sends an alert email, and the sending quota (Resend's free tier, about 100 a day) is shared with password resets and B2's order emails. Anyone can post to these addresses, so a script could use up the quota and block password resets. Options: a per-IP limit (a cap on requests from one address), a daily cap on alert emails, both before the first deploy; or deploy with public create switched off (`create: nobody`) until the frontend forms exist. B2's public shop endpoints (`/api/shop/quotes`, `/api/shop/checkout` and `/api/shop/orders/:reference`) join this decision: each checkout calls Paystack and each quote calls Terminal. **Not yet decided** (developer, 26 October 2026).
 
 ### Set up
 
 - [ ] **Uploads over 4.5 MB.** Vercel refuses request bodies over 4.5 MB, so manuscripts (up to 10 MB) and large photos can't be uploaded through the site's own server there. Use uploads straight to the bucket (the S3 adapter's client uploads, with the bucket's CORS (cross-origin) rules allowing the site's address), move the size check to the stored file, and show upload progress to staff and visitors.
-- [ ] **Migrations are run by hand.** Nothing runs them on deploy. Run `npm run migrate` with the live address passed inline for that one command, never put in `.env` (see 5.4 and the README), over Supabase's direct connection, or the session pooler, never the transaction pooler, and check that SSL (encrypted database connections) works at the test deploy. Before the first run, prove the migrations build an empty database: done locally on 27 October 2026 for `20261022_233859_initial`; redo it after any new migration.
+- [ ] **Migrations are run by hand.** Nothing runs them on deploy. Run `npm run migrate` with the live address passed inline for that one command, never put in `.env` (see 5.4 and the README), over Supabase's direct connection, or the session pooler, never the transaction pooler, and check that SSL (encrypted database connections) works at the test deploy. Before the first run, prove the migrations build an empty database: done locally on 27 October 2026 for `20261022_233859_initial`; redo it after any new migration (done again on 28 October 2026 for `20261028_100928_b2_shop`).
 - [ ] **Database connection pool.** On Vercel, set `max`, `idleTimeoutMillis` and `connectionTimeoutMillis` on the adapter's pool. node-postgres defaults to 10 connections and waits forever for one. Also consider `attachDatabasePool` from `@vercel/functions` on Fluid compute (Vercel's reuse of function instances).
 - [ ] **Region.** The Vercel function region must match the Supabase region, because the delete guard makes several database reads in a row and each pays the distance.
-- [ ] **Settings in Vercel.** `CRON_SECRET` of at least 16 characters and `PAYLOAD_SECRET` of at least 32. `NEXT_PUBLIC_SERVER_URL` exactly `https://host` in lowercase, with no path, trailing slash or `:443`. Production start-up logs any of these that is missing or unusable: `PAYLOAD_SECRET`, `SMTP_HOST`, `SMTP_FROM`, `NEXT_PUBLIC_SERVER_URL`, `CRON_SECRET`, both bucket names, and (with a bucket named) the four `S3_*` connection settings. Crons only run on production deployments.
+- [ ] **Settings in Vercel.** `CRON_SECRET` of at least 16 characters and `PAYLOAD_SECRET` of at least 32. `NEXT_PUBLIC_SERVER_URL` exactly `https://host` in lowercase, with no path, trailing slash or `:443`. Production start-up logs any of these that is missing or unusable: `PAYLOAD_SECRET`, `SMTP_HOST`, `SMTP_FROM`, `NEXT_PUBLIC_SERVER_URL`, `CRON_SECRET`, both bucket names, and (with a bucket named) the four `S3_*` connection settings. B2 adds `PAYSTACK_SECRET_KEY` (also reported when it is a test key, `sk_test_`), `TERMINAL_SECRET_KEY`, `TERMINAL_BASE_URL` (also reported when it is Terminal's sandbox address) and `QUOTE_STAMP_SECRET` (at least 32 characters). Crons only run on production deployments.
 - [ ] **Preview deployments.** Admin login is refused on Vercel preview URLs, because the site address is the only allowed origin. Test the admin on production or a staging domain set as that address.
 - [ ] **Buckets.** The manuscripts bucket must be private; check that a direct bucket URL is refused. Consider a random per-file key prefix so file names can't be guessed. Consider a public media bucket so images don't each cost a function call.
 - [ ] **Backups.** Supabase's database backups don't include Storage files. Decide how images and manuscripts are backed up.
+- [ ] **Shop (B2), before launch.**
+  - [ ] Turn on "Pass fees to customers" in Paystack's live mode, if P1 confirmed it.
+  - [ ] Set the live Paystack webhook address in Paystack's dashboard.
+  - [ ] Register the live Terminal webhook with the script.
+  - [ ] Fund the Terminal wallet.
+  - [ ] In Shop settings: the pickup address with its postcode, the flat delivery prices, the parcel box, and `orderAlertEmail`.
+  - [ ] Real weights on every book format and merch item.
+  - [ ] Rate limits: the shop's public endpoints (`/api/shop/quotes`, `/api/shop/checkout`, `/api/shop/orders/:reference`) join the open rate-limit decision. Each checkout calls Paystack and each quote calls Terminal.
+  - [ ] One real order for a small amount after the first deploy, booked and then refunded.
+  - [ ] Size Supabase's pooler with the row locks in mind: each request waiting on a lock holds a pooled connection.
+  - [ ] `webhook_events` gains one row per applied Terminal event and nothing prunes it. Decide a retention.
+  - [ ] Add a staff alert or a check for jobs that finally fail. An expiry or email job that gives up shows only in Payload's logs.
 - [ ] **Dependency audit.** Run `npm audit --omit=dev`. At the end of B1 it reported 35 findings, all transitive (pulled in by Payload), none directly in this project's own dependencies.
 - [ ] **GitHub canary workflow.** GitHub disabled it for inactivity. Re-enable it: `gh workflow enable canary --repo Cod3Krafter/noisy_streetss`.
 
