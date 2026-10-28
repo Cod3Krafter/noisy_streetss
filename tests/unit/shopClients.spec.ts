@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { setShopClients, shopClients, webhookKey } from '@/shop/clients'
 import { createPaystackClient, PaystackError } from '@/shop/paystack'
 import { signatureMatches } from '@/shop/signatures'
-import { createTerminalClient, TerminalError, TerminalOutcomeUnknown } from '@/shop/terminal'
+import { createTerminalClient, TerminalError, TerminalOutcomeUnknown, TerminalUnreachable } from '@/shop/terminal'
 
 /** A fetch that fails the way Node does, with the Authorization value quoted in the message. */
 const leakyFetch = (secret: string, name = 'TypeError', code?: string) =>
@@ -248,6 +248,20 @@ describe('the Terminal client', () => {
       labelUrl: 'https://label.test/SH-9.pdf',
     })
     expect(calls[2]).toMatchObject({ url: 'https://sandbox.test/v1/shipments/pickup', method: 'POST', body: { rate_id: 'RT-1' } })
+  })
+
+  it('marks a request that never reached Terminal as unreachable, and nothing else', async () => {
+    const down = createTerminalClient('tk', 'https://sandbox.test/v1', leakyFetch('tk', 'TypeError', 'ENOTFOUND')).walletBalance()
+    await expect(down).rejects.toBeInstanceOf(TerminalUnreachable)
+    await expect(down).rejects.toThrow('Terminal could not be reached (TypeError: ENOTFOUND).')
+    const { fetchImpl } = fakeFetch(() => ({ status: 400, body: { status: false, message: 'Delivery address could not be verified' } }))
+    const refused = createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).quotes({ bookable: false, pickup: { city: 'a', state: 'lagos' }, delivery: { city: 'b', state: 'lagos' }, parcel })
+    await expect(refused).rejects.toBeInstanceOf(TerminalError)
+    await expect(refused).rejects.not.toBeInstanceOf(TerminalUnreachable)
+    // A booking that got no answer may have gone through, so it stays "not confirmed", never "unreachable".
+    const booking = createTerminalClient('tk', 'https://sandbox.test/v1', leakyFetch('tk', 'TimeoutError')).book('RT-1')
+    await expect(booking).rejects.toBeInstanceOf(TerminalOutcomeUnknown)
+    await expect(booking).rejects.not.toBeInstanceOf(TerminalUnreachable)
   })
 
   it('refuses a rate with no ID or no price, as quotes do', async () => {

@@ -100,10 +100,19 @@ describe('courierOptions', () => {
     expect(options.terminalError).toBe('Courier booking is not set up on this server. The details are in the server log.')
   })
 
-  it('says when Terminal cannot be reached', async () => {
+  it('says when Terminal cannot be reached, plainly, and keeps the error code for the log', async () => {
     terminal.failQuotes = true
+    const warn = vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
     const order = await paidOrder()
-    expect((await courierOptions(req, order.id)).terminalError).toContain("Couldn't reach Terminal")
+    expect((await courierOptions(req, order.id)).terminalError).toBe("Couldn't reach Terminal. Try again in a minute.")
+    expect(warn.mock.calls.some(([entry]) => (entry as { err?: Error }).err?.message === 'Terminal could not be reached (fake).')).toBe(true)
+  })
+
+  it("passes on Terminal's own words when it answers but cannot give prices", async () => {
+    terminal.refuseQuotes = 'Delivery address could not be verified'
+    vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
+    const order = await paidOrder()
+    expect((await courierOptions(req, order.id)).terminalError).toBe("Terminal couldn't give prices for this order: Delivery address could not be verified")
   })
 })
 
@@ -149,6 +158,7 @@ describe('bookCourier', () => {
 
   it("passes on Terminal's refusal and frees the order", async () => {
     terminal.failBooking = true
+    vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
     const order = await paidOrder()
     await expect(book(order, 'rate-gig')).rejects.toThrow(/^Terminal refused the booking\. Booking refused \(fake\)$/)
     const after = await payload.findByID({ collection: 'orders', id: order.id })
@@ -204,9 +214,20 @@ describe('bookCourier', () => {
     expect(terminal.bookings).toHaveLength(0)
   })
 
-  it('words a failure before booking as a price or wallet problem', async () => {
+  it("words a refusal before booking as a price or wallet problem, in Terminal's own words", async () => {
+    vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
     const order = await paidOrder()
-    await expect(book(order, 'rate-missing')).rejects.toThrow("Couldn't get Terminal's price or wallet: Terminal said: Rate not found")
+    await expect(book(order, 'rate-missing')).rejects.toThrow(/^Couldn't get Terminal's price or wallet: Rate not found$/)
+  })
+
+  it('says plainly when Terminal cannot be reached before booking, and frees the order', async () => {
+    const order = await paidOrder()
+    const { fingerprint } = await courierOptions(req, order.id)
+    terminal.failWallet = true
+    const warn = vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
+    await expect(bookCourier(req, order.id, 'rate-gig', 'Packer', fingerprint)).rejects.toThrow(/^Couldn't reach Terminal\. Try again in a minute\.$/)
+    expect(warn.mock.calls.some(([entry]) => (entry as { err?: Error }).err?.message === 'Terminal could not be reached (fake).')).toBe(true)
+    expect((await payload.findByID({ collection: 'orders', id: order.id })).shipment?.bookingStartedAt ?? null).toBeNull()
   })
 
   it('tells staff to check Terminal when the booking cannot be recorded, and keeps the order held', async () => {

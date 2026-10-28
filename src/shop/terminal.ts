@@ -29,6 +29,19 @@ export class TerminalOutcomeUnknown extends TerminalError {
   }
 }
 
+/**
+ * A request that never reached Terminal: the network failed or it timed out, so nothing was asked
+ * and nothing was refused. Only for calls that change nothing; a booking that gets no answer is
+ * TerminalOutcomeUnknown instead, because it may have gone through. The message names only the
+ * error and its cause code (for the log); staff are shown plain words instead.
+ */
+export class TerminalUnreachable extends TerminalError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TerminalUnreachable'
+  }
+}
+
 export type TerminalPlace = { city: string; state: string }
 export type TerminalContact = TerminalPlace & {
   name: string
@@ -129,7 +142,7 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
       // Only the error's name and cause code: its message can quote the Authorization header, and so the key.
       const name = networkErrorLabel(error)
       if (unconfirmedIfNoAnswer) throw new TerminalOutcomeUnknown(`Terminal did not confirm the booking (${name}). It may have gone through.`)
-      throw new TerminalError(`Terminal could not be reached (${name}).`)
+      throw new TerminalUnreachable(`Terminal could not be reached (${name}).`)
     }
     const json = (await response.json().catch(() => null)) as { status?: boolean; message?: string; data?: unknown } | null
     // A booking that got a server error, or a success whose body never arrived, may still have been made.

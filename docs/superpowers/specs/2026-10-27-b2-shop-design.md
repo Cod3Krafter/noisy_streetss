@@ -303,6 +303,7 @@ Desktop: order screen, panel in the sidebar     Mobile: the panel stacks below t
   - When courier booking is not configured (a missing key or a settings failure), the panel says "Courier booking is not set up on this server" rather than blaming Terminal. For an order that is not Paid, the panel's message depends on the status.
   - After a booking goes through, Book stays busy until the page has reloaded. A 409 answer (the order changed since the prices were fetched, another booking holds it, or a courier is already booked) fetches the panel again by itself and says "The order changed. The prices have been reloaded; pick again."
   - When Terminal refuses the booking call, the panel shows "Terminal refused the booking." followed by Terminal's own message, and the claim is released. A rate Terminal gives with no ID or no price is refused before booking, as quotes are.
+  - Staff never see raw error codes. When Terminal cannot be reached at all (the network fails or times out: `TerminalUnreachable`), the panel says "Couldn't reach Terminal. Try again in a minute.", whether it was fetching prices or about to book. When Terminal answers but cannot give prices, it says "Terminal couldn't give prices for this order:" followed by Terminal's own message. The error's name and cause code go to the warn log only. Paystack's outage label never reaches a customer either: checkout says "The payment could not be started. Please try again in a moment.", and the return page only logs a failed check.
   - The claim's age is judged by the database's clock, the same clock that stamps it.
 - Once booked, the panel shows the carrier, tracking number, tracking link and label to print.
 - A booking cancelled in Terminal's dashboard comes back by webhook (7.2), so the admin has no cancel button.
@@ -383,8 +384,10 @@ These join B1's queue (B1 spec 5.7). In production Vercel Cron calls `/api/paylo
 | Situation | Result |
 |---|---|
 | Terminal down, slow or empty at checkout | The flat price for the state |
-| Terminal cannot be reached when the panel opens | The panel says "Couldn't reach Terminal, try again". Nothing changes |
-| Terminal fails before the booking (price or wallet) | "Couldn't get Terminal's price or wallet". The claim is released and nothing changes |
+| Terminal cannot be reached when the panel opens | The panel says "Couldn't reach Terminal. Try again in a minute." Nothing changes |
+| Terminal answers the panel but gives no prices | The panel says "Terminal couldn't give prices for this order:" and Terminal's message. Nothing changes |
+| Terminal cannot be reached before the booking (price or wallet) | "Couldn't reach Terminal. Try again in a minute." The claim is released and nothing changes |
+| Terminal refuses the price or wallet check before the booking | "Couldn't get Terminal's price or wallet:" and Terminal's message. The claim is released and nothing changes |
 | Terminal refuses the booking call | Terminal's message is shown, the claim is released and nothing changes |
 | Terminal does not confirm the booking | The claim is kept, the order is held for 5 minutes and staff are told to check Terminal's dashboard before booking again |
 | Paystack can't start the payment | No order is kept. The customer is asked to try again |

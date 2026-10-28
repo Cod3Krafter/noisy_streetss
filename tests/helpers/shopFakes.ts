@@ -1,6 +1,6 @@
 import { setShopClients } from '@/shop/clients'
 import { type PaystackClient, PaystackError, type PaystackTransaction } from '@/shop/paystack'
-import { type QuoteRequest, type TerminalBooking, type TerminalClient, TerminalError, TerminalOutcomeUnknown, type TerminalRate } from '@/shop/terminal'
+import { type QuoteRequest, type TerminalBooking, type TerminalClient, TerminalError, TerminalOutcomeUnknown, type TerminalRate, TerminalUnreachable } from '@/shop/terminal'
 
 type InitializeInput = Parameters<PaystackClient['initialize']>[0]
 
@@ -62,25 +62,31 @@ export class FakeTerminal implements TerminalClient {
   /** Per rate ID: the price getRate answers with, when it should differ from the quote. */
   bookPriceKobo: Record<string, number> = {}
   walletKobo = 5_000_000
+  /** Quotes and the wallet fail as if Terminal could not be reached. */
   failQuotes = false
+  failWallet = false
+  /** Terminal answers the quote request but refuses it, in these words. */
+  refuseQuotes: string | null = null
   failBooking = false
   bookingUnconfirmed = false
   bookingDelayMs = 0
 
   async quotes(input: QuoteRequest) {
     this.quoteCalls.push(input)
-    if (this.failQuotes) throw new TerminalError('Terminal could not be reached (fake).')
+    if (this.failQuotes) throw new TerminalUnreachable('Terminal could not be reached (fake).')
+    if (this.refuseQuotes) throw new TerminalError(`Terminal said: ${this.refuseQuotes}`, this.refuseQuotes)
     return this.rates.map((rate) => ({ ...rate }))
   }
 
   async getRate(rateId: string) {
     const rate = this.rates.find((candidate) => candidate.rateId === rateId)
-    if (!rate) throw new TerminalError('Terminal said: Rate not found')
+    if (!rate) throw new TerminalError('Terminal said: Rate not found', 'Rate not found')
     // The price Terminal gives when booking can differ from the earlier quote.
     return { ...rate, amountKobo: this.bookPriceKobo[rateId] ?? rate.amountKobo }
   }
 
   async walletBalance() {
+    if (this.failWallet) throw new TerminalUnreachable('Terminal could not be reached (fake).')
     return { amountKobo: this.walletKobo }
   }
 
