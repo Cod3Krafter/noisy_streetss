@@ -1,3 +1,4 @@
+import { isPrintableKey } from '@/shop/keys'
 import { createPaystackClient, type PaystackClient } from '@/shop/paystack'
 import { createTerminalClient, TERMINAL_SANDBOX, type TerminalClient } from '@/shop/terminal'
 
@@ -9,12 +10,6 @@ let replacement: ShopClients | null = null
 export function setShopClients(clients: ShopClients | null): void {
   replacement = clients
 }
-
-/**
- * True when a key, already trimmed, holds only printable characters with no spaces. A line break or
- * space inside a key breaks the Authorization header, and the resulting error would quote the key.
- */
-export const isPrintableKey = (value: string) => /^[\x21-\x7e]+$/.test(value)
 
 type KeyName = 'PAYSTACK_SECRET_KEY' | 'TERMINAL_SECRET_KEY'
 

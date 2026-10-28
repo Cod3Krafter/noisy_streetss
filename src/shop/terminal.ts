@@ -30,8 +30,8 @@ export class TerminalOutcomeUnknown extends TerminalError {
 }
 
 /**
- * A request that never reached Terminal: the network failed or it timed out, so nothing was asked
- * and nothing was refused. Only for calls that change nothing; a booking that gets no answer is
+ * A call that got no usable answer from Terminal: the network failed or it timed out, or Terminal answered
+ * with a server error (5xx). Nothing was refused. Only for calls that change nothing; a booking that gets no answer is
  * TerminalOutcomeUnknown instead, because it may have gone through. The message names only the
  * error and its cause code (for the log); staff are shown plain words instead.
  */
@@ -144,13 +144,17 @@ export function createTerminalClient(secretKey: string, baseUrl: string, fetchIm
       if (unconfirmedIfNoAnswer) throw new TerminalOutcomeUnknown(`Terminal did not confirm the booking (${name}). It may have gone through.`)
       throw new TerminalUnreachable(`Terminal could not be reached (${name}).`)
     }
-    const json = (await response.json().catch(() => null)) as { status?: boolean; message?: string; data?: unknown } | null
+    const json = (await response.json().catch(() => null)) as { status?: boolean; message?: unknown; data?: unknown } | null
     // A booking that got a server error, or a success whose body never arrived, may still have been made.
     if (unconfirmedIfNoAnswer && (response.status >= 500 || (response.ok && !json))) {
       throw new TerminalOutcomeUnknown(`Terminal did not confirm the booking (answered ${response.status}). It may have gone through.`)
     }
+    // A server error on a call that changes nothing is an outage like any other: nothing was refused, and asking again is safe.
+    if (response.status >= 500) throw new TerminalUnreachable(`Terminal answered ${response.status}.`)
     if (!response.ok || !json || json.status === false) {
-      throw new TerminalError(json?.message ? `Terminal said: ${json.message}` : `Terminal answered ${response.status}.`, json?.message || null)
+      // Terminal's words only when they are a real string; anything else is treated as no message.
+      const said = text(json?.message)
+      throw new TerminalError(said ? `Terminal said: ${said}` : `Terminal answered ${response.status}.`, said)
     }
     return json.data
   }

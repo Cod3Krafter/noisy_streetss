@@ -225,15 +225,16 @@ describe('orders', () => {
 
   it('refuse a phone or address change while a booking is in progress, and allow it once the claim has lapsed', async () => {
     const held = await createOrder(payload, { status: 'paid', shipment: { bookingStartedAt: new Date(Date.now() - 60_000).toISOString() } })
-    const refusals: [Record<string, unknown>, string][] = [
-      [{ customerPhone: '+2348000000007' }, 'customerPhone'],
-      [{ address: { ...held.address, line2: 'Flat 2' } }, 'address.line2'],
+    const refusals: [Record<string, unknown>, string, string][] = [
+      [{ customerPhone: '+2348000000007' }, 'customerPhone', 'phone number'],
+      [{ address: { ...held.address, line2: 'Flat 2' } }, 'address.line2', 'address'],
+      [{ customerPhone: '+2348000000007', address: { ...held.address, line2: 'Flat 2' } }, 'customerPhone', 'phone number and address'],
     ]
-    for (const [data, path] of refusals) {
+    for (const [data, path, what] of refusals) {
       await expectFieldError(
         payload.update({ collection: 'orders', id: held.id, data, overrideAccess: false, user: shop }),
         path,
-        /^A booking is in progress\. Wait for it to finish, then change the address\.$/,
+        new RegExp(String.raw`^A booking is in progress\. Wait for it to finish, then change the ${what}\.$`),
       )
     }
     const lapsed = await createOrder(payload, { status: 'paid', shipment: { bookingStartedAt: new Date(Date.now() - 6 * 60_000).toISOString() } })

@@ -7,6 +7,7 @@ import type { CourierOptions } from '@/shop/booking'
 
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG', { maximumFractionDigits: 2 })}`
 const messageOf = (json: unknown) => (json as { errors?: { message?: string }[] } | null)?.errors?.[0]?.message
+const reasonOf = (json: unknown) => (json as { errors?: { data?: { reason?: string } }[] } | null)?.errors?.[0]?.data?.reason
 
 const box = { border: '1px solid var(--theme-elevation-150)', borderRadius: 4, padding: 16, marginBottom: 24 }
 const warning = { background: 'var(--theme-warning-100)', padding: 8, borderRadius: 4, margin: '8px 0' }
@@ -71,8 +72,9 @@ export function CourierPanel() {
         return
       }
       if (res.status === 409) {
-        // The order changed, or another booking holds it: fetch the panel again and say why.
-        setNotice('The order changed. The prices have been reloaded; pick again.')
+        // Fetch the panel again. Only stale prices get the "pick again" notice: the other 409s (already booked, held by another booking) say their own reason.
+        const json = await res.json().catch(() => null)
+        setNotice(reasonOf(json) === 'stale-prices' || !messageOf(json) ? 'The order changed. The prices have been reloaded; pick again.' : (messageOf(json) as string))
         setAttempt((count) => count + 1)
       } else {
         setError(messageOf(await res.json().catch(() => null)) ?? 'The booking may not have gone through. Reload the panel to check before trying again.')

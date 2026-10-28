@@ -323,6 +323,29 @@ describe('the Terminal client', () => {
     await expect(falseOk).rejects.not.toBeInstanceOf(TerminalOutcomeUnknown)
   })
 
+  it('treats a server error on a call that changes nothing as unreachable, but a booking stays unconfirmed', async () => {
+    const client = createTerminalClient('tk', 'https://sandbox.test/v1', (async () => new Response('Service Unavailable', { status: 503 })) as unknown as typeof fetch)
+    const quotes = client.quotes({ bookable: false, pickup: { city: 'a', state: 'lagos' }, delivery: { city: 'b', state: 'lagos' }, parcel })
+    await expect(quotes).rejects.toBeInstanceOf(TerminalUnreachable)
+    await expect(quotes).rejects.toThrow('Terminal answered 503.')
+    await expect(client.getRate('RT-1')).rejects.toBeInstanceOf(TerminalUnreachable)
+    await expect(client.walletBalance()).rejects.toBeInstanceOf(TerminalUnreachable)
+    const booking = client.book('RT-1')
+    await expect(booking).rejects.toBeInstanceOf(TerminalOutcomeUnknown)
+    await expect(booking).rejects.not.toBeInstanceOf(TerminalUnreachable)
+  })
+
+  it("uses Terminal's message only when it is a non-empty string", async () => {
+    const refuse = (message: unknown) =>
+      createTerminalClient('tk', 'https://sandbox.test/v1', (async () => new Response(JSON.stringify({ status: false, message }), { status: 400 })) as unknown as typeof fetch).walletBalance()
+    for (const odd of [{ code: 7 }, ['a'], 42, '', null]) {
+      const failed = refuse(odd)
+      await expect(failed).rejects.toThrow(/^Terminal answered 400\.$/)
+      await expect(failed).rejects.toMatchObject({ terminalMessage: null })
+    }
+    await expect(refuse('Insufficient wallet balance')).rejects.toMatchObject({ terminalMessage: 'Insufficient wallet balance' })
+  })
+
   it('gives quotes 8 seconds and a booking 15', async () => {
     const spy = vi.spyOn(AbortSignal, 'timeout')
     try {

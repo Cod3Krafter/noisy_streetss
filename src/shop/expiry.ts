@@ -51,6 +51,9 @@ export const DETAILS_REMOVED_PER_RUN = 200
  * At most 200 orders a run, the longest expired first. One order that fails is logged and skipped,
  * so it never stops the others being cleaned; once the rest are done the run throws one error
  * naming every order that failed, so the job still shows the failure, and the next run tries them again.
+ *
+ * Call it with a req that is not already inside a transaction: each order's lock commits or rolls back on
+ * its own, and inside an outer transaction one failure would roll back the orders already cleaned.
  */
 export async function removeExpiredDetails(req: PayloadRequest, now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - DETAILS_KEPT_DAYS * 24 * 60 * 60 * 1000).toISOString()

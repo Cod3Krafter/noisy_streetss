@@ -67,7 +67,8 @@ const staffChangeRules: CollectionBeforeChangeHook = ({ context, data, operation
     rejectField(req, 'orders', refusedAt, 'The phone and address can only be changed while the order is Paid and no courier is booked.')
   }
   if ((phoneChanged || addressChanged) && bookingInProgress(originalDoc.shipment)) {
-    rejectField(req, 'orders', refusedAt, 'A booking is in progress. Wait for it to finish, then change the address.')
+    const what = phoneChanged && addressChanged ? 'phone number and address' : phoneChanged ? 'phone number' : 'address'
+    rejectField(req, 'orders', refusedAt, `A booking is in progress. Wait for it to finish, then change the ${what}.`)
   }
 
   const checked: Record<string, unknown> = { ...data, createdAt: originalDoc.createdAt }

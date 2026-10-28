@@ -1,4 +1,4 @@
-import { isPrintableKey } from '@/shop/clients'
+import { isPrintableKey } from '@/shop/keys'
 import { MIN_QUOTE_STAMP_SECRET_LENGTH } from '@/shop/stamp'
 
 /** The settings production cannot work without. Locally they may all be empty. */

@@ -272,6 +272,28 @@ describe('the courier endpoints', () => {
     expect((await rest('POST', `/orders/${order.id}/book-courier`, { token, body: { rateId: 'rate-gig', fingerprint } })).status).toBe(200)
   })
 
+  it('sends a reason with each 409, so the panel can tell the cases apart without reading the message', async () => {
+    const token = await tokenFor(payload, shop)
+    const reasonOf = async (res: Response) => {
+      expect(res.status).toBe(409)
+      return ((await res.json()) as { errors: { data?: { reason?: string } }[] }).errors[0].data?.reason
+    }
+    const post = (order: Order, fingerprint: string) => rest('POST', `/orders/${order.id}/book-courier`, { token, body: { rateId: 'rate-gig', fingerprint } })
+
+    const changed = await paidOrder()
+    const stale = (await courierOptions(req, changed.id)).fingerprint
+    await serverUpdate(req, changed.id, { address: { line1: '9 Other Road', city: 'Ikeja', state: 'lagos', postcode: '100271' } })
+    expect(await reasonOf(await post(changed, stale))).toBe('stale-prices')
+
+    const booked = await paidOrder({ shipment: { terminalShipmentId: 'SH-OLD' } })
+    expect(await reasonOf(await post(booked, 'x'))).toBe('already-booked')
+
+    const held = await paidOrder()
+    const heldPrices = (await courierOptions(req, held.id)).fingerprint
+    expect(await claimBooking(req, held.id)).toBe(true)
+    expect(await reasonOf(await post(held, heldPrices))).toBe('held')
+  })
+
   it('answers 404 for an id that is not a positive whole number, before touching the database', async () => {
     const token = await tokenFor(payload, shop)
     for (const id of ['abc', '0', '-3', '1.5']) {
