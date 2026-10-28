@@ -17,7 +17,7 @@ npm run seed                # dummy content; safe to rerun, local databases only
 npm run dev                 # http://localhost:3000 and http://localhost:3000/admin
 ```
 
-Seeded logins (local only): `admin@noisystreetss.test` / `admin-dev-password` and `editor@noisystreetss.test` / `editor-dev-password`.
+Seeded logins (local only): `admin@noisystreetss.test` / `admin-dev-password`, `editor@noisystreetss.test` / `editor-dev-password` and `shop@noisystreetss.test` / `shop-dev-password`.
 
 ## Commands
 

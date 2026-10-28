@@ -73,6 +73,7 @@ describe('productionSettingProblems', () => {
   it('says what is wrong with the shop settings', () => {
     expect(productionSettingProblems({ ...complete, QUOTE_STAMP_SECRET: 'q'.repeat(31) })).toEqual(['QUOTE_STAMP_SECRET (shorter than 32 characters)'])
     expect(productionSettingProblems({ ...complete, PAYSTACK_SECRET_KEY: 'sk_test_abc' })).toEqual(['PAYSTACK_SECRET_KEY (a test key)'])
+    expect(productionSettingProblems({ ...complete, PAYSTACK_SECRET_KEY: '  sk_test_abc' })).toEqual(['PAYSTACK_SECRET_KEY (a test key)'])
     expect(productionSettingProblems({ ...complete, TERMINAL_BASE_URL: 'https://sandbox.terminal.africa/v1' })).toEqual([
       "TERMINAL_BASE_URL (Terminal's sandbox address)",
     ])

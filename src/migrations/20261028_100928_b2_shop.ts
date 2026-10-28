@@ -133,12 +133,27 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone
   );
   
+  -- B1 stored the pickup state as free text. Make it one of the enum values (trimmed, lowercase,
+  -- no trailing " state", spaces as hyphens, Abuja and the Federal Capital Territory as fct),
+  -- or empty when it cannot be matched, so the cast below cannot fail on existing data.
+  UPDATE "shop_settings" SET "pickup_address_state" = (
+    SELECT CASE
+      WHEN n IN ('abuja', 'federal-capital-territory') THEN 'fct'
+      WHEN n IN ('abia', 'adamawa', 'akwa-ibom', 'anambra', 'bauchi', 'bayelsa', 'benue', 'borno', 'cross-river', 'delta', 'ebonyi', 'edo', 'ekiti', 'enugu', 'fct', 'gombe', 'imo', 'jigawa', 'kaduna', 'kano', 'katsina', 'kebbi', 'kogi', 'kwara', 'lagos', 'nasarawa', 'niger', 'ogun', 'ondo', 'osun', 'oyo', 'plateau', 'rivers', 'sokoto', 'taraba', 'yobe', 'zamfara') THEN n
+      ELSE NULL
+    END
+    FROM (SELECT regexp_replace(regexp_replace(lower(btrim("shop_settings"."pickup_address_state")), ' state$', ''), '\\s+', '-', 'g') AS n) t
+  );
   ALTER TABLE "shop_settings" ALTER COLUMN "pickup_address_state" SET DATA TYPE "public"."enum_shop_settings_pickup_address_state" USING "pickup_address_state"::"public"."enum_shop_settings_pickup_address_state";
   ALTER TABLE "payload_jobs" ADD COLUMN "meta" jsonb;
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "orders_id" integer;
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "webhook_events_id" integer;
   ALTER TABLE "shop_settings" ADD COLUMN "pickup_address_postcode" varchar;
-  ALTER TABLE "shop_settings" ADD COLUMN "elsewhere_price_n_g_n" numeric NOT NULL;
+  -- The new required price is added empty, filled for any existing Shop settings (the highest
+  -- flat price, or 5000), then made required. Staff should review this value before launch.
+  ALTER TABLE "shop_settings" ADD COLUMN "elsewhere_price_n_g_n" numeric;
+  UPDATE "shop_settings" SET "elsewhere_price_n_g_n" = COALESCE((SELECT max(p."price_n_g_n") FROM "shop_settings_flat_delivery_prices" p WHERE p."_parent_id" = "shop_settings"."id"), 5000);
+  ALTER TABLE "shop_settings" ALTER COLUMN "elsewhere_price_n_g_n" SET NOT NULL;
   ALTER TABLE "shop_settings" ADD COLUMN "terminal_packaging_id" varchar DEFAULT 'PA-PT95DUJGH8FRKSO0';
   ALTER TABLE "shop_settings" ADD COLUMN "box_weight_grams" numeric DEFAULT 100;
   ALTER TABLE "orders_items" ADD CONSTRAINT "orders_items_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."orders"("id") ON DELETE cascade ON UPDATE no action;
@@ -198,9 +213,9 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "webhook_events" CASCADE;
   DROP TABLE "shop_settings_flat_delivery_prices_states" CASCADE;
   DROP TABLE "payload_jobs_stats" CASCADE;
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_orders_fk";
+  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT IF EXISTS "payload_locked_documents_rels_orders_fk";
   
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_webhook_events_fk";
+  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT IF EXISTS "payload_locked_documents_rels_webhook_events_fk";
   
   ALTER TABLE "users" ALTER COLUMN "role" SET DATA TYPE text;
   ALTER TABLE "users" ALTER COLUMN "role" SET DEFAULT 'editor'::text;

@@ -59,7 +59,7 @@ export function productionSettingProblems(env: Record<string, string | undefined
       problems.push(`${name} (must be exactly https://host in lowercase, with no path, trailing slash or :443)`)
     } else if (name === 'QUOTE_STAMP_SECRET' && value.length < MIN_QUOTE_STAMP_SECRET_LENGTH) {
       problems.push(`${name} (shorter than ${MIN_QUOTE_STAMP_SECRET_LENGTH} characters)`)
-    } else if (name === 'PAYSTACK_SECRET_KEY' && value.startsWith('sk_test_')) {
+    } else if (name === 'PAYSTACK_SECRET_KEY' && value.trim().startsWith('sk_test_')) {
       problems.push(`${name} (a test key)`)
     } else if (name === 'TERMINAL_BASE_URL' && value.includes('sandbox')) {
       problems.push(`${name} (Terminal's sandbox address)`)

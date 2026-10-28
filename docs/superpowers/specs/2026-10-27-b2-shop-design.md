@@ -176,7 +176,7 @@ Merch gets an optional `options` array, built like a book's formats: `name`\* an
 
 ### 5.4 Webhook events (`webhook-events`)
 
-A hidden list of `provider` and `eventId`, unique together, with `receivedAt`. Terminal can send the same event twice, so each Terminal event id is recorded and a repeat is acknowledged and ignored. Paystack's events have no id, so a repeated Paystack notice is made harmless by 6.5 instead.
+A hidden list of `key` (unique) and `receivedAt`. Terminal can send the same event twice, so each applied Terminal event is recorded under the key `terminal:<event id, or the sha256 of the raw body when it has none>:<order id>`, in the same transaction as the order change it guards, and a repeat is acknowledged and ignored. Because the row and the change commit or roll back together, a failed apply leaves no row and Terminal's retry finishes the job. Paystack's events have no id, so a repeated Paystack notice is made harmless by 6.5 instead.
 
 ### 5.5 Deleting products
 
@@ -290,7 +290,7 @@ Desktop: order screen, panel in the sidebar     Mobile: the panel stacks below t
 - **Opening the panel** calls `GET /api/orders/:id/courier-options`. Terminal doesn't say how long a quote stays bookable, so the panel always fetches today's quotes, bookable ones this time (full addresses, the box id, `persist_data`), together with the wallet balance. The customer's courier is preselected, with the difference from what the customer paid shown ("+₦150 covered"). Noisy Streetss covers any rise. On a flat-price order nothing is preselected.
 - If the address has no postcode (P2), the panel says so and points to the address field.
 - If the chosen price is more than the wallet holds, the button is disabled and the panel says how much to top up in Terminal's dashboard.
-- **Booking** calls `POST /api/orders/:id/book-courier` with the chosen rate. The server claims the order first, with a single conditional update (one database statement) that sets `bookingStartedAt` only while the order is Paid, has no shipment id and is unclaimed, so a double click or a second staff member can't book twice. It checks the wallet again and books with the carrier's regular collection (`pickup`), from the Shop settings pickup address, with no insurance. On success it saves the shipment id, tracking number and link, label link (when Terminal gives one), the cost and who booked it, moves the order to Courier booked, and queues the customer's tracking email. On failure it releases the claim and shows Terminal's message. A claim left behind by a booking that never finished (a crash or a timeout) lapses after 5 minutes, and the panel then warns staff to check Terminal's dashboard for a booking before trying again.
+- **Booking** calls `POST /api/orders/:id/book-courier` with the chosen rate. The server claims the order first, with a single conditional update (one database statement) that sets `bookingStartedAt` only while the order is Paid, has no shipment id and is unclaimed, so a double click or a second staff member can't book twice. It checks the wallet again and books with the carrier's regular collection (`pickup`), from the Shop settings pickup address, with no insurance. On success it saves the shipment id, tracking number and link, label link (when Terminal gives one), the cost and who booked it, moves the order to Courier booked, and queues the customer's tracking email. If Terminal refuses or fails before the booking, it releases the claim and shows the message. If Terminal does not confirm the booking, it keeps the claim (see the list below). A claim left behind by a booking that never finished (a crash or a timeout) lapses after 5 minutes, and the panel then warns staff to check Terminal's dashboard for a booking before trying again.
 - **Built, changes to the above:**
   - `bookCourier` refuses an order that already has a shipment, and the booking claim also requires no shipment id.
   - `courierOptions` returns a fingerprint of the order's name, phone, address and items. The panel sends it back with the chosen rate, and `bookCourier` refuses if the order changed since the prices were fetched. The panel also refetches when the order is saved.
@@ -303,7 +303,7 @@ Desktop: order screen, panel in the sidebar     Mobile: the panel stacks below t
 ### 7.2 Terminal's webhook: `POST /api/terminal/webhook`
 
 - The `X-Terminal-Signature` header must be the HMAC-SHA512 of the raw body, made with the Terminal secret key. Anything else is refused (401).
-- A repeated event id is acknowledged and ignored (5.4). The order is found by its shipment id. An event for an unknown shipment is acknowledged and logged.
+- The order is found by its shipment id, and a repeated event is acknowledged and ignored (5.4). An event for an unknown shipment is acknowledged and logged.
 
 | Event | Effect |
 |---|---|
@@ -376,7 +376,9 @@ These join B1's queue (B1 spec 5.7). In production Vercel Cron calls `/api/paylo
 | Situation | Result |
 |---|---|
 | Terminal down, slow or empty at checkout | The flat price for the state |
-| Terminal down when staff book | "Couldn't reach Terminal, try again". Nothing changes |
+| Terminal cannot be reached when the panel opens | The panel says "Couldn't reach Terminal, try again". Nothing changes |
+| Terminal fails before the booking (price or wallet) | "Couldn't get Terminal's price or wallet". The claim is released and nothing changes |
+| Terminal does not confirm the booking | The claim is kept, the order is held for 5 minutes and staff are told to check Terminal's dashboard before booking again |
 | Paystack can't start the payment | No order is kept. The customer is asked to try again |
 | A webhook signature is wrong | Refused (401). Nothing done |
 | A webhook for an unknown order or shipment | Acknowledged and logged |
