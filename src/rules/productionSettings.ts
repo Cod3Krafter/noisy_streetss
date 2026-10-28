@@ -1,3 +1,5 @@
+import { MIN_QUOTE_STAMP_SECRET_LENGTH } from '@/shop/stamp'
+
 /** The settings production cannot work without. Locally they may all be empty. */
 const REQUIRED_IN_PRODUCTION = [
   'PAYLOAD_SECRET',
@@ -7,6 +9,10 @@ const REQUIRED_IN_PRODUCTION = [
   'CRON_SECRET',
   'S3_BUCKET_MEDIA',
   'S3_BUCKET_MANUSCRIPTS',
+  'PAYSTACK_SECRET_KEY',
+  'TERMINAL_SECRET_KEY',
+  'TERMINAL_BASE_URL',
+  'QUOTE_STAMP_SECRET',
 ] as const
 
 /** Needed as soon as either bucket is named, because the buckets cannot be reached without them. */
@@ -51,6 +57,12 @@ export function productionSettingProblems(env: Record<string, string | undefined
       problems.push(`${name} (shorter than ${MIN_CRON_SECRET_LENGTH} characters)`)
     } else if (name === 'NEXT_PUBLIC_SERVER_URL' && !isExactOrigin(value)) {
       problems.push(`${name} (must be exactly https://host in lowercase, with no path, trailing slash or :443)`)
+    } else if (name === 'QUOTE_STAMP_SECRET' && value.length < MIN_QUOTE_STAMP_SECRET_LENGTH) {
+      problems.push(`${name} (shorter than ${MIN_QUOTE_STAMP_SECRET_LENGTH} characters)`)
+    } else if (name === 'PAYSTACK_SECRET_KEY' && value.startsWith('sk_test_')) {
+      problems.push(`${name} (a test key)`)
+    } else if (name === 'TERMINAL_BASE_URL' && value.includes('sandbox')) {
+      problems.push(`${name} (Terminal's sandbox address)`)
     }
   }
   if (!blank('S3_BUCKET_MEDIA') || !blank('S3_BUCKET_MANUSCRIPTS')) problems.push(...STORAGE_CONNECTION.filter(blank))

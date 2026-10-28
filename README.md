@@ -42,6 +42,17 @@ Locally, Payload pushes the code's schema into the database automatically, but o
 
 `drizzle-orm` is pinned to the version `@payloadcms/db-postgres` uses, so npm installs a single copy and generated migrations type-check. Bump it together with Payload.
 
+## Shop
+
+Checkout, payment and delivery go through Paystack and Terminal Africa. Locally, `.env` holds Paystack's test key and Terminal's sandbox key (see `.env.example`). The tests never use them; they talk to fakes.
+
+- Seeded staff accounts: `admin@noisystreetss.test`, `editor@noisystreetss.test` and `shop@noisystreetss.test`. Shop staff only see orders and the Stock page.
+- Stock is changed on the admin's Stock page (`/admin/stock`). It changes the live record without publishing anyone's draft.
+- Paid orders are booked from the Book courier panel on the order screen.
+- Webhooks: register Terminal's once per environment with `node --env-file=.env scripts/register-terminal-webhook.mjs https://<site>/api/terminal/webhook`. Paystack's is set by hand in its dashboard (Settings > API Keys & Webhooks) as `https://<site>/api/paystack/webhook`, once for test mode and once for live mode.
+- Webhooks need a public address. Locally, run a tunnel (`cloudflared tunnel --url http://localhost:3000`) and register its address.
+- Design: `docs/superpowers/specs/2026-10-27-b2-shop-design.md`.
+
 ## Production hardening
 
 The checklist of what to decide, set up and check before and after the first production deploy is section 11 of the B1 spec (`docs/superpowers/specs/2026-10-18-b1-payload-and-content-design.md`).
