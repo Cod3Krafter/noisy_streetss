@@ -3,6 +3,7 @@ import type { CollectionAfterChangeHook, CollectionBeforeChangeHook, CollectionC
 import { isShop, nobody, shopOnlyInAdmin } from '@/access'
 import { rejectField } from '@/rules/validation'
 import { SHOP_SERVER } from '@/shop/context'
+import { orderEndpoints } from '@/shop/endpoints'
 import { appendHistory, type HistoryRow, keepsHistory } from '@/shop/history'
 import { NIGERIAN_STATES } from '@/shop/states'
 import { ORDER_STATUSES, orderNumberFor } from '@/shop/statuses'
@@ -94,6 +95,7 @@ export const Orders: CollectionConfig = {
     description: 'Orders are made by checkout. Paid orders are waiting to be packed and booked.',
   },
   access: { create: nobody, read: isShop, update: isShop, delete: nobody },
+  endpoints: orderEndpoints,
   hooks: {
     beforeChange: [staffChangeRules],
     afterChange: [assignOrderNumber],
@@ -110,6 +112,11 @@ export const Orders: CollectionConfig = {
         position: 'sidebar',
         description: 'Changes on its own as the order is paid and delivered. Set it by hand only when an update has gone missing.',
       },
+    },
+    {
+      name: 'courierPanel',
+      type: 'ui',
+      admin: { position: 'sidebar', components: { Field: '/components/admin/CourierPanel#CourierPanel' } },
     },
     {
       type: 'row',

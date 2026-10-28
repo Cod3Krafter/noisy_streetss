@@ -2,6 +2,7 @@ import { addDataAndFileToRequest, type Endpoint, type PayloadRequest } from 'pay
 
 import { isShopUser } from '@/access'
 import { Refusal } from '@/refusal'
+import { bookCourier, courierOptions } from '@/shop/booking'
 import { checkout } from '@/shop/checkout'
 import { withOrderLock } from '@/shop/claims'
 import { markPaid, type MarkPaidResult } from '@/shop/markPaid'
@@ -107,6 +108,44 @@ export const shopEndpoints: Endpoint[] = [
         if (warning) req.payload.logger.warn(warning(event.data.reference))
       }
       return Response.json({ received: true })
+    },
+  },
+]
+
+/** The order id in the path, or a 404 for anything that cannot be an id, before the database is asked. */
+function orderIdOf(req: PayloadRequest): number {
+  const raw = String(req.routeParams?.id ?? '')
+  const id = Number(raw)
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(id) || id < 1) throw new Refusal('That order no longer exists.', 404)
+  return id
+}
+
+function requireShopStaff(req: PayloadRequest): void {
+  if (!isShopUser(req.user)) throw new Refusal('Only admins and shop staff can book couriers.', 403)
+}
+
+/** Mounted on the Orders collection, so they answer at /api/orders/:id/... */
+export const orderEndpoints: Endpoint[] = [
+  {
+    path: '/:id/courier-options',
+    method: 'get',
+    handler: async (req) => {
+      requireShopStaff(req)
+      return Response.json(await courierOptions(req, orderIdOf(req)))
+    },
+  },
+  {
+    path: '/:id/book-courier',
+    method: 'post',
+    handler: async (req) => {
+      requireShopStaff(req)
+      const orderId = orderIdOf(req)
+      const { rateId, fingerprint } = await bodyOf(req)
+      if (typeof rateId !== 'string' || !rateId) throw new Refusal('Pick a courier first.')
+      if (typeof fingerprint !== 'string' || !fingerprint) throw new Refusal('Reload the panel and pick again.')
+      const bookedBy = (req.user as { name?: string } | null)?.name ?? 'Staff'
+      const order = await bookCourier(req, orderId, rateId, bookedBy, fingerprint)
+      return Response.json({ status: order.status, trackingNumber: order.shipment?.trackingNumber ?? null })
     },
   },
 ]

@@ -56,7 +56,7 @@ export async function claimBooking(req: PayloadRequest, id: number): Promise<boo
   const lapsed = new Date(Date.now() - BOOKING_CLAIM_LAPSES_MS).toISOString()
   const result = await database(req).execute(sql`
     update "orders" set "shipment_booking_started_at" = now()
-    where "id" = ${id} and "status" = 'paid'
+    where "id" = ${id} and "status" = 'paid' and "shipment_terminal_shipment_id" is null
       and ("shipment_booking_started_at" is null or "shipment_booking_started_at" < ${lapsed}::timestamptz)
     returning "id"`)
   return result.rows.length > 0

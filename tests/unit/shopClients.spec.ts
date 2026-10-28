@@ -43,13 +43,35 @@ describe('keys and the real services', () => {
       const vitest = process.env.VITEST
       delete process.env.VITEST
       try {
-        expect(() => shopClients()).toThrow('PAYSTACK_SECRET_KEY has characters a key cannot contain, such as a line break. Paste it again.')
-        expect(() => shopClients()).not.toThrow(/sk_live/)
+        expect(() => shopClients().paystack).toThrow('PAYSTACK_SECRET_KEY has characters a key cannot contain, such as a line break. Paste it again.')
+        expect(() => shopClients().paystack).not.toThrow(/sk_live/)
       } finally {
         process.env.VITEST = vitest
       }
     } finally {
       process.env.PAYSTACK_SECRET_KEY = before
+    }
+  })
+
+  it('builds each client on its own, so a missing key breaks only the service that needs it', () => {
+    const before = { paystack: process.env.PAYSTACK_SECRET_KEY, terminal: process.env.TERMINAL_SECRET_KEY, vitest: process.env.VITEST }
+    setShopClients(null)
+    try {
+      delete process.env.VITEST
+      delete process.env.PAYSTACK_SECRET_KEY
+      process.env.TERMINAL_SECRET_KEY = 'sk_test_terminal'
+      const clients = shopClients()
+      expect(() => clients.paystack).toThrow('PAYSTACK_SECRET_KEY is not set.')
+      expect(clients.terminal).toBeDefined()
+      process.env.PAYSTACK_SECRET_KEY = 'sk_test_paystack'
+      delete process.env.TERMINAL_SECRET_KEY
+      expect(shopClients().paystack).toBeDefined()
+      expect(() => shopClients().terminal).toThrow('TERMINAL_SECRET_KEY is not set.')
+    } finally {
+      for (const [name, value] of [['PAYSTACK_SECRET_KEY', before.paystack], ['TERMINAL_SECRET_KEY', before.terminal], ['VITEST', before.vitest]] as const) {
+        if (value === undefined) delete process.env[name]
+        else process.env[name] = value
+      }
     }
   })
 
