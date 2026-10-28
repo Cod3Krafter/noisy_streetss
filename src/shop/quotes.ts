@@ -8,7 +8,7 @@ import { toNaira } from '@/shop/money'
 import { readShopSettings, type ShopSettingsData } from '@/shop/settings'
 import { quoteStampSecret, signQuote, type StampedQuote } from '@/shop/stamp'
 import { isNigerianState } from '@/shop/states'
-import type { TerminalParcel, TerminalPlace, TerminalRate } from '@/shop/terminal'
+import { TerminalError, type TerminalParcel, type TerminalPlace, type TerminalRate } from '@/shop/terminal'
 
 export type QuoteOption = { carrierName: string; carrierSlug: string; estimate: string; priceNGN: number; stamp: string }
 export type QuotesAnswer = { method: 'courier' | 'flat'; quotes: QuoteOption[] }
@@ -36,25 +36,30 @@ function parsePlace(value: unknown): TerminalPlace {
   return { city, state: where.state }
 }
 
-/** Live courier prices, or none when Terminal fails, is slow or has nothing. Checkout then uses the flat price. */
+/**
+ * Live courier prices, or none when Terminal fails, is slow or has nothing, and the quotes then fall
+ * back to the flat price. A failure that is not Terminal's (a missing key, a fault in the code) is
+ * logged as an error, but still falls back, so a customer is never stuck.
+ */
 async function liveRates(req: PayloadRequest, settings: ShopSettingsData, delivery: TerminalPlace, lines: PricedLine[]): Promise<TerminalRate[]> {
+  const parcel = parcelFor(lines, settings.packagingId)
   try {
-    return await shopClients().terminal.quotes({
-      bookable: false,
-      pickup: { city: settings.pickup.city, state: settings.pickup.state },
-      delivery,
-      parcel: parcelFor(lines, settings.packagingId),
-    })
+    return await shopClients().terminal.quotes({ bookable: false, pickup: { city: settings.pickup.city, state: settings.pickup.state }, delivery, parcel })
   } catch (error) {
-    req.payload.logger.warn({ err: error, msg: 'Live delivery prices failed, so the flat price was offered.' })
+    if (error instanceof TerminalError) {
+      req.payload.logger.warn({ err: error, msg: 'Live delivery prices failed, so the flat price was offered.' })
+    } else {
+      req.payload.logger.error({ err: error, msg: 'Live delivery prices could not be asked for, so the flat price was offered. Courier quotes may not be set up on this server.' })
+    }
     return []
   }
 }
 
 /** The delivery choices for a cart going to a city and state, each with its stamp. */
 export async function deliveryQuotes(req: PayloadRequest, body: Record<string, unknown>): Promise<QuotesAnswer> {
-  const lines = await resolveCart(req, parseCart(body.items))
+  // The place first: it needs no database, so a bad one is refused before the cart is looked up.
   const delivery = parsePlace(body.address)
+  const lines = await resolveCart(req, parseCart(body.items))
   const settings = await readShopSettings(req)
   const weightGrams = parcelWeightGrams(lines, settings.boxWeightGrams)
   const secret = quoteStampSecret()

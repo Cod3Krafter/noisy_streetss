@@ -206,7 +206,29 @@ describe("Terminal's webhook", () => {
     expect(after.shipment?.terminalShipmentId ?? null).toBeNull()
     expect(after.history?.at(-1)).toMatchObject({ from: 'courier-booked', to: 'paid', by: 'Terminal' })
     expect(after.history?.at(-1)?.note).toContain(shipmentId)
-    expect(after.history?.at(-1)?.note).toBe(`Booking cancelled in Terminal (was GIG Logistics, ₦3,350, booked by Packer on 28 Oct 2026, shipment ${shipmentId}, tracking ${order.shipment?.trackingNumber})`)
+    expect(after.history?.at(-1)?.note).toBe(
+      `Booking cancelled in Terminal (was GIG Logistics, ₦3,350, booked by Packer on 28 October 2026, 10:00, shipment ${shipmentId}, tracking ${order.shipment?.trackingNumber})`,
+    )
+  })
+
+  it('still applies a cancellation when the booking date cannot be read, leaving the date out of the note', async () => {
+    const { order, shipmentId } = await bookedOrder()
+    const realFindByID = payload.findByID.bind(payload)
+    // A booking date no clock can read, as if the stored value were damaged.
+    vi.spyOn(payload, 'findByID').mockImplementation((async (args: { collection: string; id: number | string }) => {
+      const doc = (await realFindByID(args as never)) as Order | null
+      return doc && args.collection === 'orders' && doc.id === order.id ? { ...doc, shipment: { ...doc.shipment, bookedAt: 'not a date' } } : doc
+    }) as never)
+    try {
+      expect((await send(event('shipment.cancelled', shipmentId))).status).toBe(200)
+    } finally {
+      vi.restoreAllMocks()
+    }
+    const after = await reload(order)
+    expect(after.status).toBe('paid')
+    expect(after.history?.at(-1)?.note).toBe(
+      `Booking cancelled in Terminal (was GIG Logistics, ₦3,350, booked by Packer, shipment ${shipmentId}, tracking ${order.shipment?.trackingNumber})`,
+    )
   })
 
   it('alerts staff about a return, a failed pickup, a failed charge and a weight claim', async () => {

@@ -1,3 +1,5 @@
+import { networkErrorLabel } from '@/shop/networkError'
+
 const BASE_URL = 'https://api.paystack.co'
 const TIMEOUT_MS = 10_000
 
@@ -41,10 +43,8 @@ export function createPaystackClient(secretKey: string, fetchImpl: typeof fetch 
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
     } catch (error) {
-      // Only the error's name: its message can quote the Authorization header, and so the key.
-      const code = (error as { cause?: { code?: unknown } } | null)?.cause?.code
-      const name = `${error instanceof Error ? error.name : 'Error'}${typeof code === 'string' ? `: ${code}` : ''}`
-      throw new PaystackError(`Paystack could not be reached (${name}).`)
+      // Only the error's name and cause code: its message can quote the Authorization header, and so the key.
+      throw new PaystackError(`Paystack could not be reached (${networkErrorLabel(error)}).`)
     }
     const json = (await response.json().catch(() => null)) as { status?: boolean; message?: string; data?: unknown } | null
     if (!response.ok || !json?.status) throw new PaystackError(`Paystack refused ${path}: ${json?.message ?? response.status}.`)

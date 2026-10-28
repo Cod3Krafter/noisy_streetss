@@ -11,12 +11,14 @@ const database = (req: PayloadRequest) => adapterOf(req).drizzle
 /**
  * The connection for the request's open transaction. Payload's Postgres adapter keeps each open
  * transaction in `db.sessions`, keyed by the id on `req.transactionID` (a promise while it starts).
+ * With no transaction it throws rather than falling back to the pool: a row lock or an event
+ * record taken on the pool would end with its own statement and guard nothing.
  */
 async function transactionDatabase(req: PayloadRequest): Promise<Database> {
   const id = req.transactionID instanceof Promise ? await req.transactionID : req.transactionID
-  if (!id) return database(req)
+  if (!id) throw new Error('withRowLock needs a transaction, and this request has none.')
   const session = adapterOf(req).sessions[String(id)]
-  if (!session) throw new Error(`The transaction for this request (${id}) has already ended, so the order cannot be locked.`)
+  if (!session) throw new Error(`The transaction for this request (${id}) has already ended, so the row cannot be locked.`)
   return session.db
 }
 
@@ -51,17 +53,26 @@ export const withOrderLock = <T>(req: PayloadRequest, orderId: number, work: () 
 /** A booking that never finished (a crash or a timeout) stops holding its order after this long. */
 export const BOOKING_CLAIM_LAPSES_MS = 5 * 60_000
 
-/** Holds a Paid order for one booking at a time. A hold older than five minutes has lapsed. */
+/**
+ * Holds a Paid order for one booking at a time. A hold older than five minutes has lapsed. The age
+ * is judged by the database's clock, the same clock that stamped the claim, so a server whose own
+ * clock drifts cannot lapse a claim early or keep it late.
+ *
+ * claimBooking and releaseBooking run on the connection pool, outside any transaction. Never call
+ * either inside withRowLock or withOrderLock for the same order: the statement would wait on the
+ * row lock its own caller holds, and never finish.
+ */
 export async function claimBooking(req: PayloadRequest, id: number): Promise<boolean> {
-  const lapsed = new Date(Date.now() - BOOKING_CLAIM_LAPSES_MS).toISOString()
   const result = await database(req).execute(sql`
     update "orders" set "shipment_booking_started_at" = now()
     where "id" = ${id} and "status" = 'paid' and "shipment_terminal_shipment_id" is null
-      and ("shipment_booking_started_at" is null or "shipment_booking_started_at" < ${lapsed}::timestamptz)
+      and ("shipment_booking_started_at" is null
+        or "shipment_booking_started_at" < now() - ${BOOKING_CLAIM_LAPSES_MS}::double precision * interval '1 millisecond')
     returning "id"`)
   return result.rows.length > 0
 }
 
+/** Lets go of a booking claim. Runs on the pool: see claimBooking. */
 export async function releaseBooking(req: PayloadRequest, id: number): Promise<void> {
   await database(req).execute(sql`update "orders" set "shipment_booking_started_at" = null where "id" = ${id}`)
 }

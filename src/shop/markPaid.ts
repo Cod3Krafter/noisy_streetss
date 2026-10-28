@@ -35,6 +35,9 @@ async function recordMismatch(req: PayloadRequest, order: Order, payment: Paysta
  * read again, and the status, the payment details, the history and both emails are written in one
  * transaction: all of it or none of it, so a failure part way leaves the order for a retry to
  * finish. An Expired order is marked Paid late (decided 27 October 2026).
+ *
+ * Calls made at the same moment must each have a req of their own: one req carries one transaction,
+ * and two calls sharing it would share the lock's transaction too (see withRowLock).
  */
 export async function markPaid(req: PayloadRequest, reference: string, by: string): Promise<MarkPaidResult> {
   const found = await findOrderByReference(req, reference)

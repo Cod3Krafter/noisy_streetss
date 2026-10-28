@@ -140,6 +140,7 @@ describe('POST /api/shop/checkout', () => {
       [{ name: '' }, 'Enter your name'],
       [{ address: { city: 'Ikeja', state: 'lagos' } }, 'street address'],
       [{ address: { line1: '5 Allen Avenue', city: 'Ikeja', state: 'lagos', postcode: '1234' } }, 'six digits'],
+      [{ address: { line1: '5 Allen Avenue', line2: 'x'.repeat(201), city: 'Ikeja', state: 'lagos' } }, 'Address line 2 is too long.'],
     ]
     for (const [change, message] of cases) {
       const res = await pay(details({ delivery: { stamp }, ...change }))

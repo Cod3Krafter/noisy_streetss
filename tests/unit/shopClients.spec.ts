@@ -250,11 +250,26 @@ describe('the Terminal client', () => {
     expect(calls[2]).toMatchObject({ url: 'https://sandbox.test/v1/shipments/pickup', method: 'POST', body: { rate_id: 'RT-1' } })
   })
 
+  it('refuses a rate with no ID or no price, as quotes do', async () => {
+    const cases: [Record<string, unknown>, string][] = [
+      [{ ...rate, rate_id: '' }, 'Terminal sent a rate without an ID.'],
+      [{ ...rate, amount: 0 }, 'Terminal sent a rate with no price.'],
+      [{ ...rate, amount: -150 }, 'Terminal sent a rate with no price.'],
+    ]
+    for (const [data, message] of cases) {
+      const { fetchImpl } = fakeFetch(() => ({ body: { status: true, data } }))
+      const refused = createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).getRate('RT-1')
+      await expect(refused).rejects.toBeInstanceOf(TerminalError)
+      await expect(refused).rejects.toThrow(message)
+    }
+  })
+
   it("passes on Terminal's own refusal message", async () => {
     const { fetchImpl } = fakeFetch(() => ({ status: 400, body: { status: false, message: 'Insufficient wallet balance' } }))
     const refused = createTerminalClient('tk', 'https://sandbox.test/v1', fetchImpl).book('RT-1')
     await expect(refused).rejects.toBeInstanceOf(TerminalError)
     await expect(refused).rejects.toThrow('Terminal said: Insufficient wallet balance')
+    await expect(refused).rejects.toMatchObject({ terminalMessage: 'Insufficient wallet balance' })
     await expect(refused).rejects.not.toBeInstanceOf(TerminalOutcomeUnknown)
   })
 

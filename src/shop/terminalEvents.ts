@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 
 import type { PayloadRequest } from 'payload'
 
+import { readableDateTime } from '@/jobs/scheduledPublishAlerts'
 import type { Order } from '@/payload-types'
 import { recordEventOnce, withOrderLock } from '@/shop/claims'
 import { queueShopEmail, type ShopEmailKind } from '@/shop/emails'
@@ -68,14 +69,12 @@ function alertDetails(event: TerminalEvent): string | null {
   return typeof amount === 'number' ? `Amount claimed: ${formatNaira(toKobo(amount))}.` : null
 }
 
+/** The cancelled booking's details for its history note. A booking date that cannot be read is left out, never thrown over. */
 function bookingNote(shipment: Order['shipment']): string {
   const cost = typeof shipment?.courierCostNGN === 'number' ? formatNaira(toKobo(shipment.courierCostNGN)) : 'cost unknown'
-  const when = shipment?.bookedAt
-    ? new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Lagos' })
-        .formatToParts(new Date(shipment.bookedAt))
-        .reduce<Record<string, string>>((parts, part) => ({ ...parts, [part.type]: part.value }), {})
-    : null
-  const booked = `booked by ${shipment?.bookedBy ?? 'unknown'}${when ? ` on ${when.day} ${when.month} ${when.year}` : ''}`
+  const bookedAt = shipment?.bookedAt
+  const when = bookedAt && !Number.isNaN(Date.parse(bookedAt)) ? readableDateTime(bookedAt) : null
+  const booked = `booked by ${shipment?.bookedBy ?? 'unknown'}${when ? ` on ${when}` : ''}`
   return `Booking cancelled in Terminal (was ${shipment?.carrierName ?? 'a courier'}, ${cost}, ${booked}, shipment ${shipment?.terminalShipmentId}, tracking ${shipment?.trackingNumber ?? 'none'})`
 }
 

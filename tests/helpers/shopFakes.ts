@@ -87,7 +87,7 @@ export class FakeTerminal implements TerminalClient {
   async book(rateId: string): Promise<TerminalBooking> {
     if (this.bookingDelayMs) await new Promise((resolve) => setTimeout(resolve, this.bookingDelayMs))
     if (this.bookingUnconfirmed) throw new TerminalOutcomeUnknown('Terminal did not confirm the booking (fake).')
-    if (this.failBooking) throw new TerminalError('Terminal said: Booking refused (fake)')
+    if (this.failBooking) throw new TerminalError('Terminal said: Booking refused (fake)', 'Booking refused (fake)')
     this.bookings.push(rateId)
     const number = this.bookings.length
     return {

@@ -3,7 +3,7 @@ import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { Order } from '@/payload-types'
-import { BOOKING_CLAIM_LAPSES_MS, claimBooking, releaseBooking, withOrderLock } from '@/shop/claims'
+import { BOOKING_CLAIM_LAPSES_MS, claimBooking, recordEventOnce, releaseBooking, withOrderLock } from '@/shop/claims'
 import { findOrder, serverUpdate } from '@/shop/orders'
 
 import { getTestPayload } from '../helpers/payload'
@@ -80,6 +80,12 @@ describe('withOrderLock', () => {
   })
 })
 
+describe('recordEventOnce', () => {
+  it('refuses to run outside withRowLock, rather than writing on the pool', async () => {
+    await expect(recordEventOnce(await newReq(), `test:no-lock:${Date.now()}`)).rejects.toThrow('withRowLock needs a transaction')
+  })
+})
+
 describe('claimBooking and releaseBooking', () => {
   it('gives the order to exactly one of two claims made together', async () => {
     const order = await createOrder(payload, { status: 'paid' })
@@ -106,6 +112,19 @@ describe('claimBooking and releaseBooking', () => {
   it('never claims an order that already has a courier booked', async () => {
     const order = await createOrder(payload, { status: 'paid', shipment: { terminalShipmentId: 'SH-OLD' } })
     expect(await claimBooking(req, order.id)).toBe(false)
+  })
+
+  it("judges a claim's age by the database's clock, not the app's", async () => {
+    const order = await createOrder(payload, { status: 'paid' })
+    expect(await claimBooking(req, order.id)).toBe(true)
+    const realNow = Date.now()
+    // The app's clock runs ten minutes ahead of the database's.
+    const now = vi.spyOn(Date, 'now').mockReturnValue(realNow + 10 * 60_000)
+    try {
+      expect(await claimBooking(req, order.id)).toBe(false)
+    } finally {
+      now.mockRestore()
+    }
   })
 
   it('never claims an order that is not Paid', async () => {

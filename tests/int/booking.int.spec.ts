@@ -1,5 +1,5 @@
 import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Order, User } from '@/payload-types'
 import { bookCourier, courierOptions } from '@/shop/booking'
@@ -40,6 +40,11 @@ beforeAll(async () => {
 
 beforeEach(() => {
   terminal = useFakeShopClients().terminal
+})
+
+// Restored here, so a failed assertion can never leave a spy in place for the next test.
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 afterAll(async () => {
@@ -93,7 +98,6 @@ describe('courierOptions', () => {
     vi.spyOn(terminal, 'quotes').mockRejectedValueOnce(new Error('TERMINAL_SECRET_KEY is not set.'))
     const options = await courierOptions(req, order.id)
     expect(options.terminalError).toBe('Courier booking is not set up on this server. The details are in the server log.')
-    vi.restoreAllMocks()
   })
 
   it('says when Terminal cannot be reached', async () => {
@@ -146,7 +150,7 @@ describe('bookCourier', () => {
   it("passes on Terminal's refusal and frees the order", async () => {
     terminal.failBooking = true
     const order = await paidOrder()
-    await expect(book(order, 'rate-gig')).rejects.toThrow('Terminal refused the booking')
+    await expect(book(order, 'rate-gig')).rejects.toThrow(/^Terminal refused the booking\. Booking refused \(fake\)$/)
     const after = await payload.findByID({ collection: 'orders', id: order.id })
     expect(after.status).toBe('paid')
     expect(after.shipment?.bookingStartedAt ?? null).toBeNull()
@@ -213,7 +217,6 @@ describe('bookCourier', () => {
     await expect(bookCourier(other, order.id, 'rate-gig', 'Packer', options.fingerprint)).rejects.toThrow(
       "Terminal booked the parcel but the order could not be updated. Check Terminal's dashboard for this order before doing anything else; the order stays held for 5 minutes.",
     )
-    vi.restoreAllMocks()
     expect(terminal.bookings).toHaveLength(1)
     const after = await payload.findByID({ collection: 'orders', id: order.id })
     expect(after.status).toBe('paid')

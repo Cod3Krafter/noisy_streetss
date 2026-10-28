@@ -1,5 +1,5 @@
 import type { Payload } from 'payload'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Book } from '@/payload-types'
 import { setShopClients } from '@/shop/clients'
@@ -25,6 +25,10 @@ beforeAll(async () => {
 
 beforeEach(() => {
   terminal = useFakeShopClients().terminal
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 afterAll(() => setShopClients(null))
@@ -73,6 +77,27 @@ describe('POST /api/shop/quotes', () => {
     terminal.rates = []
     const kano = (await (await ask({ items: cart(), address: { city: 'Kano', state: 'kano' } })).json()) as { quotes: { priceNGN: number }[] }
     expect(kano.quotes[0].priceNGN).toBe(5000)
+  })
+
+  it("logs a failure that is not Terminal's at error level, and still offers the flat price", async () => {
+    const error = vi.spyOn(payload.logger, 'error').mockImplementation(() => undefined)
+    const warn = vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
+    vi.spyOn(terminal, 'quotes').mockRejectedValueOnce(new Error('TERMINAL_SECRET_KEY is not set.'))
+    const answer = (await (await ask({ items: cart(), address: { city: 'Ikeja', state: 'lagos' } })).json()) as { method: string }
+    expect(answer.method).toBe('flat')
+    expect(error).toHaveBeenCalledTimes(1)
+    expect(warn).not.toHaveBeenCalled()
+
+    terminal.failQuotes = true
+    await ask({ items: cart(), address: { city: 'Ikeja', state: 'lagos' } })
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(error).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks the delivery place before looking up the cart', async () => {
+    const res = await ask({ items: [{ collection: 'books', id: 999_999, option: null, quantity: 1 }], address: { city: 'Ikeja' } })
+    expect(res.status).toBe(400)
+    expect(JSON.stringify(await res.json())).toContain('Pick the state for delivery.')
   })
 
   it('refuses a missing state, a missing city and a sold-out item', async () => {

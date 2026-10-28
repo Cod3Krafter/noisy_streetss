@@ -2,10 +2,12 @@ import type { CollectionAfterChangeHook, CollectionBeforeChangeHook, CollectionC
 
 import { isShop, nobody, shopOnlyInAdmin } from '@/access'
 import { rejectField } from '@/rules/validation'
+import { BOOKING_CLAIM_LAPSES_MS } from '@/shop/claims'
 import { SHOP_SERVER } from '@/shop/context'
 import { orderEndpoints } from '@/shop/endpoints'
 import { appendHistory, type HistoryRow, keepsHistory } from '@/shop/history'
-import { NIGERIAN_STATES } from '@/shop/states'
+import { NIGERIAN_PHONE_PROBLEM, normaliseNigerianPhone } from '@/shop/phone'
+import { isNigerianPostcode, NIGERIAN_POSTCODE_PROBLEM, NIGERIAN_STATES } from '@/shop/states'
 import { ORDER_STATUSES, orderNumberFor } from '@/shop/statuses'
 
 /** Only server code (which overrides access) writes these. A value staff send is dropped. */
@@ -18,10 +20,18 @@ type AddressLike = Partial<Record<(typeof ADDRESS_KEYS)[number], string | null>>
 // An empty text and no text are the same thing: the admin form sends '' for a field left empty.
 const sameAddress = (a: AddressLike, b: AddressLike) => ADDRESS_KEYS.every((key) => (a?.[key] || null) === (b?.[key] || null))
 
+/** A booking claim (7.1) that is still holding the order: started, not finished, and not yet lapsed. */
+function bookingInProgress(shipment: { bookingStartedAt?: string | null; terminalShipmentId?: string | null } | null | undefined): boolean {
+  if (!shipment?.bookingStartedAt || shipment.terminalShipmentId) return false
+  return Date.now() - Date.parse(shipment.bookingStartedAt) < BOOKING_CLAIM_LAPSES_MS
+}
+
 /**
  * The rules for changes staff make. The history only ever grows, and only server code adds to it:
  * a staff save must send it back unchanged (the admin does). The phone and address can only be
- * corrected while the order is Paid and no courier is booked. A status set by hand is written to
+ * corrected while the order is Paid, no courier is booked and no booking is in progress (a booking
+ * would otherwise go out to the old address). A changed phone must pass checkout's rule and is
+ * stored as +234, and a postcode must be six digits or empty. A status set by hand is written to
  * the history with the staff member's name.
  */
 const staffChangeRules: CollectionBeforeChangeHook = ({ context, data, operation, originalDoc, req }) => {
@@ -53,16 +63,30 @@ const staffChangeRules: CollectionBeforeChangeHook = ({ context, data, operation
       'The phone and address can only be changed while the order is Paid and no courier is booked.',
     )
   }
+  if ((phoneChanged || addressChanged) && bookingInProgress(originalDoc.shipment)) {
+    rejectField(req, 'orders', phoneChanged ? 'customerPhone' : 'address', 'A booking is in progress. Wait for it to finish, then change the address.')
+  }
+
+  const checked: Record<string, unknown> = { ...data, createdAt: originalDoc.createdAt }
+  if (phoneChanged) {
+    const phone = normaliseNigerianPhone(data.customerPhone)
+    if (!phone) rejectField(req, 'orders', 'customerPhone', NIGERIAN_PHONE_PROBLEM)
+    checked.customerPhone = phone
+  }
+  const postcode = typeof data.address?.postcode === 'string' ? data.address.postcode.trim() : ''
+  if (addressChanged && postcode !== (originalDoc.address?.postcode || '') && postcode && !isNigerianPostcode(postcode)) {
+    rejectField(req, 'orders', 'address.postcode', NIGERIAN_POSTCODE_PROBLEM)
+  }
+  if (addressChanged && typeof data.address?.postcode === 'string') checked.address = { ...data.address, postcode }
 
   if ('status' in data && data.status !== originalDoc.status) {
     const by = (req.user as { name?: string } | null)?.name ?? 'Staff'
     return {
-      ...data,
-      createdAt: originalDoc.createdAt,
+      ...checked,
       history: appendHistory((data.history as HistoryRow[] | undefined) ?? before, { from: originalDoc.status, to: data.status, by, note: 'Set by hand' }),
     }
   }
-  return { ...data, createdAt: originalDoc.createdAt }
+  return checked
 }
 
 /** The order number comes from the id, which only exists once the order is saved. */

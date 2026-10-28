@@ -9,10 +9,10 @@ import { shopClients } from '@/shop/clients'
 import { SHOP_SERVER } from '@/shop/context'
 import { toNaira } from '@/shop/money'
 import { PaystackError } from '@/shop/paystack'
-import { normaliseNigerianPhone } from '@/shop/phone'
+import { NIGERIAN_PHONE_PROBLEM, normaliseNigerianPhone } from '@/shop/phone'
 import { readShopSettings } from '@/shop/settings'
 import { quoteStampSecret, readQuote } from '@/shop/stamp'
-import { isNigerianState } from '@/shop/states'
+import { isNigerianPostcode, isNigerianState, NIGERIAN_POSTCODE_PROBLEM } from '@/shop/states'
 
 export type CheckoutAnswer = { paymentUrl: string; reference: string }
 
@@ -35,7 +35,7 @@ async function parseCustomer(req: PayloadRequest, body: Record<string, unknown>)
   const emailCheck = await emailValidator(email, { req, required: true } as never)
   if (!email || emailCheck !== true) throw new Refusal('Enter a valid email address.')
   const phone = normaliseNigerianPhone(body.phone)
-  if (!phone) throw new Refusal('Enter a Nigerian phone number, such as 0803 123 4567.')
+  if (!phone) throw new Refusal(NIGERIAN_PHONE_PROBLEM)
   return { name, email, phone }
 }
 
@@ -45,11 +45,12 @@ function parseAddress(value: unknown) {
   const line2 = text(address.line2)
   const city = text(address.city)
   const postcode = text(address.postcode)
-  if (!line1 || line1.length > 200 || line2.length > 200) throw new Refusal('Enter the street address for delivery.')
+  if (!line1 || line1.length > 200) throw new Refusal('Enter the street address for delivery.')
+  if (line2.length > 200) throw new Refusal('Address line 2 is too long.')
   if (!city || city.length > 100) throw new Refusal('Enter the town or city for delivery.')
   if (!isNigerianState(address.state)) throw new Refusal('Pick the state for delivery.')
   // Pending check P2: optional until the sandbox shows whether Terminal needs it at checkout.
-  if (postcode && !/^\d{6}$/.test(postcode)) throw new Refusal('A Nigerian postcode has six digits. Leave it empty if you are not sure.')
+  if (postcode && !isNigerianPostcode(postcode)) throw new Refusal(NIGERIAN_POSTCODE_PROBLEM)
   return { line1, line2: line2 || null, city, state: address.state, postcode: postcode || null }
 }
 

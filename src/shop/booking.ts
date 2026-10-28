@@ -179,7 +179,12 @@ export async function bookCourier(req: PayloadRequest, orderId: number, rateId: 
     }
     await releaseBooking(req, order.id)
     if (error instanceof TerminalError) {
-      throw new Refusal(stage === 'booking' ? `Terminal refused the booking: ${error.message}` : `Couldn't get Terminal's price or wallet: ${error.message}`, 502)
+      throw new Refusal(
+        stage === 'booking'
+          ? `Terminal refused the booking. ${error.terminalMessage ?? error.message}`
+          : `Couldn't get Terminal's price or wallet: ${error.message}`,
+        502,
+      )
     }
     throw error
   }
