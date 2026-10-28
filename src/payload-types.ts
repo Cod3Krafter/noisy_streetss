@@ -95,6 +95,7 @@ export interface Config {
     'advisory-enquiries': AdvisoryEnquiry;
     'manuscript-submissions': ManuscriptSubmission;
     media: Media;
+    'webhook-events': WebhookEvent;
     users: User;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
@@ -137,6 +138,7 @@ export interface Config {
     'advisory-enquiries': AdvisoryEnquiriesSelect<false> | AdvisoryEnquiriesSelect<true>;
     'manuscript-submissions': ManuscriptSubmissionsSelect<false> | ManuscriptSubmissionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    'webhook-events': WebhookEventsSelect<false> | WebhookEventsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -1296,6 +1298,17 @@ export interface ManuscriptSubmission {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "webhook-events".
+ */
+export interface WebhookEvent {
+  id: number;
+  key: string;
+  receivedAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
@@ -1561,6 +1574,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'webhook-events';
+        value: number | WebhookEvent;
       } | null)
     | ({
         relationTo: 'users';
@@ -2279,6 +2296,16 @@ export interface MediaSelect<T extends boolean = true> {
               filename?: T;
             };
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "webhook-events_select".
+ */
+export interface WebhookEventsSelect<T extends boolean = true> {
+  key?: T;
+  receivedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
