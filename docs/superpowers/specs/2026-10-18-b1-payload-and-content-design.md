@@ -437,7 +437,9 @@ Everything to do or decide before and just after the first production deploy. Ti
   - [ ] Real weights on every book format and merch item.
   - [ ] Rate limits: the shop's public endpoints (`/api/shop/quotes`, `/api/shop/checkout`, `/api/shop/orders/:reference`) join the open rate-limit decision. Each checkout calls Paystack and each quote calls Terminal.
   - [ ] One real order for a small amount after the first deploy, booked and then refunded.
-  - [ ] Size Supabase's pooler with the row locks in mind: each request waiting on a lock holds a pooled connection.
+  - [ ] Size Supabase's pooler with the row locks in mind: each request waiting on a lock holds a pooled connection, and checkout also holds one connection while Paystack starts the payment (up to 10 seconds).
+  - [ ] Review Shop settings after the B2 migration: the everywhere-else price (filled from the highest flat price, or ₦5,000), any area with no states, and the pickup state (empty if the old text could not be matched).
+  - [ ] Frontend: product pages refresh when stock or prices change (no revalidate hooks exist yet).
   - [ ] `webhook_events` gains one row per applied Terminal event and nothing prunes it. Decide a retention.
   - [ ] Add a staff alert or a check for jobs that finally fail. An expiry or email job that gives up shows only in Payload's logs.
 - [ ] **Dependency audit.** Run `npm audit --omit=dev`. At the end of B1 it reported 35 findings, all transitive (pulled in by Payload), none directly in this project's own dependencies.
