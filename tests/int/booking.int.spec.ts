@@ -144,7 +144,7 @@ describe('bookCourier', () => {
     const results = await Promise.allSettled([bookCourier(reqA, order.id, 'rate-gig', 'A', fingerprint), bookCourier(reqB, order.id, 'rate-gig', 'B', fingerprint)])
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     const refused = results.find((result) => result.status === 'rejected') as PromiseRejectedResult
-    expect(String(refused.reason)).toContain('held by another booking')
+    expect(String(refused.reason)).toContain('Another booking holds this order')
     expect(terminal.bookings).toHaveLength(1)
   })
 
@@ -199,7 +199,7 @@ describe('bookCourier', () => {
     const { fingerprint } = await courierOptions(req, order.id)
     await serverUpdate(req, order.id, { address: { line1: '9 Other Road', city: 'Ikeja', state: 'lagos', postcode: '100271' } })
     await expect(bookCourier(req, order.id, 'rate-gig', 'Packer', fingerprint)).rejects.toThrow(
-      'The order changed since these prices were fetched. Reload the panel and pick again.',
+      'The order changed since these prices were fetched. Reload the page and pick again.',
     )
     expect(terminal.bookings).toHaveLength(0)
     const after = await payload.findByID({ collection: 'orders', id: order.id })

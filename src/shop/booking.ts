@@ -158,8 +158,8 @@ export async function bookCourier(req: PayloadRequest, orderId: number, rateId: 
   if (order.status !== 'paid') throw new Refusal('Only a Paid order can be booked.')
   if (order.shipment?.terminalShipmentId) throw new Refusal('A courier is already booked for this order.', 409, { reason: 'already-booked' })
   if (!order.address?.postcode) throw new Refusal("Add the customer's postcode to the address first. Couriers need it.")
-  if (fingerprint !== orderFingerprint(order)) throw new Refusal('The order changed since these prices were fetched. Reload the panel and pick again.', 409, { reason: 'stale-prices' })
-  if (!(await claimBooking(req, order.id))) throw new Refusal('This order is held by another booking for up to 5 minutes. Reload the panel to see why.', 409, { reason: 'held' })
+  if (fingerprint !== orderFingerprint(order)) throw new Refusal('The order changed since these prices were fetched. Reload the page and pick again.', 409, { reason: 'stale-prices' })
+  if (!(await claimBooking(req, order.id))) throw new Refusal('Another booking holds this order for up to 5 minutes. Wait a few minutes, then try again.', 409, { reason: 'held' })
 
   let booking: Awaited<ReturnType<ReturnType<typeof shopClients>['terminal']['book']>>
   let stage: 'preparing' | 'booking' = 'preparing'

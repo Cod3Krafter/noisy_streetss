@@ -389,9 +389,9 @@ These join B1's queue (B1 spec 5.7). In production Vercel Cron calls `/api/paylo
 | Terminal cannot be reached before the booking (price or wallet) | "Couldn't reach Terminal. Try again in a minute." The claim is released and nothing changes |
 | Terminal refuses the price or wallet check before the booking | "Couldn't get Terminal's price or wallet:" and Terminal's message. The claim is released and nothing changes |
 | Terminal refuses the booking call | Terminal's message is shown, the claim is released and nothing changes |
-| A 409 on booking: another booking holds the order | The panel shows "This order is held by another booking for up to 5 minutes. Reload the panel to see why." and fetches itself again, showing the held claim |
+| A 409 on booking: another booking holds the order | The panel shows "Another booking holds this order for up to 5 minutes. Wait a few minutes, then try again." and fetches itself again, showing the held claim |
 | A 409 on booking: a courier is already booked | The panel shows "A courier is already booked for this order." and fetches itself again |
-| A 409 on booking: the order changed since the prices were fetched | "The order changed. The prices have been reloaded; pick again." |
+| A 409 on booking: the order changed since the prices were fetched | The panel shows "The order changed. The prices have been reloaded; pick again." (the server message is "The order changed since these prices were fetched. Reload the page and pick again.") |
 | Terminal does not confirm the booking | The claim is kept, the order is held for 5 minutes and staff are told to check Terminal's dashboard before booking again |
 | Paystack can't start the payment | No order is kept. The customer is asked to try again |
 | A webhook signature is wrong | Refused (401). Nothing done |

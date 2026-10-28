@@ -77,10 +77,10 @@ export function CourierPanel() {
         setNotice(reasonOf(json) === 'stale-prices' || !messageOf(json) ? 'The order changed. The prices have been reloaded; pick again.' : (messageOf(json) as string))
         setAttempt((count) => count + 1)
       } else {
-        setError(messageOf(await res.json().catch(() => null)) ?? 'The booking may not have gone through. Reload the panel to check before trying again.')
+        setError(messageOf(await res.json().catch(() => null)) ?? 'The booking may not have gone through. Reload the page to check before trying again.')
       }
     } catch {
-      setError('The booking may not have gone through. Reload the panel to check before trying again.')
+      setError('The booking may not have gone through. Reload the page to check before trying again.')
     }
     setBusy(false)
   }

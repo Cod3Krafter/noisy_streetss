@@ -165,7 +165,7 @@ export const orderEndpoints: Endpoint[] = [
       const orderId = orderIdOf(req)
       const { rateId, fingerprint } = await bodyOf(req)
       if (typeof rateId !== 'string' || !rateId) throw new Refusal('Pick a courier first.')
-      if (typeof fingerprint !== 'string' || !fingerprint) throw new Refusal('Reload the panel and pick again.')
+      if (typeof fingerprint !== 'string' || !fingerprint) throw new Refusal('Reload the page and pick again.')
       const bookedBy = (req.user as { name?: string } | null)?.name ?? 'Staff'
       const order = await bookCourier(req, orderId, rateId, bookedBy, fingerprint)
       return Response.json({ status: order.status, trackingNumber: order.shipment?.trackingNumber ?? null })
