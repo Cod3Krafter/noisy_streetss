@@ -171,6 +171,7 @@ export interface Config {
     'page-support': PageSupport;
     'site-settings': SiteSetting;
     'shop-settings': ShopSetting;
+    'payload-jobs-stats': PayloadJobsStat;
   };
   globalsSelect: {
     'page-home': PageHomeSelect<false> | PageHomeSelect<true>;
@@ -195,6 +196,7 @@ export interface Config {
     'page-support': PageSupportSelect<false> | PageSupportSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'shop-settings': ShopSettingsSelect<false> | ShopSettingsSelect<true>;
+    'payload-jobs-stats': PayloadJobsStatsSelect<false> | PayloadJobsStatsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -205,6 +207,7 @@ export interface Config {
     tasks: {
       sendShopEmail: TaskSendShopEmail;
       expireOrder: TaskExpireOrder;
+      removeExpiredDetails: TaskRemoveExpiredDetails;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -1391,7 +1394,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'sendShopEmail' | 'expireOrder' | 'schedulePublish';
+        taskSlug: 'inline' | 'sendShopEmail' | 'expireOrder' | 'removeExpiredDetails' | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -1424,10 +1427,19 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'sendShopEmail' | 'expireOrder' | 'schedulePublish') | null;
+  taskSlug?: ('inline' | 'sendShopEmail' | 'expireOrder' | 'removeExpiredDetails' | 'schedulePublish') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
+  meta?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2329,6 +2341,7 @@ export interface PayloadJobsSelect<T extends boolean = true> {
   queue?: T;
   waitUntil?: T;
   processing?: T;
+  meta?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3260,6 +3273,24 @@ export interface ShopSetting {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-jobs-stats".
+ */
+export interface PayloadJobsStat {
+  id: number;
+  stats?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "page-home_select".
  */
 export interface PageHomeSelect<T extends boolean = true> {
@@ -3698,6 +3729,16 @@ export interface ShopSettingsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-jobs-stats_select".
+ */
+export interface PayloadJobsStatsSelect<T extends boolean = true> {
+  stats?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "collections_widget".
  */
 export interface CollectionsWidget {
@@ -3734,6 +3775,14 @@ export interface TaskExpireOrder {
   input: {
     orderId: number;
   };
+  output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRemoveExpiredDetails".
+ */
+export interface TaskRemoveExpiredDetails {
+  input?: unknown;
   output?: unknown;
 }
 /**
